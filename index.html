@@ -257,9 +257,10 @@
         .pred-card-header {
             padding: 15px 20px; background: rgba(0,0,0,0.2); cursor: pointer;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-            -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
+            -webkit-tap-highlight-color: rgba(139,92,246,0.3); touch-action: manipulation; user-select: none;
+            position: relative; z-index: 10;
         }
-        .pred-card-header:active { background: rgba(0,0,0,0.3); }
+        .pred-card-header:active { background: rgba(0,0,0,0.35); }
         .pred-card-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .pred-card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
         
@@ -303,20 +304,15 @@
         .quick-stat-value { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--accent-cyan); }
         
         .pred-detail-section {
-            display: none; 
             background: rgba(0,0,0,0.1);
-            padding: 0;
-        }
-        .pred-detail-section.open { 
-            display: block; 
-            padding: 20px; 
+            overflow: hidden;
         }
         
         .pred-toggle-btn {
             width: 100%; padding: 15px; border: none; background: rgba(139,92,246,0.2);
             color: var(--accent-purple); font-weight: 600; cursor: pointer; transition: all 0.3s ease;
-            font-size: 0.95rem; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-            user-select: none; -webkit-user-select: none;
+            font-size: 0.95rem; -webkit-tap-highlight-color: rgba(139,92,246,0.3); touch-action: manipulation;
+            user-select: none; -webkit-user-select: none; position: relative; z-index: 10;
         }
         .pred-toggle-btn:hover, .pred-toggle-btn:active { background: rgba(139,92,246,0.4); }
         
@@ -633,7 +629,72 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('roundInput').value = latestRound;
     document.getElementById('roundInput').max = latestRound;
     createNumberGrid();
+    
+    // 이벤트 위임 설정 - 동적으로 생성되는 요소들을 위해
+    setupPredictionToggleEvents();
 });
+
+function setupPredictionToggleEvents() {
+    // 클릭 이벤트 위임
+    document.body.addEventListener('click', handleToggleClick, false);
+    
+    // 터치 이벤트 위임 (모바일용)
+    document.body.addEventListener('touchstart', handleTouchStart, {passive: true});
+    document.body.addEventListener('touchend', handleTouchEnd, false);
+}
+
+let touchStartTarget = null;
+
+function handleTouchStart(e) {
+    touchStartTarget = e.target;
+}
+
+function handleTouchEnd(e) {
+    // 터치 시작과 끝이 같은 요소인지 확인 (스크롤 방지)
+    if (touchStartTarget !== e.target) {
+        touchStartTarget = null;
+        return;
+    }
+    
+    const toggleBtn = e.target.closest('.pred-toggle-btn');
+    const header = e.target.closest('.pred-card-header');
+    
+    if (toggleBtn || header) {
+        e.preventDefault();
+        const target = toggleBtn || header;
+        const index = target.getAttribute('data-index');
+        if (index !== null && index !== undefined) {
+            togglePredictionDetail(parseInt(index));
+        }
+    }
+    touchStartTarget = null;
+}
+
+function handleToggleClick(e) {
+    // 토글 버튼 클릭 처리
+    const toggleBtn = e.target.closest('.pred-toggle-btn');
+    if (toggleBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = toggleBtn.getAttribute('data-index');
+        if (index !== null && index !== undefined) {
+            togglePredictionDetail(parseInt(index));
+        }
+        return;
+    }
+    
+    // 헤더 클릭 처리
+    const header = e.target.closest('.pred-card-header');
+    if (header) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = header.getAttribute('data-index');
+        if (index !== null && index !== undefined) {
+            togglePredictionDetail(parseInt(index));
+        }
+        return;
+    }
+}
 
 function calculateLatestRound() {
     const firstDate = new Date(2002, 11, 7), now = new Date();
@@ -1352,7 +1413,7 @@ function updatePredictionList() {
         
         item.innerHTML = `
             <div class="pred-card">
-                <div class="pred-card-header" onclick="event.stopPropagation(); togglePredictionDetail(${index});">
+                <div class="pred-card-header" data-index="${index}">
                     <div class="pred-card-title">
                         <span class="prediction-number">#${pred.matchNum}</span>
                         <div class="pred-score-badge score-${score.gradeClass}">${score.totalScore}점 (${score.grade})</div>
@@ -1407,11 +1468,11 @@ function updatePredictionList() {
                 </div>
                 
                 <!-- 상세 분석 (토글) -->
-                <div class="pred-detail-section" id="predDetail${index}" style="display:none;">
+                <div class="pred-detail-section" id="predDetail${index}" data-open="false" style="display:none; padding:0;">
                     ${renderCompactAnalysis(analysis, score, matching)}
                 </div>
                 
-                <button type="button" class="pred-toggle-btn" onclick="event.preventDefault(); togglePredictionDetail(${index});">
+                <button type="button" class="pred-toggle-btn" data-index="${index}">
                     <span id="toggleText${index}">상세 분석 보기</span>
                 </button>
             </div>
@@ -1421,20 +1482,27 @@ function updatePredictionList() {
 }
 
 function togglePredictionDetail(index) {
-    const detail = document.getElementById(`predDetail${index}`);
-    const icon = document.getElementById(`expandIcon${index}`);
-    const text = document.getElementById(`toggleText${index}`);
+    const detail = document.getElementById('predDetail' + index);
+    const icon = document.getElementById('expandIcon' + index);
+    const text = document.getElementById('toggleText' + index);
     
-    if (!detail) return; // 안전 체크
+    if (!detail) {
+        console.log('Detail not found for index:', index);
+        return;
+    }
     
-    if (detail.classList.contains('open')) {
-        detail.classList.remove('open');
+    const isOpen = detail.getAttribute('data-open') === 'true';
+    
+    if (isOpen) {
+        detail.setAttribute('data-open', 'false');
         detail.style.display = 'none';
+        detail.style.padding = '0';
         if (icon) icon.style.transform = 'rotate(0deg)';
         if (text) text.textContent = '상세 분석 보기';
     } else {
-        detail.classList.add('open');
+        detail.setAttribute('data-open', 'true');
         detail.style.display = 'block';
+        detail.style.padding = '20px';
         if (icon) icon.style.transform = 'rotate(180deg)';
         if (text) text.textContent = '상세 분석 접기';
     }
