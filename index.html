@@ -222,7 +222,11 @@
         .section-segment.s5 { background: var(--ball-green); }
         .discovery-animation { animation: discovery 0.5s ease-out; }
         @keyframes discovery { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
-        .prediction-list { max-height: 800px; overflow-y: auto; margin-top: 15px; }
+        .prediction-list { 
+            max-height: 800px; overflow-y: auto; margin-top: 15px; 
+            -webkit-overflow-scrolling: touch; /* iOS 스크롤 개선 */
+            overscroll-behavior: contain;
+        }
         .prediction-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--accent-purple); }
         .prediction-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .prediction-number { font-family: 'Orbitron', sans-serif; color: var(--accent-gold); }
@@ -253,7 +257,9 @@
         .pred-card-header {
             padding: 15px 20px; background: rgba(0,0,0,0.2); cursor: pointer;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
         }
+        .pred-card-header:active { background: rgba(0,0,0,0.3); }
         .pred-card-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .pred-card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
         
@@ -297,16 +303,22 @@
         .quick-stat-value { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--accent-cyan); }
         
         .pred-detail-section {
-            max-height: 0; overflow: hidden; transition: max-height 0.5s ease;
+            display: none; 
             background: rgba(0,0,0,0.1);
+            padding: 0;
         }
-        .pred-detail-section.open { max-height: 2000px; padding: 20px; }
+        .pred-detail-section.open { 
+            display: block; 
+            padding: 20px; 
+        }
         
         .pred-toggle-btn {
-            width: 100%; padding: 12px; border: none; background: rgba(139,92,246,0.2);
+            width: 100%; padding: 15px; border: none; background: rgba(139,92,246,0.2);
             color: var(--accent-purple); font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+            font-size: 0.95rem; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+            user-select: none; -webkit-user-select: none;
         }
-        .pred-toggle-btn:hover { background: rgba(139,92,246,0.3); }
+        .pred-toggle-btn:hover, .pred-toggle-btn:active { background: rgba(139,92,246,0.4); }
         
         /* 상세 분석 내부 스타일 */
         .detail-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -385,7 +397,39 @@
         .prize-tier.tier-5 { background: rgba(139,92,246,0.3); color: #a78bfa; }
         .matching-balls-detail { margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
         
-        @media (max-width: 480px) { .container { padding: 10px; } .card { padding: 15px; } .ball { width: 42px; height: 42px; font-size: 0.9rem; } .btn { padding: 12px 20px; font-size: 0.9rem; } }
+        @media (max-width: 480px) { 
+            .container { padding: 10px; } 
+            .card { padding: 15px; } 
+            .ball { width: 42px; height: 42px; font-size: 0.9rem; } 
+            .btn { padding: 12px 20px; font-size: 0.9rem; }
+            
+            /* 모바일 예측 카드 스타일 */
+            .pred-card-header { padding: 12px 15px; flex-direction: column; align-items: flex-start; }
+            .pred-card-title { width: 100%; justify-content: flex-start; }
+            .pred-card-meta { width: 100%; justify-content: flex-start; margin-top: 8px; }
+            .pred-balls-row { padding: 15px 10px; gap: 6px; }
+            .pred-balls-row .ball { width: 38px; height: 38px; line-height: 38px; font-size: 0.85rem; }
+            .pred-quick-stats { gap: 10px; padding: 12px; }
+            .quick-stat { min-width: 50px; }
+            .quick-stat-value { font-size: 0.9rem; }
+            .pred-detail-section.open { padding: 15px; }
+            .pred-toggle-btn { padding: 18px; font-size: 1rem; }
+            
+            /* 상세 분석 모바일 스타일 */
+            .detail-metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .detail-metric { padding: 10px; }
+            .metric-value { font-size: 1.2rem; }
+            .dual-analysis { grid-template-columns: 1fr; }
+            .dual-ratio { font-size: 1.3rem; }
+            .section-bar-detail { flex-wrap: wrap; }
+            .section-seg { min-width: 50px; flex: 1 1 auto; }
+            .seg-count { font-size: 1rem; }
+            .score-bar-header { font-size: 0.8rem; }
+            .detail-interpretation { font-size: 0.85rem; padding: 12px; }
+            .detail-title { font-size: 0.9rem; }
+            .math-item { flex-direction: column; gap: 5px; text-align: left; }
+            .gap-stats { flex-direction: column; gap: 5px; }
+        }
     </style>
 </head>
 <body>
@@ -1308,7 +1352,7 @@ function updatePredictionList() {
         
         item.innerHTML = `
             <div class="pred-card">
-                <div class="pred-card-header" onclick="togglePredictionDetail(${index})">
+                <div class="pred-card-header" onclick="event.stopPropagation(); togglePredictionDetail(${index});">
                     <div class="pred-card-title">
                         <span class="prediction-number">#${pred.matchNum}</span>
                         <div class="pred-score-badge score-${score.gradeClass}">${score.totalScore}점 (${score.grade})</div>
@@ -1363,11 +1407,11 @@ function updatePredictionList() {
                 </div>
                 
                 <!-- 상세 분석 (토글) -->
-                <div class="pred-detail-section" id="predDetail${index}">
+                <div class="pred-detail-section" id="predDetail${index}" style="display:none;">
                     ${renderCompactAnalysis(analysis, score, matching)}
                 </div>
                 
-                <button class="pred-toggle-btn" onclick="togglePredictionDetail(${index})">
+                <button type="button" class="pred-toggle-btn" onclick="event.preventDefault(); togglePredictionDetail(${index});">
                     <span id="toggleText${index}">상세 분석 보기</span>
                 </button>
             </div>
@@ -1381,14 +1425,18 @@ function togglePredictionDetail(index) {
     const icon = document.getElementById(`expandIcon${index}`);
     const text = document.getElementById(`toggleText${index}`);
     
+    if (!detail) return; // 안전 체크
+    
     if (detail.classList.contains('open')) {
         detail.classList.remove('open');
-        icon.style.transform = 'rotate(0deg)';
-        text.textContent = '상세 분석 보기';
+        detail.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+        if (text) text.textContent = '상세 분석 보기';
     } else {
         detail.classList.add('open');
-        icon.style.transform = 'rotate(180deg)';
-        text.textContent = '상세 분석 접기';
+        detail.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+        if (text) text.textContent = '상세 분석 접기';
     }
 }
 
