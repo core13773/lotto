@@ -309,9 +309,9 @@
         }
         
         .pred-toggle-btn {
-            width: 100%; padding: 15px; border: none; background: rgba(139,92,246,0.2);
+            width: 100%; padding: 8px; border: none; background: rgba(139,92,246,0.2);
             color: var(--accent-purple); font-weight: 600; cursor: pointer; transition: all 0.3s ease;
-            font-size: 0.95rem; -webkit-tap-highlight-color: rgba(139,92,246,0.3); touch-action: manipulation;
+            font-size: 0.8rem; -webkit-tap-highlight-color: rgba(139,92,246,0.3); touch-action: manipulation;
             user-select: none; -webkit-user-select: none; position: relative; z-index: 10;
         }
         .pred-toggle-btn:hover, .pred-toggle-btn:active { background: rgba(139,92,246,0.4); }
@@ -409,7 +409,7 @@
             .quick-stat { min-width: 50px; }
             .quick-stat-value { font-size: 0.9rem; }
             .pred-detail-section.open { padding: 15px; }
-            .pred-toggle-btn { padding: 18px; font-size: 1rem; }
+            .pred-toggle-btn { padding: 10px; font-size: 0.85rem; }
             
             /* 상세 분석 모바일 스타일 */
             .detail-metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -493,7 +493,8 @@
                         <option value="1000000">100만회 (빠름)</option>
                         <option value="10000000">1,000만회 (보통)</option>
                         <option value="50000000">5,000만회 (느림)</option>
-                        <option value="100000000" selected>1억회 (정밀)</option>
+                        <option value="100000000">1억회 (정밀)</option>
+                        <option value="120000000" selected>1억 2천만회 (매우 정밀)</option>
                     </select>
                     <span class="help-icon">?
                         <div class="tooltip">
@@ -501,7 +502,8 @@
                             반복 횟수가 많을수록 당첨번호와 일치하는 조합을 찾을 확률이 높아집니다.<br><br>
                             • 100만회: 약 12% 확률로 1회 발견<br>
                             • 1000만회: 약 71% 확률로 1회 이상 발견<br>
-                            • 1억회: 약 12회 발견 예상
+                            • 1억회: 약 12회 발견 예상<br>
+                            • 1억 2천만회: 약 14~15회 발견 예상 (권장)
                         </div>
                     </span>
                 </div>
@@ -655,14 +657,12 @@ function handleTouchEnd(e) {
         touchStartTarget = null;
         return;
     }
-    
+
     const toggleBtn = e.target.closest('.pred-toggle-btn');
-    const header = e.target.closest('.pred-card-header');
-    
-    if (toggleBtn || header) {
+
+    if (toggleBtn) {
         e.preventDefault();
-        const target = toggleBtn || header;
-        const index = target.getAttribute('data-index');
+        const index = toggleBtn.getAttribute('data-index');
         if (index !== null && index !== undefined) {
             togglePredictionDetail(parseInt(index));
         }
@@ -671,24 +671,12 @@ function handleTouchEnd(e) {
 }
 
 function handleToggleClick(e) {
-    // 토글 버튼 클릭 처리
+    // 토글 버튼 클릭 처리만
     const toggleBtn = e.target.closest('.pred-toggle-btn');
     if (toggleBtn) {
         e.preventDefault();
         e.stopPropagation();
         const index = toggleBtn.getAttribute('data-index');
-        if (index !== null && index !== undefined) {
-            togglePredictionDetail(parseInt(index));
-        }
-        return;
-    }
-    
-    // 헤더 클릭 처리
-    const header = e.target.closest('.pred-card-header');
-    if (header) {
-        e.preventDefault();
-        e.stopPropagation();
-        const index = header.getAttribute('data-index');
         if (index !== null && index !== undefined) {
             togglePredictionDetail(parseInt(index));
         }
@@ -1733,7 +1721,7 @@ function renderCompactAnalysis(a, score, matching) {
     `;
 }
 
-function generateRandomNumbers() { const nums = [], pool = Array.from({length: 45}, (_, i) => i + 1); for (let i = 0; i < 6; i++) { const idx = Math.floor(Math.random() * pool.length); nums.push(pool.splice(idx, 1)[0]); } return nums.sort((a, b) => a - b); }
+function generateRandomNumbers() { const nums = [], pool = Array.from({length: 45}, (_, i) => i + 1); for (let i = 0; i < 6; i++) { const randomArray = new Uint32Array(1); crypto.getRandomValues(randomArray); const idx = randomArray[0] % pool.length; nums.push(pool.splice(idx, 1)[0]); } return nums.sort((a, b) => a - b); }
 function showStatus(type, message) { const container = document.getElementById('fetchStatus'); container.className = `status ${type}`; container.textContent = message; container.classList.remove('hidden'); }
 function toggleCollapsible(id) { document.getElementById(id).classList.toggle('open'); }
 function formatNumber(num) { if (num >= 100000000) return (num / 100000000).toFixed(1) + '억'; if (num >= 10000) return (num / 10000).toFixed(0) + '만'; return num.toLocaleString(); }
