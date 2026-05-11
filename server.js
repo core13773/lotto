@@ -5,20 +5,27 @@ const PORT = process.env.PORT || 3456;
 const CACHE = new Map(); // { round: { data, timestamp } }
 const CACHE_TTL = 60 * 60 * 1000; // 1시간
 
-function fetchHtml(url) {
+function fetchHtml(url, redirectCount = 0) {
+    if (redirectCount > 5) return Promise.reject(new Error('Too many redirects'));
     return new Promise((resolve, reject) => {
-        https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, (res) => {
+        const req = https.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            timeout: 10000
+        }, (res) => {
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    fetchHtml(res.headers.location.startsWith('http') ? res.headers.location : 'https://search.naver.com' + res.headers.location)
-                        .then(resolve).catch(reject);
+                    const loc = res.headers.location;
+                    const nextUrl = loc.startsWith('http') ? loc : 'https://search.naver.com' + loc;
+                    fetchHtml(nextUrl, redirectCount + 1).then(resolve).catch(reject);
                     return;
                 }
                 resolve(body);
             });
-        }).on('error', reject);
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+        req.on('error', reject);
     });
 }
 
@@ -90,6 +97,8 @@ async function fetchLottoNumbers(round) {
     return result;
 }
 
+const startTime = Date.now();
+
 const server = http.createServer(async (req, res) => {
     // CORS 헤더
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -124,7 +133,7 @@ const server = http.createServer(async (req, res) => {
         }
     } else if (path === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', cached: CACHE.size }));
+        res.end(JSON.stringify({ status: 'ok', cached: CACHE.size, uptime: Math.round((Date.now() - startTime) / 1000) }));
     } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not found' }));

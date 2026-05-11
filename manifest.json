@@ -1,11 +1,14 @@
 {
+    "id": "lotto645-ai-predictor",
     "name": "로또 645 AI 예측 시스템",
     "short_name": "로또645",
     "description": "몬테카를로 시뮬레이션 기반 로또 번호 분석",
     "start_url": ".",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#0a0a1a",
     "theme_color": "#0a0a1a",
+    "categories": ["utilities"],
     "icons": [
         {
             "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' style='stop-color:%23ffd700'/><stop offset='100%' style='stop-color:%2300f5ff'/></linearGradient></defs><circle cx='50' cy='50' r='48' fill='%230a0a1a' stroke='url(%23g)' stroke-width='4'/><text x='50' y='60' text-anchor='middle' font-size='28' font-weight='bold' fill='url(%23g)'>645</text></svg>",

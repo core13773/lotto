@@ -28,6 +28,7 @@
     <div class="container">
         <header>
             <div class="header-controls">
+                <button class="settings-btn" onclick="toggleSettings()" title="설정">⚙️</button>
                 <button class="theme-toggle" onclick="toggleTheme()" title="테마 전환">🌓</button>
             </div>
             <h1 class="title">🎰 로또 645 AI 예측 시스템</h1>
@@ -72,6 +73,11 @@
             <div id="aiNotReady" class="status warning">⚠️ 먼저 당첨번호를 설정해주세요!</div>
             <div id="aiReady" class="hidden">
                 <div class="status info">🎯 제 <span id="targetRound">-</span>회 기준 패턴 분석</div>
+                <div class="ai-mode-tabs">
+                    <button class="ai-mode-tab active" onclick="switchAiMode('simulation')">🎲 몬테카를로 시뮬레이션</button>
+                    <button class="ai-mode-tab" onclick="switchAiMode('smart')">🧠 스마트 추천</button>
+                </div>
+                <div class="ai-mode-content active" id="aiModeSimulation">
                 <div class="interpretation-box" style="margin-bottom:20px;">
                     <div class="interpretation-title">💡 분석 작동 원리</div>
                     <div class="interpretation-content">
@@ -148,6 +154,25 @@
                     <div class="sim-stat-note" id="simNote">시뮬레이션이 진행되면 통계가 업데이트됩니다.</div>
                 </div>
             </div>
+            </div><!-- /aiModeSimulation -->
+                <div class="ai-mode-content" id="aiModeSmart">
+                    <div class="interpretation-box">
+                        <div class="interpretation-title">🧠 스마트 추천 작동 원리</div>
+                        <div class="interpretation-content">
+                            핫 번호(최근 자주 출현) + 콜드 번호(오랫동안 미출현) + 패턴 균형을 종합하여<br>
+                            <strong>통계적으로 균형 잡힌 번호 조합</strong>을 추천합니다.<br><br>
+                            ⚠️ 로또는 완전 독립 확률 게임이며, 과거 데이터가 미래를 보장하지 않습니다.
+                        </div>
+                    </div>
+                    <div style="text-align:center;margin:15px 0;">
+                        <button class="btn btn-primary" onclick="runSmartRecommend()" id="runSmartBtn">🧠 스마트 추천 실행</button>
+                    </div>
+                    <div id="smartResult" class="hidden">
+                        <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">추천 조합 TOP 10</h4>
+                        <div id="smartRecommendList"></div>
+                    </div>
+                </div>
+            </div>
             <div id="predictionResult" class="hidden">
                 <div style="background:linear-gradient(135deg,rgba(17,153,142,0.3),rgba(56,239,125,0.3));padding:20px;border-radius:15px;text-align:center;margin-top:20px;"><h2 style="color:white;">🎱 AI 예측 번호</h2></div>
                 <div class="balls-container discovery-animation" id="predictionBalls"></div>
@@ -191,6 +216,59 @@
                 </div>
             </div>
         </div>
+        <div class="card" id="statsDashboard">
+            <div class="card-header"><div class="card-icon gold">📊</div><h2 class="card-title">전체 통계 분석</h2></div>
+            <div id="statsNotReady" class="status warning">⚠️ DB 데이터를 불러오는 중입니다...</div>
+            <div id="statsReady" class="hidden">
+                <div class="stats-tabs">
+                    <button class="stats-tab active" onclick="switchStatsTab('frequency')">번호 빈도</button>
+                    <button class="stats-tab" onclick="switchStatsTab('hotcold')">핫/콜드</button>
+                    <button class="stats-tab" onclick="switchStatsTab('charts')">📈 차트</button>
+                </div>
+                <div class="stats-tab-content active" id="statsTabFrequency">
+                    <div class="interpretation-box" style="margin-bottom:15px;">
+                        <div class="interpretation-title">📋 번호별 출현 빈도</div>
+                        <div class="interpretation-content">전체 <span id="statsTotalRounds">0</span>회차 기준 각 번호의 당첨 횟수입니다. 진할수록 많이 출현했습니다.</div>
+                    </div>
+                    <div class="frequency-heatmap" id="frequencyHeatmap"></div>
+                </div>
+                <div class="stats-tab-content" id="statsTabHotcold">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div class="hotcold-panel hot">
+                            <h4>🔥 핫 번호 TOP 10</h4>
+                            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">최근 50회 기준 최다 출현</p>
+                            <div id="hotNumbersList"></div>
+                        </div>
+                        <div class="hotcold-panel cold">
+                            <h4>❄️ 콜드 번호 TOP 10</h4>
+                            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">최근 50회 기준 최소 출현</p>
+                            <div id="coldNumbersList"></div>
+                        </div>
+                    </div>
+                    <div class="hotcold-panel dormant" style="margin-top:15px;">
+                        <h4>⏰ 장기 미출현 번호 (꽝줄)</h4>
+                        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">가장 오랫동안 당첨되지 않은 번호</p>
+                        <div id="dormantNumbersList"></div>
+                    </div>
+                </div>
+                <div class="stats-tab-content" id="statsTabCharts">
+                    <div class="chart-container">
+                        <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">번호별 출현 빈도</h4>
+                        <canvas id="freqChart" width="600" height="300"></canvas>
+                    </div>
+                    <div class="chart-row" style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:20px;">
+                        <div class="chart-container">
+                            <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">구간별 분포</h4>
+                            <canvas id="sectionChart" width="250" height="250"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">홀짝 비율</h4>
+                            <canvas id="oddEvenChart" width="250" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header"><div class="card-icon cyan">📊</div><h2 class="card-title">회차 비교 분석</h2></div>
             <div class="input-group">
@@ -219,6 +297,42 @@
             <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
             <div class="sponsor-name">강재영</div>
             <div class="sponsor-account">신한은행 110-496-114465</div>
+        </div>
+    </div>
+    <div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)toggleSettings()">
+        <div class="settings-panel">
+            <h3>⚙️ 설정</h3>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label">📳 진동 피드백</div>
+                    <div class="settings-desc">번호 선택/매칭 시 진동</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="ux-toggle" data-key="vibration" checked onchange="toggleUxSetting('vibration', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label">🔔 효과음</div>
+                    <div class="settings-desc">시뮬레이션 매칭 시 비프음</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="ux-toggle" data-key="sound" onchange="toggleUxSetting('sound', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label">✨ 애니메이션</div>
+                    <div class="settings-desc">파티클 효과 및 전환 애니메이션</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="ux-toggle" data-key="animation" checked onchange="toggleUxSetting('animation', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <button class="btn btn-secondary" onclick="toggleSettings()" style="width:100%;margin-top:20px;">닫기</button>
         </div>
     </div>
     <script src="script.js?v=2"></script>

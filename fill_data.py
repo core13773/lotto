@@ -36,12 +36,30 @@ def fetch_round(round_no):
             bonus = bn
     return {'round': round_no, 'numbers': sorted(nums), 'bonus': bonus}
 
+# 최신 회차 동적 계산
+from datetime import datetime, timedelta
+first_draw = datetime(2002, 12, 7, 21, 0, 0)  # KST
+now = datetime.utcnow() + timedelta(hours=9)   # UTC → KST
+dow = now.weekday()  # 0=월, 6=일
+hours = now.hour
+if dow == 5 and hours >= 21:  # 토요일 21시 이후
+    last_draw = now.replace(hour=21, minute=0, second=0, microsecond=0)
+else:
+    days_since_sat = dow + 2 if dow >= 5 else 5 - dow  # 지난 토요일까지 일수
+    last_draw = now - timedelta(days=days_since_sat)
+    last_draw = last_draw.replace(hour=21, minute=0, second=0, microsecond=0)
+latest_round = int((last_draw - first_draw).days / 7) + 1
+
 # Load existing data
-with open('latest.json', 'r') as f:
-    existing = json.load(f)
+existing = []
+try:
+    with open('latest.json', 'r') as f:
+        existing = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
 existing_map = {r['round']: r for r in existing}
 
-missing = [i for i in range(1, 1224) if i not in existing_map]
+missing = [i for i in range(1, latest_round + 1) if i not in existing_map]
 print(f'누락: {len(missing)}개')
 print(f'예상 시간: 약 {len(missing) * 0.6 / 60:.1f}분\n')
 
@@ -59,7 +77,7 @@ for idx, round_no in enumerate(missing):
     else:
         failed += 1
         consecutive_fails += 1
-        if consecutive_fails > 30:
+        if consecutive_fails > 10:
             print(f'\n⚠️ 연속 실패 {consecutive_fails}회 - 60초 대기...')
             time.sleep(60)
             consecutive_fails = 0

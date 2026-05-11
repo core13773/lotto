@@ -7,7 +7,7 @@ on:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -74,8 +74,10 @@ jobs:
           " 2>&1
 
       - name: 변경사항 커밋
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "lotto-bot"
           git config user.email "bot@example.com"
           git add latest.json
-          git diff --staged --quiet || git commit -m "최신 당첨번호 업데이트" && git push
+          git diff --staged --quiet || (git commit -m "최신 당첨번호 업데이트" && git push)

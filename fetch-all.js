@@ -21,21 +21,33 @@ const LATEST_ROUND = (() => {
 console.log(`전체 회차 수집 시작: 1회 ~ ${LATEST_ROUND}회`);
 console.log(`예상 시간: 약 ${Math.ceil(LATEST_ROUND * 0.25 / 60)}분\n`);
 
-function fetchUrl(url) {
+function fetchUrl(url, retries = 3) {
     return new Promise((resolve) => {
-        https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, (res) => {
+        const req = https.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            timeout: 15000
+        }, (res) => {
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                     const loc = res.headers.location;
                     const redirectUrl = loc.startsWith('http') ? loc : 'https://search.naver.com' + loc;
-                    fetchUrl(redirectUrl).then(resolve);
+                    fetchUrl(redirectUrl, retries).then(resolve);
                     return;
                 }
                 resolve(body);
             });
-        }).on('error', () => resolve(''));
+        });
+        req.on('timeout', () => { req.destroy(); resolve(''); });
+        req.on('error', () => {
+            if (retries > 0) {
+                // 지수 백오프 재시도
+                setTimeout(() => fetchUrl(url, retries - 1).then(resolve), (4 - retries) * 2000);
+            } else {
+                resolve('');
+            }
+        });
     });
 }
 
