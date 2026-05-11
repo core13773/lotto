@@ -142,7 +142,8 @@ function loadSavedPredictions() {
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <span style="color:var(--accent-cyan);font-size:0.9rem;">${item.score}점 (${item.grade})</span>
-                        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="loadSavedPrediction(${index})">📋 불러오기</button>
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${item.numbers}], ${item.score})">📤</button>
+                        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="loadSavedPrediction(${index})">📋</button>
                         <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="deleteSavedPrediction(${index})">✕</button>
                     </div>
                 </div>
