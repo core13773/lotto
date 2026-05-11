@@ -14,6 +14,13 @@
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3QLZDF9S2Z"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-3QLZDF9S2Z');
+    </script>
 </head>
 <body>
     <div class="toast-container" id="toastContainer"></div>
@@ -201,7 +208,18 @@
             </div>
             <button class="btn btn-secondary" onclick="clearSavedPredictions()" id="clearSavedBtn" style="width:100%;margin-top:15px;display:none;">🗑️ 모두 삭제</button>
         </div>
-        <div class="sponsor-box"><div class="sponsor-title">💝 개발자 후원</div><div class="sponsor-name">강재영</div><div class="sponsor-account">신한은행 110-496-114465</div></div>
+        <div class="card" style="text-align:center;">
+            <div class="card-header" style="justify-content:center;"><div class="card-icon cyan">📊</div><h2 class="card-title">엑셀 사용자용</h2></div>
+            <p style="color:var(--text-primary);font-weight:700;margin-bottom:8px;">내가 직접 1등 번호 만들기</p>
+            <p style="color:var(--text-secondary);margin-bottom:15px;">자세한 사용법은 엑셀파일을 참고하세요.</p>
+            <a href="lottery_number_generator.xlsx" download class="btn btn-primary" style="display:inline-flex;margin-bottom:10px;">📥 lottery_number_generator.xlsx 다운로드</a>
+        </div>
+        <div class="sponsor-box">
+            <div class="sponsor-title">☕ 커피 한잔 후원</div>
+            <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
+            <div class="sponsor-name">강재영</div>
+            <div class="sponsor-account">신한은행 110-496-114465</div>
+        </div>
     </div>
     <script src="script.js?v=2"></script>
     <script>
