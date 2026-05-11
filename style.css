@@ -36,7 +36,7 @@
         [data-theme="light"] body, body[data-theme="light"] { background-image: none !important; }
         .container { max-width: 900px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 40px 20px; position: relative; }
-        .header-controls { position: absolute; top: 20px; right: 20px; }
+        .header-controls { position: absolute; top: 20px; right: 20px; z-index: 10; }
         .theme-toggle {
             width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
             background: var(--bg-card); color: var(--text-primary); font-size: 1.2rem;

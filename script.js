@@ -68,6 +68,10 @@ function toggleTheme() {
     html.setAttribute('data-theme', next);
     document.body.setAttribute('data-theme', next);
     try { localStorage.setItem('lotto-theme', next); } catch (e) {}
+
+    // 버튼 아이콘 즉시 변경 (시각적 피드백)
+    const btn = document.querySelector('.theme-toggle');
+    if (btn) btn.textContent = next === 'light' ? '☀️' : '🌓';
 }
 
 function loadTheme() {
@@ -76,6 +80,9 @@ function loadTheme() {
     saved = saved || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
     document.body.setAttribute('data-theme', saved);
+    // 초기 아이콘 설정
+    const btn = document.querySelector('.theme-toggle');
+    if (btn) btn.textContent = saved === 'light' ? '☀️' : '🌓';
 }
 
 // ========== 예측 결과 저장/불러오기 ==========

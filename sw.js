@@ -1,8 +1,14 @@
-const CACHE = 'lotto645-v1';
+const CACHE = 'lotto645-v2';
 const FILES = ['./', './index.html', './style.css', './script.js', './worker.js', './manifest.json'];
 
 self.addEventListener('install', e => {
+    self.skipWaiting();
     e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+});
+
+self.addEventListener('activate', e => {
+    e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+    return self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
@@ -15,8 +21,4 @@ self.addEventListener('fetch', e => {
             return resp;
         }))
     );
-});
-
-self.addEventListener('activate', e => {
-    e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
 });
