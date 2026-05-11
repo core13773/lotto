@@ -629,6 +629,20 @@
         .toggle-switch input:checked + .toggle-slider { background: var(--accent-purple); }
         .toggle-switch input:checked + .toggle-slider::before { transform: translateX(24px); }
 
+        /* ── 제외 번호 그리드 ── */
+        .exclude-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+        .exclude-btn {
+            aspect-ratio: 1; min-height: 40px; border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary);
+            font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.9rem;
+            cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent;
+        }
+        .exclude-btn:hover { background: rgba(255,255,255,0.1); }
+        .exclude-btn.excluded {
+            background: rgba(239,68,68,0.3) !important; border-color: #ef4444 !important;
+            color: #f87171; text-decoration: line-through; opacity: 0.5; transform: scale(0.9);
+        }
+
         /* ── 모바일 대응 ── */
         @media (max-width: 480px) {
             .frequency-heatmap { grid-template-columns: repeat(9, 1fr); gap: 4px; }

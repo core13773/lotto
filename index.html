@@ -74,8 +74,9 @@
             <div id="aiReady" class="hidden">
                 <div class="status info">🎯 제 <span id="targetRound">-</span>회 기준 패턴 분석</div>
                 <div class="ai-mode-tabs">
-                    <button class="ai-mode-tab active" onclick="switchAiMode('simulation')">🎲 몬테카를로 시뮬레이션</button>
+                    <button class="ai-mode-tab active" onclick="switchAiMode('simulation')">🎲 몬테카를로</button>
                     <button class="ai-mode-tab" onclick="switchAiMode('smart')">🧠 스마트 추천</button>
+                    <button class="ai-mode-tab" onclick="switchAiMode('custom')">✋ 수동 조합</button>
                 </div>
                 <div class="ai-mode-content active" id="aiModeSimulation">
                 <div class="interpretation-box" style="margin-bottom:20px;">
@@ -170,6 +171,33 @@
                     <div id="smartResult" class="hidden">
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">추천 조합 TOP 10</h4>
                         <div id="smartRecommendList"></div>
+                    </div>
+                </div>
+                <div class="ai-mode-content" id="aiModeCustom">
+                    <div class="collapsible open" id="excludeSection">
+                        <div class="collapsible-header" onclick="toggleCollapsible('excludeSection')"><span>🚫 제외할 번호 선택 (최대 20개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-content">
+                            <div class="exclude-grid" id="excludeGrid"></div>
+                            <div style="text-align:center;margin-top:10px;">
+                                <span id="excludeCount" style="color:var(--text-secondary);">선택: 0개</span>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" onclick="clearExcludes()">전체 해제</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" onclick="quickExclude()">⚡ 제외 추천</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;margin:15px 0;">
+                        <label style="color:var(--text-secondary);margin-right:10px;">생성 개수:</label>
+                        <select id="customCount" class="sim-input" style="width:auto;padding:8px 12px;">
+                            <option value="5">5개</option>
+                            <option value="10" selected>10개</option>
+                            <option value="20">20개</option>
+                            <option value="50">50개</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="generateCustomCombos()" id="generateCustomBtn" style="margin-left:10px;">🎱 조합 생성</button>
+                    </div>
+                    <div id="customResult" class="hidden">
+                        <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">생성된 조합</h4>
+                        <div id="customComboList"></div>
                     </div>
                 </div>
             </div>

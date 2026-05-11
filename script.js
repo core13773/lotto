@@ -1806,6 +1806,9 @@ function switchAiMode(mode) {
     document.querySelectorAll('.ai-mode-content').forEach(c => c.classList.remove('active'));
     document.querySelector(`.ai-mode-tab[onclick*="${mode}"]`).classList.add('active');
     document.getElementById('aiMode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+    if (mode === 'custom' && !document.getElementById('excludeGrid')?.children.length) {
+        initExcludeGrid();
+    }
 }
 
 function weightedRandomPick(pool, weights) {
@@ -1929,6 +1932,162 @@ function runSmartRecommend() {
     document.getElementById('smartResult').classList.remove('hidden');
     vibrate(30);
     showStatus('success', `✅ ${recommendations.length}개의 스마트 추천 조합을 생성했습니다!`);
+}
+
+// ========== 수동 조합 생성 ==========
+let excludedNumbers = new Set();
+
+function initExcludeGrid() {
+    const grid = document.getElementById('excludeGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 1; i <= 45; i++) {
+        const btn = document.createElement('button');
+        btn.className = `exclude-btn ${getBallClass(i)}`;
+        btn.textContent = i;
+        btn.setAttribute('data-num', i);
+        btn.onclick = () => toggleExclude(i, btn);
+        grid.appendChild(btn);
+    }
+}
+
+function toggleExclude(num, btn) {
+    if (excludedNumbers.has(num)) {
+        excludedNumbers.delete(num);
+        btn.classList.remove('excluded');
+    } else if (excludedNumbers.size < 20) {
+        excludedNumbers.add(num);
+        btn.classList.add('excluded');
+    }
+    document.getElementById('excludeCount').textContent = `선택: ${excludedNumbers.size}개`;
+}
+
+function clearExcludes() {
+    excludedNumbers.clear();
+    document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('excluded'));
+    document.getElementById('excludeCount').textContent = '선택: 0개';
+    vibrate(15);
+}
+
+function quickExclude() {
+    // 최근 50회에서 가장 많이 나온 번호 10개를 제외 추천으로 자동 선택
+    if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
+    clearExcludes();
+    const topNumbers = dbStats.hot.slice(0, 10);
+    document.querySelectorAll('.exclude-btn').forEach(btn => {
+        const num = parseInt(btn.getAttribute('data-num'));
+        if (topNumbers.some(h => h.number === num)) {
+            excludedNumbers.add(num);
+            btn.classList.add('excluded');
+        }
+    });
+    document.getElementById('excludeCount').textContent = `선택: ${excludedNumbers.size}개`;
+    showStatus('info', '⚡ 최근 자주 나온 번호 10개를 제외 목록에 추가했습니다.');
+    playBeep(500, 0.05);
+}
+
+function generateCustomCombos() {
+    if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
+    const count = parseInt(document.getElementById('customCount').value);
+    const available = [];
+    for (let i = 1; i <= 45; i++) {
+        if (!excludedNumbers.has(i)) available.push(i);
+    }
+    if (available.length < 6) {
+        showStatus('error', '❌ 선택 가능한 번호가 6개 미만입니다. 제외 번호를 줄여주세요.');
+        return;
+    }
+
+    const combos = [];
+    const seen = new Set();
+    const weights = available.map(n => {
+        const hot = dbStats.hot.find(h => h.number === n);
+        const dormant = dbStats.topDormant.find(d => d.number === n);
+        let w = 1;
+        if (hot) w += hot.count * 2;
+        if (dormant && dormant.gap > 10) w += dormant.gap;
+        return w;
+    });
+
+    let attempts = 0;
+    while (combos.length < count && attempts < count * 200) {
+        attempts++;
+        const selected = [];
+        const pool = [...available];
+        const poolWeights = [...weights];
+
+        for (let i = 0; i < 6; i++) {
+            const totalW = poolWeights.reduce((a, b) => a + b, 0);
+            const rand = new Uint32Array(1);
+            crypto.getRandomValues(rand);
+            let r = rand[0] / 4294967296 * totalW;
+            let idx = 0;
+            while (idx < poolWeights.length - 1 && r > poolWeights[idx]) {
+                r -= poolWeights[idx];
+                idx++;
+            }
+            selected.push(pool[idx]);
+            pool.splice(idx, 1);
+            poolWeights.splice(idx, 1);
+        }
+        selected.sort((a, b) => a - b);
+        const key = selected.join(',');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        combos.push(selected);
+    }
+
+    renderCustomCombos(combos);
+    vibrate(30);
+    showStatus('success', `✅ ${combos.length}개의 조합을 생성했습니다!`);
+}
+
+function renderCustomCombos(combos) {
+    const list = document.getElementById('customComboList');
+    list.innerHTML = combos.map((nums, i) => {
+        const analysis = analyzeNumbers(nums);
+        const score = calculateQualityScore(analysis);
+        const matching = currentWinningNumbers ? nums.filter(n => currentWinningNumbers.includes(n)) : [];
+        return `
+            <div class="smart-card">
+                <div class="smart-card-header">
+                    <span class="smart-rank">#${i + 1}</span>
+                    <span class="smart-score" style="color:${score.totalScore >= 75 ? 'var(--grade-excellent)' : score.totalScore >= 60 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${score.totalScore}점 (${score.grade})</span>
+                    ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
+                    <button class="btn btn-secondary" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" onclick="saveCustomPrediction([${nums}], ${score.totalScore}, '${score.grade}')">💾 저장</button>
+                </div>
+                <div class="balls-container" style="padding:10px 0;gap:6px;">
+                    ${nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:42px;height:42px;line-height:42px;font-size:0.9rem;">${n}</span>`).join('')}
+                </div>
+                <div class="smart-quick-stats">
+                    <span>합계 ${analysis.sum}</span>
+                    <span>AC ${analysis.ac}</span>
+                    <span>${analysis.oddEvenRatio}</span>
+                    <span>${analysis.lowHighRatio}</span>
+                    <span>${analysis.sectionsWithNumbers}개 구간</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    document.getElementById('customResult').classList.remove('hidden');
+}
+
+function saveCustomPrediction(numbers, score, grade) {
+    const saved = getSavedPredictions();
+    const analysis = analyzeNumbers(numbers);
+    saved.unshift({
+        date: new Date().toLocaleString('ko-KR'),
+        round: currentRound || '-',
+        numbers,
+        meta: `수동 조합 | 제외 ${excludedNumbers.size}개`,
+        score,
+        grade
+    });
+    if (saved.length > 50) saved.length = 50;
+    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    loadSavedPredictions();
+    showStatus('success', '💾 수동 조합이 저장되었습니다!');
+    playBeep(600, 0.08);
 }
 
 // ========== UI/UX 고급화 ==========
