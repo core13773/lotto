@@ -226,6 +226,8 @@
         .sponsor-title { font-family: 'Black Han Sans', sans-serif; font-size: 1.5rem; color: var(--accent-gold); margin-bottom: 15px; }
         .sponsor-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
         .sponsor-account { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--accent-cyan); background: rgba(0,0,0,0.3); padding: 15px 25px; border-radius: 12px; display: inline-block; }
+        .feedback-box { background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 25px; text-align: center; margin-top: 20px; }
+        .feedback-title { font-family: 'Black Han Sans', sans-serif; font-size: 1.2rem; color: var(--accent-cyan); margin-bottom: 10px; }
         .sim-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: center; margin: 20px 0; }
         .sim-input { width: 150px; padding: 12px 15px; border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: 'Orbitron', sans-serif; font-size: 1rem; }
         .sim-input:focus { outline: none; border-color: var(--accent-purple); }

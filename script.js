@@ -2173,6 +2173,22 @@ function fireConfetti() {
     setTimeout(() => { container.innerHTML = ''; }, 4000);
 }
 
+function copyEmail() {
+    const email = 'lotto645.app@gmail.com'; // 실제 이메일로 변경하세요
+    navigator.clipboard.writeText(email).then(() => {
+        showStatus('success', `📋 이메일이 복사되었습니다: ${email}`);
+    }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = email;
+        textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showStatus('success', `📋 이메일이 복사되었습니다: ${email}`);
+    });
+}
+
 // 통계 대시보드 초기화 (latest.json 로드 후 호출)
 const origLoadLatestJson = loadLatestJson;
 loadLatestJson = async function() {
