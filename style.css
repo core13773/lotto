@@ -10,10 +10,20 @@
             --ball-bonus: linear-gradient(135deg, #8b5cf6, #a78bfa, #8b5cf6);
             --grade-excellent: #10b981; --grade-good: #3b82f6; --grade-normal: #fbbf24; --grade-caution: #f97316; --grade-bad: #ef4444;
         }
-        :root[data-theme="light"] {
+        :root[data-theme="light"],
+        html[data-theme="light"],
+        body[data-theme="light"] {
             --bg-dark: #f0f2f5; --bg-card: #ffffff; --bg-card-hover: #f8f9fa;
             --text-primary: #1a1a2e; --text-secondary: #555577;
             --accent-gold: #b8860b; --accent-cyan: #0088aa;
+            --accent-pink: #c0392b; --accent-purple: #6c3483;
+            --ball-yellow: linear-gradient(135deg, #f39c12, #f1c40f, #f39c12);
+            --ball-blue: linear-gradient(135deg, #2471a3, #2e86c1, #2471a3);
+            --ball-red: linear-gradient(135deg, #c0392b, #e74c3c, #c0392b);
+            --ball-gray: linear-gradient(135deg, #566573, #7f8c8d, #566573);
+            --ball-green: linear-gradient(135deg, #1e8449, #27ae60, #1e8449);
+            --ball-bonus: linear-gradient(135deg, #6c3483, #8e44ad, #6c3483);
+            --grade-excellent: #1e8449; --grade-good: #2471a3; --grade-normal: #b7950b; --grade-caution: #d35400; --grade-bad: #c0392b;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -23,7 +33,7 @@
                 radial-gradient(circle at 80% 20%, rgba(0,245,255,0.1) 0%, transparent 50%),
                 radial-gradient(circle at 50% 50%, rgba(255,0,110,0.05) 0%, transparent 70%);
         }
-        [data-theme="light"] body { background-image: none; }
+        [data-theme="light"] body, body[data-theme="light"] { background-image: none !important; }
         .container { max-width: 900px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 40px 20px; position: relative; }
         .header-controls { position: absolute; top: 20px; right: 20px; }
@@ -448,3 +458,33 @@
             .math-item { flex-direction: column; gap: 5px; text-align: left; }
             .gap-stats { flex-direction: column; gap: 5px; }
         }
+
+        /* ── 라이트 테마 보정 ── */
+        [data-theme="light"] .btn-primary:disabled,
+        body[data-theme="light"] .btn-primary:disabled { background: #aaa; }
+        [data-theme="light"] .btn-secondary,
+        body[data-theme="light"] .btn-secondary { background: rgba(0,0,0,0.05); color: var(--text-primary); border-color: rgba(0,0,0,0.15); }
+        [data-theme="light"] .btn-secondary:hover,
+        body[data-theme="light"] .btn-secondary:hover { background: rgba(0,0,0,0.1); }
+        [data-theme="light"] .status.success,
+        body[data-theme="light"] .status.success { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.4); }
+        [data-theme="light"] .status.info,
+        body[data-theme="light"] .status.info { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.4); }
+        [data-theme="light"] .status.warning,
+        body[data-theme="light"] .status.warning { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.4); }
+        [data-theme="light"] .status.error,
+        body[data-theme="light"] .status.error { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); }
+        [data-theme="light"] .input-field,
+        body[data-theme="light"] .input-field { background: #fff; color: #1a1a2e; border-color: rgba(0,0,0,0.2); }
+        [data-theme="light"] .sim-input,
+        body[data-theme="light"] .sim-input { background: #fff; color: #1a1a2e; border-color: rgba(0,0,0,0.2); }
+        [data-theme="light"] .help-icon .tooltip,
+        body[data-theme="light"] .help-icon .tooltip { background: #fff; color: #1a1a2e; border-color: rgba(0,0,0,0.15); }
+        [data-theme="light"] .theme-toggle,
+        body[data-theme="light"] .theme-toggle { border-color: rgba(0,0,0,0.2); }
+        [data-theme="light"] .ball,
+        body[data-theme="light"] .ball { box-shadow: 0 3px 10px rgba(0,0,0,0.2), inset 0 -2px 6px rgba(0,0,0,0.2), inset 0 2px 6px rgba(255,255,255,0.6); }
+        [data-theme="light"] .card,
+        body[data-theme="light"] .card { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        [data-theme="light"] .btn-gold,
+        body[data-theme="light"] .btn-gold { box-shadow: 0 4px 15px rgba(184,134,11,0.3); }

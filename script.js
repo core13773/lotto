@@ -62,15 +62,20 @@ function findRoundInDb(roundNo) {
 
 // ========== 테마 전환 ==========
 function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
     const next = current === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('lotto-theme', next);
+    html.setAttribute('data-theme', next);
+    document.body.setAttribute('data-theme', next);
+    try { localStorage.setItem('lotto-theme', next); } catch (e) {}
 }
 
 function loadTheme() {
-    const saved = localStorage.getItem('lotto-theme') || 'dark';
+    let saved;
+    try { saved = localStorage.getItem('lotto-theme'); } catch (e) { saved = null; }
+    saved = saved || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
+    document.body.setAttribute('data-theme', saved);
 }
 
 // ========== 예측 결과 저장/불러오기 ==========
