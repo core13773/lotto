@@ -76,9 +76,9 @@
             <div id="aiReady" class="hidden">
                 <div class="status info">🎯 제 <span id="targetRound">-</span>회 기준 패턴 분석</div>
                 <div class="ai-mode-tabs">
-                    <button class="ai-mode-tab active" onclick="switchAiMode('simulation')">🎲 몬테카를로</button>
-                    <button class="ai-mode-tab" onclick="switchAiMode('smart')">🧠 스마트 추천</button>
-                    <button class="ai-mode-tab" onclick="switchAiMode('custom')">✋ 수동 조합</button>
+                    <button class="ai-mode-tab active" data-mode="simulation" onclick="switchAiMode('simulation')">🎲 몬테카를로</button>
+                    <button class="ai-mode-tab" data-mode="smart" onclick="switchAiMode('smart')">🧠 스마트 추천</button>
+                    <button class="ai-mode-tab" data-mode="custom" onclick="switchAiMode('custom')">✋ 수동 조합</button>
                 </div>
                 <div class="ai-mode-content active" id="aiModeSimulation">
                 <div class="interpretation-box" style="margin-bottom:20px;">
@@ -252,10 +252,10 @@
             <div id="statsNotReady" class="status warning">⚠️ DB 데이터를 불러오는 중입니다...</div>
             <div id="statsReady" class="hidden">
                 <div class="stats-tabs">
-                    <button class="stats-tab active" onclick="switchStatsTab('frequency')">번호 빈도</button>
-                    <button class="stats-tab" onclick="switchStatsTab('hotcold')">핫/콜드</button>
-                    <button class="stats-tab" onclick="switchStatsTab('charts')">📈 차트</button>
-                    <button class="stats-tab" onclick="switchStatsTab('pairs')">🔗 번호쌍</button>
+                    <button class="stats-tab active" data-tab="frequency" onclick="switchStatsTab('frequency')">번호 빈도</button>
+                    <button class="stats-tab" data-tab="hotcold" onclick="switchStatsTab('hotcold')">핫/콜드</button>
+                    <button class="stats-tab" data-tab="charts" onclick="switchStatsTab('charts')">📈 차트</button>
+                    <button class="stats-tab" data-tab="pairs" onclick="switchStatsTab('pairs')">🔗 번호쌍</button>
                 </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">

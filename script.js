@@ -47,7 +47,9 @@ async function loadLatestJson() {
                 showStatus('success', `✅ 제 ${data.round}회 당첨번호 자동 로드 완료!`);
             }
         }
-    } catch (e) {}
+    } catch (e) {
+        document.getElementById('statsNotReady').textContent = '⚠️ latest.json을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
+    }
 }
 
 function findRoundInDb(roundNo) {
@@ -352,7 +354,7 @@ async function fetchWinningNumbers() {
         return;
     }
 
-    // 2. 로컬 프록시 서버 시도 (node server.js 실행 시)
+    // 2. 로컬 프록시 서버 시도 (node server.js 실행 시에만 동작)
     showStatus('info', '🔍 당첨번호 조회 중...');
     const localResult = await fetchFromLocalProxy(roundNo);
     if (localResult) {
@@ -362,8 +364,8 @@ async function fetchWinningNumbers() {
         return;
     }
 
-    // 3. 실패 시 수동 입력 안내
-    showStatus('warning', '⚠️ 조회 실패. 프록시 서버가 실행 중인지 확인하거나 아래 수동 입력을 사용하세요.');
+    // 3. 조회 실패 → 수동 입력으로 안내
+    showStatus('warning', '⚠️ DB에 없는 회차입니다. 아래에서 직접 번호를 선택해주세요.');
     document.getElementById('manualInputSection').classList.add('open');
     finishFetch(btn);
 }
@@ -1477,6 +1479,7 @@ function computeDbStats() {
 function renderStatsDashboard() {
     dbStats = computeDbStats();
     if (!dbStats) {
+        document.getElementById('statsNotReady').textContent = '⚠️ DB 데이터를 불러오는 중입니다...';
         document.getElementById('statsNotReady').classList.remove('hidden');
         document.getElementById('statsReady').classList.add('hidden');
         return;
@@ -1536,7 +1539,7 @@ function renderDormantList(containerId, items) {
 function switchStatsTab(tab) {
     document.querySelectorAll('.stats-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.stats-tab-content').forEach(c => c.classList.remove('active'));
-    const targetTab = [...document.querySelectorAll('.stats-tab')].find(t => t.textContent.includes(tab === 'hotcold' ? '핫' : tab === 'frequency' ? '빈도' : tab === 'charts' ? '차트' : '번호쌍'));
+    const targetTab = document.querySelector(`.stats-tab[data-tab="${tab}"]`);
     if (targetTab) targetTab.classList.add('active');
     const contentId = 'statsTab' + tab.charAt(0).toUpperCase() + tab.slice(1);
     document.getElementById(contentId)?.classList.add('active');
@@ -1692,7 +1695,7 @@ function drawOddEvenPie() {
 function switchAiMode(mode) {
     document.querySelectorAll('.ai-mode-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.ai-mode-content').forEach(c => c.classList.remove('active'));
-    document.querySelector(`.ai-mode-tab[onclick*="${mode}"]`).classList.add('active');
+    document.querySelector(`.ai-mode-tab[data-mode="${mode}"]`).classList.add('active');
     document.getElementById('aiMode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
     if (mode === 'custom' && !document.getElementById('excludeGrid')?.children.length) {
         initExcludeGrid();
