@@ -225,21 +225,8 @@ async function exportPrediction() {
 
     const text = `🎱 로또 645 AI 예측 번호\n━━━━━━━━━━━━━━\n📌 예측 번호: ${numbers}\n📊 품질 점수: ${score}점 (${grade})\n📝 기준: ${meta}\n━━━━━━━━━━━━━━\n🔗 https://lotto645.app`;
 
-    try {
-        await navigator.clipboard.writeText(text);
-        showStatus('success', '📋 클립보드에 복사되었습니다!');
-    } catch (e) {
-        // 클립보드 API 실패 시 텍스트 영역으로 폴백
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showStatus('success', '📋 클립보드에 복사되었습니다!');
-    }
+    await copyToClipboard(text);
+    showStatus('success', '📋 클립보드에 복사되었습니다!');
 }
 
 function setupPredictionToggleEvents() {
@@ -1306,6 +1293,21 @@ function toggleCollapsible(id) { document.getElementById(id).classList.toggle('o
 function preventRefresh(e) { e.preventDefault(); e.returnValue = ''; }
 function formatNumber(num) { if (num >= 100000000) return (num / 100000000).toFixed(1) + '억'; if (num >= 10000) return (num / 10000).toFixed(0) + '만'; return num.toLocaleString(); }
 
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (e) {}
+    // 폴백: textarea + execCommand
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+        document.body.appendChild(textarea); textarea.select();
+        document.execCommand('copy'); document.body.removeChild(textarea);
+        return true;
+    } catch (e) { return false; }
+}
+
 // ========== 회차 비교 ==========
 let compareRoundData = null;
 
@@ -2068,20 +2070,9 @@ function fireConfetti() {
     setTimeout(() => { batch.remove(); }, 4000);
 }
 
-function copyEmail() {
-    const email = 'core13773@gmail.com';
-    navigator.clipboard.writeText(email).then(() => {
-        showStatus('success', `📋 이메일이 복사되었습니다: ${email}`);
-    }).catch(() => {
-        const textarea = document.createElement('textarea');
-        textarea.value = email;
-        textarea.style.position = 'fixed'; textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showStatus('success', `📋 이메일이 복사되었습니다: ${email}`);
-    });
+async function copyEmail() {
+    await copyToClipboard('core13773@gmail.com');
+    showStatus('success', '📋 이메일이 복사되었습니다: core13773@gmail.com');
 }
 
 // ========== 번호 쌍 분석 ==========
@@ -2314,17 +2305,8 @@ async function sharePrediction() {
 
     const shared = await shareToKakao(text);
     if (!shared) {
-        // 폴백: 클립보드 복사
-        try {
-            await navigator.clipboard.writeText(text);
-            showStatus('success', '📋 공유 텍스트가 클립보드에 복사되었습니다!');
-        } catch (e) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
-            document.body.appendChild(textarea); textarea.select();
-            document.execCommand('copy'); document.body.removeChild(textarea);
-            showStatus('success', '📋 복사 완료! 카톡에 붙여넣기 하세요.');
-        }
+        await copyToClipboard(text);
+        showStatus('success', '📋 공유 텍스트가 복사되었습니다!');
     }
 }
 
@@ -2334,12 +2316,8 @@ async function shareSmartPrediction(numbers, score) {
 
     const shared = await shareToKakao(text);
     if (!shared) {
-        try {
-            await navigator.clipboard.writeText(text);
-            showStatus('success', '📋 공유 텍스트가 복사되었습니다!');
-        } catch (e) {
-            showStatus('success', '📋 복사 완료! 카톡에 붙여넣기 하세요.');
-        }
+        await copyToClipboard(text);
+        showStatus('success', '📋 공유 텍스트가 복사되었습니다!');
     }
 }
 
@@ -2352,16 +2330,8 @@ async function shareSite() {
             return;
         } catch (e) {}
     }
-    try {
-        await navigator.clipboard.writeText(text);
-        showStatus('success', '📋 사이트 주소가 복사됐습니다! 카톡/문자에 붙여넣기 하세요.');
-    } catch (e) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
-        document.body.appendChild(textarea); textarea.select();
-        document.execCommand('copy'); document.body.removeChild(textarea);
-        showStatus('success', '📋 사이트 주소가 복사됐습니다!');
-    }
+    await copyToClipboard(text);
+    showStatus('success', '📋 사이트 주소가 복사됐습니다! 카톡/문자에 붙여넣기 하세요.');
 }
 
 // ========== PWA 알림 ==========

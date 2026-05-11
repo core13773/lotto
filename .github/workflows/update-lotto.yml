@@ -26,10 +26,10 @@ jobs:
             const hours = kst.getUTCHours();
             let lastDraw;
             if (dow === 6 && hours >= 21) {
-              lastDraw = new Date(kst.getFullYear(), kst.getMonth(), kst.getDate(), 12, 0, 0);
+              lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), 12, 0, 0));
             } else {
               const daysSinceSat = dow === 6 ? 7 : dow + 1;
-              lastDraw = new Date(kst.getFullYear(), kst.getMonth(), kst.getDate() - daysSinceSat, 12, 0, 0);
+              lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - daysSinceSat, 12, 0, 0));
             }
             console.log(Math.floor((lastDraw.getTime() - first.getTime()) / (7*24*3600000)) + 1);
           ")
