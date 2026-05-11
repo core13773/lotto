@@ -2174,7 +2174,7 @@ function fireConfetti() {
 }
 
 function copyEmail() {
-    const email = 'lotto645.app@gmail.com'; // 실제 이메일로 변경하세요
+    const email = 'core13773@gmail.com';
     navigator.clipboard.writeText(email).then(() => {
         showStatus('success', `📋 이메일이 복사되었습니다: ${email}`);
     }).catch(() => {
