@@ -1648,15 +1648,15 @@ function renderDormantList(containerId, items) {
 function switchStatsTab(tab) {
     document.querySelectorAll('.stats-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.stats-tab-content').forEach(c => c.classList.remove('active'));
-    document.querySelector(`.stats-tab[onclick*="${tab}"]`).classList.add('active');
-    document.getElementById('statsTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    const targetTab = [...document.querySelectorAll('.stats-tab')].find(t => t.textContent.includes(tab === 'hotcold' ? '핫' : tab === 'frequency' ? '빈도' : tab === 'charts' ? '차트' : '번호쌍'));
+    if (targetTab) targetTab.classList.add('active');
+    const contentId = 'statsTab' + tab.charAt(0).toUpperCase() + tab.slice(1);
+    document.getElementById(contentId)?.classList.add('active');
 
     if (tab === 'charts') {
-        setTimeout(() => {
-            drawFrequencyChart();
-            drawSectionDonut();
-            drawOddEvenPie();
-        }, 100);
+        setTimeout(() => { drawFrequencyChart(); drawSectionDonut(); drawOddEvenPie(); }, 100);
+    } else if (tab === 'pairs') {
+        setTimeout(() => renderPairAnalysis(), 100);
     }
 }
 
@@ -2189,6 +2189,344 @@ function copyEmail() {
     });
 }
 
+// ========== 번호 쌍 분석 ==========
+function computePairStats() {
+    if (!lottoDb || lottoDb.length === 0) return null;
+    const pairCount = {}; // "1-2": count
+    lottoDb.forEach(entry => {
+        if (!entry.numbers) return;
+        for (let i = 0; i < entry.numbers.length; i++) {
+            for (let j = i + 1; j < entry.numbers.length; j++) {
+                const key = entry.numbers[i] + '-' + entry.numbers[j];
+                pairCount[key] = (pairCount[key] || 0) + 1;
+            }
+        }
+    });
+    const pairs = Object.entries(pairCount)
+        .map(([key, count]) => {
+            const [a, b] = key.split('-').map(Number);
+            return { a, b, count };
+        })
+        .sort((x, y) => y.count - x.count);
+    return pairs;
+}
+
+function renderPairAnalysis() {
+    const pairs = computePairStats();
+    if (!pairs) return;
+    const container = document.getElementById('pairAnalysisResult');
+    const topPairs = pairs.slice(0, 30);
+    const maxCount = topPairs[0]?.count || 1;
+
+    // 번호별로 가장 강한 연결 찾기
+    const topPerNumber = {};
+    for (let n = 1; n <= 45; n++) {
+        const related = pairs.filter(p => p.a === n || p.b === n).slice(0, 5);
+        topPerNumber[n] = related;
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <h4 style="color:var(--accent-gold);margin-bottom:12px;">🏆 TOP 30 동반 출현 번호쌍</h4>
+            <div class="pair-list">
+                ${topPairs.map((p, i) => `
+                    <div class="pair-item" style="background:rgba(0,245,255,${(0.1 + p.count/maxCount * 0.3).toFixed(2)});">
+                        <span class="pair-rank">#${i + 1}</span>
+                        <span class="ball ${getBallClass(p.a)}" style="width:36px;height:36px;line-height:36px;font-size:0.85rem;">${p.a}</span>
+                        <span style="color:var(--accent-gold);">+</span>
+                        <span class="ball ${getBallClass(p.b)}" style="width:36px;height:36px;line-height:36px;font-size:0.85rem;">${p.b}</span>
+                        <span class="pair-count">${p.count}회</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="collapsible">
+            <div class="collapsible-header" onclick="toggleCollapsible('pairDetail')"><span>🔍 번호별 최강 파트너 찾기</span><span class="collapsible-icon">▼</span></div>
+            <div class="collapsible-content" id="pairDetail">
+                <p style="color:var(--text-secondary);margin-bottom:10px;">각 번호 옆의 숫자는 가장 자주 함께 출현한 파트너입니다.</p>
+                <div class="pair-matrix" id="pairMatrix"></div>
+            </div>
+        </div>
+    `;
+
+    // 번호별 최강 파트너 그리드
+    const matrix = document.getElementById('pairMatrix');
+    for (let n = 1; n <= 45; n++) {
+        const best = topPerNumber[n]?.[0];
+        const cell = document.createElement('div');
+        cell.className = 'pair-matrix-cell';
+        cell.innerHTML = `
+            <span class="ball ${getBallClass(n)}" style="width:32px;height:32px;line-height:32px;font-size:0.8rem;">${n}</span>
+            ${best ? `<span style="font-size:0.7rem;color:var(--text-secondary);">→</span>
+            <span class="ball ${getBallClass(best.a === n ? best.b : best.a)}" style="width:28px;height:28px;line-height:28px;font-size:0.7rem;">${best.a === n ? best.b : best.a}</span>
+            <span style="font-size:0.6rem;color:var(--accent-cyan);">${best.count}회</span>` : '<span style="font-size:0.7rem;color:var(--text-secondary);">-</span>'}
+        `;
+        matrix.appendChild(cell);
+    }
+}
+
+// ========== 당첨 회고 ==========
+let retroSelected = [];
+
+function initRetroGrid() {
+    const grid = document.getElementById('retroNumberGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 1; i <= 45; i++) {
+        const btn = document.createElement('button');
+        btn.className = `number-btn ${getBallClass(i)}`;
+        btn.textContent = i;
+        btn.setAttribute('data-num', i);
+        btn.onclick = () => {
+            const idx = retroSelected.indexOf(i);
+            if (idx > -1) { retroSelected.splice(idx, 1); btn.classList.remove('selected'); }
+            else if (retroSelected.length < 6) { retroSelected.push(i); btn.classList.add('selected'); }
+            updateRetroDisplay();
+        };
+        grid.appendChild(btn);
+    }
+}
+
+function updateRetroDisplay() {
+    document.getElementById('retroSelectedCount').textContent = `선택: ${retroSelected.length}개 / 6개`;
+    renderBalls(retroSelected, 'retroSelectedBalls');
+    document.getElementById('retroApplyBtn').disabled = retroSelected.length !== 6;
+}
+
+function applyRetroNumbers() {
+    if (retroSelected.length !== 6) return;
+    document.getElementById('retroInput').value = retroSelected.sort((a, b) => a - b).join(', ');
+    runRetrospective();
+}
+
+function runRetrospective() {
+    if (!lottoDb || lottoDb.length === 0) {
+        showStatus('warning', '⚠️ DB 데이터가 필요합니다.');
+        return;
+    }
+
+    const input = document.getElementById('retroInput').value.trim();
+    const nums = input.split(/[,·\s]+/).map(Number).filter(n => n >= 1 && n <= 45);
+    if (nums.length !== 6 || new Set(nums).size !== 6) {
+        showStatus('error', '올바른 6개 번호를 입력해주세요.');
+        return;
+    }
+    nums.sort((a, b) => a - b);
+
+    // 최근 1년 (약 52회차) 분석
+    const oneYearAgo = lottoDb.length >= 52 ? lottoDb.length - 52 : 0;
+    const recentRounds = lottoDb.slice(oneYearAgo);
+
+    const results = { round5: [], round4: [], round3: [] };
+    let totalSpent = 0;
+
+    recentRounds.forEach(entry => {
+        if (!entry.numbers) return;
+        totalSpent += 1000; // 회당 1,000원 가정
+        const matches = nums.filter(n => entry.numbers.includes(n));
+        const bonusMatch = entry.bonus && nums.includes(entry.bonus);
+
+        if (matches.length === 6) results.round5.push({ ...entry, match: 6, grade: '1등' });
+        else if (matches.length === 5 && bonusMatch) results.round5.push({ ...entry, match: 6, grade: '2등' });
+        else if (matches.length === 5) results.round4.push({ ...entry, match: 5, grade: '3등' });
+        else if (matches.length === 4) results.round3.push({ ...entry, match: 4, grade: '4등' });
+        else if (matches.length === 3) results.round3.push({ ...entry, match: 3, grade: '5등' });
+    });
+
+    // 예상 당첨금 (대략적인 평균값)
+    const prizeEstimate = {
+        '1등': 2000000000, '2등': 50000000, '3등': 1500000, '4등': 50000, '5등': 5000
+    };
+    let totalPrize = 0;
+    [...results.round5, ...results.round4, ...results.round3].forEach(r => {
+        totalPrize += prizeEstimate[r.grade] || 0;
+    });
+
+    document.getElementById('retroContent').innerHTML = `
+        <div style="text-align:center;margin-top:20px;">
+            <div class="balls-container" style="padding:10px 0;">
+                ${nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:48px;height:48px;line-height:48px;">${n}</span>`).join('')}
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">최근 ${recentRounds.length}회차 분석 (약 1년)</p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+                <div class="retro-stat">
+                    <div class="retro-stat-value" style="color:var(--accent-gold);">${totalSpent.toLocaleString()}원</div>
+                    <div class="retro-stat-label">총 구매 금액</div>
+                </div>
+                <div class="retro-stat">
+                    <div class="retro-stat-value" style="color:${totalPrize > totalSpent ? 'var(--grade-excellent)' : 'var(--grade-caution)'};">${totalPrize.toLocaleString()}원</div>
+                    <div class="retro-stat-label">예상 당첨금</div>
+                </div>
+                <div class="retro-stat">
+                    <div class="retro-stat-value" style="color:${totalPrize > totalSpent ? 'var(--grade-excellent)' : 'var(--grade-caution)'};">${totalPrize > totalSpent ? '+' : ''}${(totalPrize - totalSpent).toLocaleString()}원</div>
+                    <div class="retro-stat-label">손익</div>
+                </div>
+            </div>
+
+            <table class="retro-table">
+                <tr><th>등수</th><th>조건</th><th>당첨 횟수</th><th>예상 금액</th></tr>
+                <tr><td class="prize-rank">1등</td><td>6개 일치</td><td>${results.round5.filter(r => r.grade === '1등').length}회</td><td>약 20억원</td></tr>
+                <tr><td class="prize-rank">2등</td><td>5개+보너스</td><td>${results.round5.filter(r => r.grade === '2등').length}회</td><td>약 5천만원</td></tr>
+                <tr><td class="prize-rank">3등</td><td>5개 일치</td><td>${results.round4.filter(r => r.grade === '3등').length}회</td><td>약 150만원</td></tr>
+                <tr><td class="prize-rank">4등</td><td>4개 일치</td><td>${results.round3.filter(r => r.grade === '4등').length}회</td><td>5만원</td></tr>
+                <tr><td class="prize-rank">5등</td><td>3개 일치</td><td>${results.round3.filter(r => r.grade === '5등').length}회</td><td>5천원</td></tr>
+            </table>
+
+            ${results.round3.length > 0 ? `
+                <div class="collapsible" style="margin-top:20px;">
+                    <div class="collapsible-header" onclick="toggleCollapsible('retroDetail')"><span>📋 당첨 상세 내역</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-content" id="retroDetail">
+                        ${[...results.round5, ...results.round4, ...results.round3].map(r => `
+                            <div class="retro-item">
+                                <span class="prize-rank">${r.grade}</span>
+                                <span>제 ${r.round}회</span>
+                                <span class="balls-container" style="padding:5px 0;gap:4px;">${r.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:28px;height:28px;line-height:28px;font-size:0.7rem;">${n}</span>`).join('')}</span>
+                                ${r.bonus ? `<span class="ball bonus" style="width:28px;height:28px;line-height:28px;font-size:0.7rem;">${r.bonus}</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '<p style="color:var(--text-secondary);margin-top:15px;">아쉽게도 당첨 내역이 없습니다.</p>'}
+        </div>
+    `;
+    document.getElementById('retroResult').classList.remove('hidden');
+    showStatus('success', `⏪ ${recentRounds.length}회차 분석 완료!`);
+    playBeep(800, 0.1);
+}
+
+// ========== 카카오톡 공유 ==========
+async function shareToKakao(text) {
+    // Web Share API 우선 시도 (모바일에서 카카오톡 선택 가능)
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: '로또 645 번호', text });
+            return true;
+        } catch (e) {}
+    }
+    return false;
+}
+
+async function sharePrediction() {
+    const balls = document.getElementById('predictionBalls');
+    if (!balls || balls.children.length === 0) return;
+    const numbers = [...balls.querySelectorAll('.ball')].map(b => b.textContent).join(', ');
+    const score = document.getElementById('predictionScore')?.textContent || '-';
+    const text = `🎱 로또 645 예측 번호\n${numbers}\n품질 점수: ${score}점\n기준: 제 ${currentRound || '-'}회\nhttps://123lotto.co.kr`;
+
+    const shared = await shareToKakao(text);
+    if (!shared) {
+        // 폴백: 클립보드 복사
+        try {
+            await navigator.clipboard.writeText(text);
+            showStatus('success', '📋 공유 텍스트가 클립보드에 복사되었습니다!');
+        } catch (e) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+            document.body.appendChild(textarea); textarea.select();
+            document.execCommand('copy'); document.body.removeChild(textarea);
+            showStatus('success', '📋 복사 완료! 카톡에 붙여넣기 하세요.');
+        }
+    }
+}
+
+async function shareSmartPrediction(numbers, score) {
+    const nums = numbers.join(', ');
+    const text = `🎱 로또 645 스마트 추천\n${nums}\n품질 점수: ${score}점\nhttps://123lotto.co.kr`;
+
+    const shared = await shareToKakao(text);
+    if (!shared) {
+        try {
+            await navigator.clipboard.writeText(text);
+            showStatus('success', '📋 공유 텍스트가 복사되었습니다!');
+        } catch (e) {
+            showStatus('success', '📋 복사 완료! 카톡에 붙여넣기 하세요.');
+        }
+    }
+}
+
+// ========== PWA 알림 ==========
+let notificationEnabled = false;
+
+async function toggleNotifications() {
+    if (!('Notification' in window)) {
+        showStatus('warning', '⚠️ 이 브라우저는 알림을 지원하지 않습니다.');
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        notificationEnabled = !notificationEnabled;
+        updateNotifyBtn();
+        if (notificationEnabled) {
+            scheduleNotification();
+            showStatus('success', '🔔 토요일 추첨 알림이 켜졌습니다!');
+        } else {
+            showStatus('info', '🔕 알림이 꺼졌습니다.');
+        }
+    } else if (Notification.permission === 'denied') {
+        showStatus('warning', '⚠️ 알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.');
+    } else {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+            notificationEnabled = true;
+            updateNotifyBtn();
+            scheduleNotification();
+            showStatus('success', '🔔 알림이 활성화되었습니다!');
+            playBeep(800, 0.1);
+        } else {
+            showStatus('info', '알림이 거부되었습니다.');
+        }
+    }
+    try { localStorage.setItem('lotto-notify', notificationEnabled); } catch (e) {}
+}
+
+function updateNotifyBtn() {
+    const btn = document.getElementById('notifyBtn');
+    if (btn) btn.textContent = notificationEnabled ? '🔔' : '🔕';
+}
+
+function scheduleNotification() {
+    if (!notificationEnabled || Notification.permission !== 'granted') return;
+
+    // 다음 토요일 20:50 KST 계산
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 3600000);
+    const day = kst.getUTCDay();
+    const hours = kst.getUTCHours();
+    const minutes = kst.getUTCMinutes();
+
+    let nextSat = new Date(kst);
+    if (day === 6 && hours < 20) {
+        // 오늘 토요일이고 20:50 이전
+        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+    } else if (day === 6 && hours >= 20 && minutes >= 50) {
+        // 오늘 토요일이고 이미 20:50 이후 → 다음주
+        nextSat.setUTCDate(nextSat.getUTCDate() + 7);
+        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+    } else {
+        // 평일 → 다음 토요일
+        const daysUntil = day === 6 ? 0 : 6 - day;
+        nextSat.setUTCDate(nextSat.getUTCDate() + (daysUntil === 0 ? 7 : daysUntil));
+        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+    }
+
+    const delay = nextSat.getTime() - kst.getTime();
+    if (delay > 0) {
+        setTimeout(() => {
+            if (notificationEnabled) {
+                new Notification('🎰 로또 645 추첨 10분 전!', {
+                    body: '곧 로또 추첨이 시작됩니다. 번호 확인하세요!',
+                    icon: '/manifest.json',
+                    vibrate: [200, 100, 200],
+                    requireInteraction: true
+                });
+                // 7일 후 다시 스케줄
+                setTimeout(scheduleNotification, 7 * 24 * 3600000);
+            }
+        }, delay);
+    }
+}
+
 // 통계 대시보드 초기화 (latest.json 로드 후 호출)
 const origLoadLatestJson = loadLatestJson;
 loadLatestJson = async function() {
@@ -2205,7 +2543,13 @@ handleMatch = function(data) {
     if (data.matchCount === 1) fireConfetti();
 };
 
-// DOMContentLoaded에 UX 설정 로드 추가
+// DOMContentLoaded에 초기화 추가
 document.addEventListener('DOMContentLoaded', () => {
     loadUxSettings();
+    initRetroGrid();
+    try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
+    if (notificationEnabled && Notification.permission === 'granted') {
+        scheduleNotification();
+    }
+    updateNotifyBtn();
 }, { once: true });

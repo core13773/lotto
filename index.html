@@ -28,6 +28,7 @@
     <div class="container">
         <header>
             <div class="header-controls">
+                <button class="settings-btn" onclick="toggleNotifications()" title="추첨 알림" id="notifyBtn">🔔</button>
                 <button class="settings-btn" onclick="toggleSettings()" title="설정">⚙️</button>
                 <button class="theme-toggle" onclick="toggleTheme()" title="테마 전환">🌓</button>
             </div>
@@ -206,7 +207,8 @@
                 <div class="balls-container discovery-animation" id="predictionBalls"></div>
                 <p id="predictionMeta" style="text-align:center;color:var(--text-secondary);font-size:0.9rem;"></p>
                 <div style="text-align:center;margin:10px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-                    <button class="btn btn-secondary" onclick="exportPrediction()">📋 클립보드 복사</button>
+                    <button class="btn btn-secondary" onclick="exportPrediction()">📋 복사</button>
+                    <button class="btn btn-secondary" onclick="sharePrediction()">📤 공유</button>
                     <button class="btn btn-secondary" onclick="savePrediction()">💾 저장</button>
                 </div>
                 <div class="score-card" id="predictionScoreCard">
@@ -252,6 +254,7 @@
                     <button class="stats-tab active" onclick="switchStatsTab('frequency')">번호 빈도</button>
                     <button class="stats-tab" onclick="switchStatsTab('hotcold')">핫/콜드</button>
                     <button class="stats-tab" onclick="switchStatsTab('charts')">📈 차트</button>
+                    <button class="stats-tab" onclick="switchStatsTab('pairs')">🔗 번호쌍</button>
                 </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">
@@ -279,6 +282,13 @@
                         <div id="dormantNumbersList"></div>
                     </div>
                 </div>
+                <div class="stats-tab-content" id="statsTabPairs">
+                    <div class="interpretation-box" style="margin-bottom:15px;">
+                        <div class="interpretation-title">🔗 자주 함께 출현하는 번호 쌍</div>
+                        <div class="interpretation-content">전체 회차 기준 두 번호가 함께 당첨된 횟수입니다. <strong>진한 연결</strong>일수록 동반 출현 빈도가 높습니다.</div>
+                    </div>
+                    <div id="pairAnalysisResult"></div>
+                </div>
                 <div class="stats-tab-content" id="statsTabCharts">
                     <div class="chart-container">
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">번호별 출현 빈도</h4>
@@ -305,6 +315,26 @@
             </div>
             <div id="comparisonResult" class="hidden">
                 <div id="comparisonContent"></div>
+            </div>
+        </div>
+        <div class="card" id="retroCard">
+            <div class="card-header"><div class="card-icon cyan">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2></div>
+            <p style="color:var(--text-secondary);margin-bottom:15px;">내 번호로 지난 1년 동안 샀다면 몇 번 당첨됐을까요?</p>
+            <div class="input-group">
+                <input type="text" id="retroInput" class="input-field" placeholder="6개 번호 입력 (예: 1,13,21,27,34,42)" style="font-family:'Noto Sans KR',sans-serif;">
+                <button class="btn btn-primary" onclick="runRetrospective()">⏪ 회고 실행</button>
+            </div>
+            <div class="collapsible open" id="retroSection" style="margin-top:15px;">
+                <div class="collapsible-header" onclick="toggleCollapsible('retroSection')"><span>✋ 번호 선택</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-content">
+                    <div class="number-grid" id="retroNumberGrid"></div>
+                    <div id="retroSelectedBalls" style="text-align:center;margin:10px 0;"></div>
+                    <div style="text-align:center;"><span id="retroSelectedCount">선택: 0개 / 6개</span></div>
+                    <button class="btn btn-gold" onclick="applyRetroNumbers()" id="retroApplyBtn" disabled style="width:100%;margin-top:10px;">✅ 번호 적용</button>
+                </div>
+            </div>
+            <div id="retroResult" class="hidden">
+                <div id="retroContent"></div>
             </div>
         </div>
         <div class="card" id="savedPredictionsCard">
