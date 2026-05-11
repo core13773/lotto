@@ -199,10 +199,10 @@
         .stat-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px; }
         .stat-help { position: absolute; top: 8px; right: 8px; }
         
-        .number-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; margin: 20px 0; }
-        @media (max-width: 600px) { .number-grid { grid-template-columns: repeat(9, 1fr); gap: 5px; } }
-        .number-btn { aspect-ratio: 1; min-height: 44px; border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: rgba(139,92,246,0.4); touch-action: manipulation; }
-        @media (max-width: 480px) { .number-btn { min-height: 40px; font-size: 0.8rem; } }
+        .number-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; margin: 20px 0; overflow: hidden; }
+        @media (max-width: 600px) { .number-grid { gap: 4px; } }
+        .number-btn { aspect-ratio: 1; width: 100%; height: auto; min-width: 0; border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: clamp(0.65rem, 2.5vw, 0.9rem); cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: rgba(139,92,246,0.4); touch-action: manipulation; }
+        @media (max-width: 400px) { .number-btn { font-size: 0.6rem; border-width: 1px; } }
         .number-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
         .number-btn.selected { transform: scale(1.1); box-shadow: 0 0 15px currentColor; }
         .number-btn.selected.yellow { background: var(--ball-yellow); color: #333; border-color: #ffd700; }
@@ -414,22 +414,28 @@
         .matching-balls-detail { margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
         
         @media (max-width: 480px) {
-            .container { padding: 8px; }
-            .card { padding: 14px; }
-            .ball { width: 44px; height: 44px; font-size: 1rem; }
-            .balls-container { gap: 8px; }
-            .btn { padding: 14px 22px; font-size: 0.95rem; min-height: 44px; }
-            .input-field { padding: 14px 16px; font-size: 1rem; min-height: 44px; }
-            .collapsible-header { padding: 16px 18px; min-height: 44px; }
+            .container { padding: 4px; }
+            .card { padding: 10px; }
+            .ball { width: 40px; height: 40px; font-size: 0.9rem; }
+            .balls-container { gap: 6px; }
+            .btn { padding: 12px 18px; font-size: 0.9rem; min-height: 44px; }
+            .input-field { padding: 12px 14px; font-size: 0.95rem; min-height: 44px; }
+            .collapsible-header { padding: 14px 16px; min-height: 44px; }
+            .collapsible-content { padding: 0 12px 14px; }
             .sim-controls { flex-direction: column; gap: 10px; }
-            .sim-input { width: 100%; padding: 14px 16px; }
-            .stats-row { gap: 10px; }
-            .stat-item { min-width: 70px; padding: 10px 12px; }
-            .stat-value { font-size: 1.1rem; }
-            .score-main { font-size: 2.2rem; }
+            .sim-input { width: 100%; padding: 12px 14px; }
+            .stats-row { gap: 8px; }
+            .stat-item { min-width: 60px; padding: 8px 10px; }
+            .stat-value { font-size: 1rem; }
+            .score-main { font-size: 2rem; }
             .analysis-grid { grid-template-columns: repeat(1, 1fr); }
-            .section-seg { padding: 8px 4px; }
+            .section-seg { padding: 6px 3px; }
             .section-bar { gap: 2px; }
+            .number-grid { gap: 3px; margin: 10px 0; }
+            .exclude-grid { gap: 3px; }
+            .frequency-heatmap { gap: 3px; }
+            .pair-matrix { gap: 2px; }
+            .pair-item { padding: 6px 10px; gap: 4px; }
             
             /* 모바일 예측 카드 스타일 */
             .pred-card-header { padding: 12px 15px; flex-direction: column; align-items: flex-start; }
@@ -502,12 +508,14 @@
 
         /* ── 빈도 히트맵 ── */
         .frequency-heatmap {
-            display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px;
+            display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; overflow: hidden;
         }
         .freq-cell {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 12px 4px; border-radius: 10px; transition: transform 0.2s ease;
+            padding: clamp(4px, 1.5vw, 12px) clamp(2px, 1vw, 4px);
+            border-radius: 10px; transition: transform 0.2s ease;
             border: 1px solid rgba(255,255,255,0.05);
+            min-width: 0; overflow: hidden;
         }
         .freq-cell:hover { transform: scale(1.08); z-index: 2; }
         .freq-cell.freq-hot { border: 2px solid var(--accent-gold); }
@@ -566,6 +574,21 @@
             50% { opacity: 1; }
             100% { transform: translateY(100vh) rotate(720deg) scale(0.3); opacity: 0; }
         }
+        /* 초소형 화면 (360px 이하) */
+        @media (max-width: 360px) {
+            .number-grid, .exclude-grid, .frequency-heatmap, .pair-matrix { gap: 2px; }
+            .number-btn { font-size: 0.55rem; border-width: 1px; }
+            .exclude-btn { font-size: 0.55rem; border-width: 1px; }
+            .freq-cell { padding: 4px 1px; }
+            .freq-num { font-size: 0.65rem; }
+            .freq-count { font-size: 0.55rem; }
+            .pair-matrix-cell { padding: 2px 0; }
+            .pair-matrix-cell .ball { width: 22px !important; height: 22px !important; line-height: 22px !important; font-size: 0.6rem !important; }
+            .stats-tab, .ai-mode-tab { padding: 6px 4px; font-size: 0.65rem; }
+            .btn { padding: 10px 14px; font-size: 0.85rem; }
+            .card { padding: 8px; }
+        }
+
         .confetti-container {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; z-index: 1000; overflow: hidden;
@@ -632,11 +655,13 @@
         .toggle-switch input:checked + .toggle-slider::before { transform: translateX(24px); }
 
         /* ── 제외 번호 그리드 ── */
-        .exclude-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+        .exclude-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; overflow: hidden; }
         .exclude-btn {
-            aspect-ratio: 1; min-height: 40px; border: 2px solid rgba(255,255,255,0.1);
+            aspect-ratio: 1; width: 100%; height: auto; min-width: 0;
+            border: 2px solid rgba(255,255,255,0.1);
             border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary);
-            font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.9rem;
+            font-family: 'Orbitron', sans-serif; font-weight: 700;
+            font-size: clamp(0.65rem, 2.5vw, 0.9rem);
             cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent;
         }
         .exclude-btn:hover { background: rgba(255,255,255,0.1); }
@@ -653,11 +678,11 @@
         }
         .pair-rank { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--text-secondary); min-width: 28px; }
         .pair-count { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--accent-cyan); margin-left: auto; min-width: 40px; text-align: right; }
-        .pair-matrix { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+        .pair-matrix { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; overflow: hidden; }
         .pair-matrix-cell {
-            display: flex; align-items: center; gap: 3px; padding: 5px 4px;
+            display: flex; align-items: center; gap: 3px; padding: 5px 2px;
             background: rgba(0,0,0,0.2); border-radius: 8px; justify-content: center;
-            flex-wrap: wrap;
+            flex-wrap: wrap; min-width: 0; overflow: hidden;
         }
 
         /* ── 당첨 회고 ── */
@@ -679,11 +704,17 @@
         @media (max-width: 480px) {
             .frequency-heatmap { grid-template-columns: repeat(9, 1fr); gap: 4px; }
             .freq-cell { padding: 8px 2px; }
-            .freq-num { font-size: 0.85rem; }
-            .freq-count { font-size: 0.65rem; }
+            .freq-num { font-size: 0.75rem; }
+            .freq-count { font-size: 0.6rem; }
             .hotcold-panel { padding: 12px; }
-            .stats-tab, .ai-mode-tab { padding: 8px 10px; font-size: 0.8rem; }
+            .hotcold-panel + div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+            .stats-tab, .ai-mode-tab { padding: 8px 6px; font-size: 0.7rem; }
             .smart-quick-stats { gap: 8px; font-size: 0.75rem; }
             .chart-row[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
             .settings-panel { padding: 20px; }
+            .exclude-btn { font-size: clamp(0.55rem, 3vw, 0.8rem); }
+            .pair-matrix-cell { padding: 3px 1px; gap: 1px; }
+            .pair-list { gap: 4px; }
+            .retro-stat-value { font-size: 1.1rem; }
+            .retro-table th, .retro-table td { padding: 6px; font-size: 0.7rem; }
         }
