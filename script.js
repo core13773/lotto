@@ -1913,7 +1913,10 @@ function runSmartRecommend() {
                     <span class="smart-rank">#${i + 1}</span>
                     <span class="smart-score" style="color:${rec.score >= 70 ? 'var(--grade-excellent)' : rec.score >= 50 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${rec.score.toFixed(0)}점</span>
                     ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
-                    <button class="btn btn-secondary" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" onclick="saveSmartPrediction([${rec.numbers}], ${rec.score.toFixed(0)}, '${analysis.sum}|${analysis.ac}|${analysis.oddEvenRatio}|${analysis.sectionsWithNumbers}개구간')">💾 저장</button>
+                    <div style="margin-left:auto;display:flex;gap:4px;">
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${rec.numbers}], ${rec.score.toFixed(0)})">📤</button>
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="saveSmartPrediction([${rec.numbers}], ${rec.score.toFixed(0)}, '${analysis.sum}|${analysis.ac}|${analysis.oddEvenRatio}|${analysis.sectionsWithNumbers}개구간')">💾</button>
+                    </div>
                 </div>
                 <div class="balls-container" style="padding:10px 0;gap:6px;">
                     ${rec.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:42px;height:42px;line-height:42px;font-size:0.9rem;">${n}</span>`).join('')}
@@ -2054,7 +2057,10 @@ function renderCustomCombos(combos) {
                     <span class="smart-rank">#${i + 1}</span>
                     <span class="smart-score" style="color:${score.totalScore >= 75 ? 'var(--grade-excellent)' : score.totalScore >= 60 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${score.totalScore}점 (${score.grade})</span>
                     ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
-                    <button class="btn btn-secondary" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" onclick="saveCustomPrediction([${nums}], ${score.totalScore}, '${score.grade}')">💾 저장</button>
+                    <div style="margin-left:auto;display:flex;gap:4px;">
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${nums}], ${score.totalScore})">📤</button>
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="saveCustomPrediction([${nums}], ${score.totalScore}, '${score.grade}')">💾</button>
+                    </div>
                 </div>
                 <div class="balls-container" style="padding:10px 0;gap:6px;">
                     ${nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:42px;height:42px;line-height:42px;font-size:0.9rem;">${n}</span>`).join('')}
