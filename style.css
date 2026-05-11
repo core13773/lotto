@@ -408,6 +408,7 @@
         .prize-match-count { font-family: 'Orbitron', sans-serif; font-size: 2rem; color: var(--accent-gold); margin-left: 10px; }
         .prize-tier { padding: 10px 20px; border-radius: 10px; font-weight: 700; margin-bottom: 10px; }
         .prize-tier.tier-1 { background: linear-gradient(135deg, #ffd700, #ff9500); color: #1a1a1a; }
+        .prize-tier.tier-2 { background: linear-gradient(135deg, #c0c0c0, #e0e0e0); color: #1a1a1a; }
         .prize-tier.tier-3 { background: rgba(16,185,129,0.3); color: #34d399; }
         .prize-tier.tier-4 { background: rgba(59,130,246,0.3); color: #60a5fa; }
         .prize-tier.tier-5 { background: rgba(139,92,246,0.3); color: #a78bfa; }
@@ -700,21 +701,4 @@
             flex-wrap: wrap;
         }
 
-        /* ── 모바일 대응 ── */
-        @media (max-width: 480px) {
-            .frequency-heatmap { grid-template-columns: repeat(9, 1fr); gap: 4px; }
-            .freq-cell { padding: 8px 2px; }
-            .freq-num { font-size: 0.75rem; }
-            .freq-count { font-size: 0.6rem; }
-            .hotcold-panel { padding: 12px; }
-            .hotcold-panel + div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
-            .stats-tab, .ai-mode-tab { padding: 8px 6px; font-size: 0.7rem; }
-            .smart-quick-stats { gap: 8px; font-size: 0.75rem; }
-            .chart-row[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
-            .settings-panel { padding: 20px; }
-            .exclude-btn { font-size: clamp(0.55rem, 3vw, 0.8rem); }
-            .pair-matrix-cell { padding: 3px 1px; gap: 1px; }
-            .pair-list { gap: 4px; }
-            .retro-stat-value { font-size: 1.1rem; }
-            .retro-table th, .retro-table td { padding: 6px; font-size: 0.7rem; }
-        }
+

@@ -1,10 +1,5 @@
 let currentWinningNumbers = null, currentBonusNumber = null, currentRound = null, selectedManualNumbers = [], simulationWorker = null, predictions = [], isSimulating = false, isFetching = false;
-const CORS_PROXIES = [];
-// 로컬 프록시 서버 (node server.js 실행 시 사용 가능)
-// GitHub Pages 등 정적 호스팅에서는 수동 입력을 사용하세요.
 const LOCAL_PROXY = 'http://localhost:3456';
-// 참고: corsproxy.io는 유료화, codetabs.com은 작동 중단됨
-// 필요시 추가 프록시: 'https://proxy.cors.sh/' (API 키 필요)
 const LOTTO_TOTAL_COMBINATIONS = 8145060;
 
 // 구형 브라우저 AbortSignal.timeout 폴백
@@ -341,16 +336,6 @@ function renderBalls(numbers, containerId, bonus = null) {
     }
 }
 
-async function fetchWithProxy(url) {
-    for (const proxy of CORS_PROXIES) {
-        try {
-            const response = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
-            if (response.ok) return await response.text();
-        } catch (e) { continue; }
-    }
-    return null;
-}
-
 async function fetchFromLocalProxy(roundNo) {
     try {
         const resp = await fetch(`${LOCAL_PROXY}/api/lotto?round=${roundNo}`, { signal: AbortSignal.timeout(8000) });
@@ -358,94 +343,6 @@ async function fetchFromLocalProxy(roundNo) {
             const data = await resp.json();
             if (data.numbers) return data;
         }
-    } catch (e) {}
-    return null;
-}
-
-async function fetchFromOfficial(roundNo) {
-    const url = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${roundNo}`;
-    try {
-        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (resp.ok) {
-            const data = await resp.json();
-            if (data.returnValue === 'success') {
-                return {
-                    numbers: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6].sort((a, b) => a - b),
-                    bonus: data.bnusNo
-                };
-            }
-        }
-    } catch (e) {}
-    for (const proxy of CORS_PROXIES) {
-        try {
-            const resp = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data.returnValue === 'success') {
-                    return {
-                        numbers: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6].sort((a, b) => a - b),
-                        bonus: data.bnusNo
-                    };
-                }
-            }
-        } catch (e) { continue; }
-    }
-    return null;
-}
-
-function extractLottoNumbers(text) {
-    // 보너스 번호 포함 7개 패턴 (6개 + 보너스)
-    const patterns7 = [
-        /(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[^\d]*\+?\s*보?너?스?\s*:?\s*(\d{1,2})/g,
-        /(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})/g
-    ];
-    const patterns6 = [/(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})\s*[,·\s]+\s*(\d{1,2})/g];
-
-    // 먼저 보너스 포함 7개 번호 패턴 시도
-    for (const pattern of patterns7) {
-        const matches = [...text.matchAll(pattern)];
-        for (const match of matches) {
-            const nums = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseInt(match[4]), parseInt(match[5]), parseInt(match[6])];
-            const bonus = parseInt(match[7]);
-            const allNums = [...nums, bonus];
-            if (allNums.every(n => n >= 1 && n <= 45) && new Set(allNums).size === 7) {
-                return { numbers: nums.sort((a, b) => a - b), bonus };
-            }
-        }
-    }
-    // 6개 번호만 있는 패턴
-    for (const pattern of patterns6) {
-        const matches = [...text.matchAll(pattern)];
-        for (const match of matches) {
-            const nums = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseInt(match[4]), parseInt(match[5]), parseInt(match[6])];
-            if (nums.every(n => n >= 1 && n <= 45) && new Set(nums).size === 6) {
-                return { numbers: nums.sort((a, b) => a - b), bonus: null };
-            }
-        }
-    }
-    return null;
-}
-
-async function fetchFromNaver(roundNo) {
-    try {
-        const html = await fetchWithProxy(`https://search.naver.com/search.naver?where=nexearch&query=${roundNo}회+로또+당첨번호`);
-        if (html) return extractLottoNumbers(html);
-    } catch (e) {}
-    return null;
-}
-
-async function fetchFromDaum(roundNo) {
-    try {
-        const html = await fetchWithProxy(`https://search.daum.net/search?w=tot&q=${roundNo}회+로또+당첨번호`);
-        if (html) return extractLottoNumbers(html);
-    } catch (e) {}
-    return null;
-}
-
-async function fetchFromNate(roundNo) {
-    try {
-        const html = await fetchWithProxy(`https://search.nate.com/search/all.html?q=${roundNo}회+로또+당첨번호`);
-        if (html) return extractLottoNumbers(html);
     } catch (e) {}
     return null;
 }
@@ -488,18 +385,6 @@ function finishFetch(btn) {
     isFetching = false;
     btn.disabled = false;
     btn.textContent = '🔍 조회';
-}
-
-function showPortalResults(results) {
-    const container = document.getElementById('portalResultsList');
-    container.innerHTML = '';
-    results.forEach(r => {
-        const div = document.createElement('div');
-        div.className = 'portal-result';
-        div.innerHTML = `<span class="portal-status">${r.success ? '✅' : '❌'}</span><span class="portal-name">${r.name}</span><span style="color:${r.success ? 'var(--accent-cyan)' : 'var(--text-secondary)'}">${r.success ? r.nums.join(', ') : (r.reason || '실패')}</span>`;
-        container.appendChild(div);
-    });
-    document.getElementById('portalResults').classList.remove('hidden');
 }
 
 function setWinningNumbers(numbers, bonus, round, source) {
@@ -1418,7 +1303,7 @@ function renderCompactAnalysis(a, score, matching) {
 function generateRandomNumbers() { const pool = Array.from({length: 45}, (_, i) => i + 1); for (let i = pool.length - 1; i > 0; i--) { const randomArray = new Uint32Array(1); crypto.getRandomValues(randomArray); const j = randomArray[0] % (i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; } return pool.slice(0, 6).sort((a, b) => a - b); }
 function showStatus(type, message) { const container = document.getElementById('fetchStatus'); container.className = `status ${type}`; container.textContent = message; container.classList.remove('hidden'); }
 function toggleCollapsible(id) { document.getElementById(id).classList.toggle('open'); }
-function preventRefresh(e) { e.preventDefault(); }
+function preventRefresh(e) { e.preventDefault(); e.returnValue = ''; }
 function formatNumber(num) { if (num >= 100000000) return (num / 100000000).toFixed(1) + '억'; if (num >= 10000) return (num / 10000).toFixed(0) + '만'; return num.toLocaleString(); }
 
 // ========== 회차 비교 ==========
@@ -2157,6 +2042,8 @@ function playBeep(freq = 800, duration = 0.1) {
 function fireConfetti() {
     if (!uxSettings.animation) return;
     const container = document.getElementById('confettiContainer');
+    const batch = document.createElement('div');
+    batch.className = 'confetti-batch';
     const colors = ['#ffd700', '#00f5ff', '#ff006e', '#8b5cf6', '#10b981', '#f97316', '#ef4444', '#3b82f6'];
     const frag = document.createDocumentFragment();
     for (let i = 0; i < 60; i++) {
@@ -2176,8 +2063,9 @@ function fireConfetti() {
         `;
         frag.appendChild(particle);
     }
-    container.appendChild(frag);
-    setTimeout(() => { container.innerHTML = ''; }, 4000);
+    batch.appendChild(frag);
+    container.appendChild(batch);
+    setTimeout(() => { batch.remove(); }, 4000);
 }
 
 function copyEmail() {
@@ -2247,9 +2135,9 @@ function renderPairAnalysis() {
                 `).join('')}
             </div>
         </div>
-        <div class="collapsible">
+        <div class="collapsible" id="pairDetail">
             <div class="collapsible-header" onclick="toggleCollapsible('pairDetail')"><span>🔍 번호별 최강 파트너 찾기</span><span class="collapsible-icon">▼</span></div>
-            <div class="collapsible-content" id="pairDetail">
+            <div class="collapsible-content">
                 <p style="color:var(--text-secondary);margin-bottom:10px;">각 번호 옆의 숫자는 가장 자주 함께 출현한 파트너입니다.</p>
                 <div class="pair-matrix" id="pairMatrix"></div>
             </div>
@@ -2257,7 +2145,9 @@ function renderPairAnalysis() {
     `;
 
     // 번호별 최강 파트너 그리드
-    const matrix = document.getElementById('pairMatrix');
+    const pairContent = document.querySelector('#pairDetail .collapsible-content');
+    const matrixDiv = document.createElement('div');
+    matrixDiv.className = 'pair-matrix';
     for (let n = 1; n <= 45; n++) {
         const best = topPerNumber[n]?.[0];
         const cell = document.createElement('div');
@@ -2268,8 +2158,9 @@ function renderPairAnalysis() {
             <span class="ball ${getBallClass(best.a === n ? best.b : best.a)}" style="width:28px;height:28px;line-height:28px;font-size:0.7rem;">${best.a === n ? best.b : best.a}</span>
             <span style="font-size:0.6rem;color:var(--accent-cyan);">${best.count}회</span>` : '<span style="font-size:0.7rem;color:var(--text-secondary);">-</span>'}
         `;
-        matrix.appendChild(cell);
+        matrixDiv.appendChild(cell);
     }
+    if (pairContent) { pairContent.appendChild(matrixDiv); }
 }
 
 // ========== 당첨 회고 ==========
@@ -2381,9 +2272,9 @@ function runRetrospective() {
             </table>
 
             ${results.round3.length > 0 ? `
-                <div class="collapsible" style="margin-top:20px;">
+                <div class="collapsible" id="retroDetail" style="margin-top:20px;">
                     <div class="collapsible-header" onclick="toggleCollapsible('retroDetail')"><span>📋 당첨 상세 내역</span><span class="collapsible-icon">▼</span></div>
-                    <div class="collapsible-content" id="retroDetail">
+                    <div class="collapsible-content">
                         ${[...results.round5, ...results.round4, ...results.round3].map(r => `
                             <div class="retro-item">
                                 <span class="prize-rank">${r.grade}</span>
@@ -2474,7 +2365,7 @@ async function shareSite() {
 }
 
 // ========== PWA 알림 ==========
-let notificationEnabled = false;
+let notificationEnabled = false, notifyTimeout = null;
 
 async function toggleNotifications() {
     if (!('Notification' in window)) {
@@ -2515,6 +2406,7 @@ function updateNotifyBtn() {
 
 function scheduleNotification() {
     if (!notificationEnabled || Notification.permission !== 'granted') return;
+    if (notifyTimeout) clearTimeout(notifyTimeout);
 
     // 다음 토요일 20:50 KST 계산
     const now = new Date();
@@ -2540,11 +2432,10 @@ function scheduleNotification() {
 
     const delay = nextSat.getTime() - kst.getTime();
     if (delay > 0) {
-        setTimeout(() => {
+        notifyTimeout = setTimeout(() => {
             if (notificationEnabled) {
                 new Notification('🎰 로또 645 추첨 10분 전!', {
-                    body: '곧 로또 추첨이 시작됩니다. 번호 확인하세요!',
-                    icon: '/manifest.json',
+                    body: '곧 로또 추첨이 시작됩니다. 로또645 앱에서 번호 확인하세요!',
                     vibrate: [200, 100, 200],
                     requireInteraction: true
                 });

@@ -45,7 +45,10 @@ hours = now.hour
 if dow == 5 and hours >= 21:  # 토요일 21시 이후
     last_draw = now.replace(hour=21, minute=0, second=0, microsecond=0)
 else:
-    days_since_sat = dow + 2 if dow >= 5 else 5 - dow  # 지난 토요일까지 일수
+    # 지난 토요일까지 일수: (현재 요일 + 2) % 7 (월=0 → 2, 화=1 → 3, ..., 토=5 → 0, 일=6 → 1)
+    days_since_sat = (dow + 2) % 7
+    if days_since_sat == 0:
+        days_since_sat = 7  # 토요일인데 21시 이전이면 지난주 토요일
     last_draw = now - timedelta(days=days_since_sat)
     last_draw = last_draw.replace(hour=21, minute=0, second=0, microsecond=0)
 latest_round = int((last_draw - first_draw).days / 7) + 1

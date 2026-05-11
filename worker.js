@@ -7,11 +7,11 @@ self.onmessage = function(e) {
 
     function generateNumbers() {
         const pool = POOL.slice();
-        // Fisher-Yates shuffle with crypto.getRandomValues
+        // Fisher-Yates shuffle: 45개의 난수를 한 번에 생성 (crypto 호출 1회)
+        const rand = new Uint32Array(45);
+        crypto.getRandomValues(rand);
         for (let i = pool.length - 1; i > 0; i--) {
-            const rand = new Uint32Array(1);
-            crypto.getRandomValues(rand);
-            const j = rand[0] % (i + 1);
+            const j = rand[pool.length - 1 - i] % (i + 1);
             [pool[i], pool[j]] = [pool[j], pool[i]];
         }
         return pool.slice(0, 6).sort((a, b) => a - b);
