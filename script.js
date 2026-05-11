@@ -33,6 +33,7 @@ async function loadLatestJson() {
             // 배열 형식 (전체 회차 DB)
             if (Array.isArray(data) && data.length > 0) {
                 lottoDb = data;
+                cachedNumberScores = null; // DB 변경 시 캐시 초기화
                 const latest = data[data.length - 1];
                 document.getElementById('roundInput').value = latest.round;
                 document.getElementById('roundInput').max = latest.round;
@@ -167,7 +168,10 @@ function loadSavedPrediction(index) {
 
     const analysis = analyzeNumbers(item.numbers);
     const score = calculateQualityScore(analysis);
-    displayScoreCard('prediction', score, analysis);
+    const filterResult = checkFilters(item.numbers);
+    const percentileRank = calculatePercentileRank(item.numbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
     document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
 
     const matching = item.numbers.filter(n => currentWinningNumbers.includes(n));
@@ -386,7 +390,10 @@ function setWinningNumbers(numbers, bonus, round, source) {
 
     const analysis = analyzeNumbers(numbers);
     const score = calculateQualityScore(analysis);
-    displayScoreCard('winning', score, analysis);
+    const filterResult = checkFilters(numbers);
+    const percentileRank = calculatePercentileRank(numbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    displayScoreCard('winning', score, analysis, filterResult, gradeResult);
     document.getElementById('winningAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
 
     document.getElementById('currentWinning').classList.remove('hidden');
@@ -526,7 +533,7 @@ function calculateQualityScore(a) {
 }
 
 // 점수 카드 표시
-function displayScoreCard(prefix, scoreData, analysis) {
+function displayScoreCard(prefix, scoreData, analysis, filterResult = null, gradeResult = null) {
     document.getElementById(`${prefix}Score`).textContent = scoreData.totalScore;
     document.getElementById(`${prefix}ScoreGrade`).textContent = `등급: ${scoreData.grade} (상위 ${getPercentile(scoreData.totalScore)}%)`;
     
@@ -539,6 +546,20 @@ function displayScoreCard(prefix, scoreData, analysis) {
         </div>
     `).join('');
     document.getElementById(`${prefix}ScoreBreakdown`).innerHTML = breakdownHtml;
+
+    // 필터 결과 표시
+    const filterEl = document.getElementById(`${prefix}FilterResult`);
+    if (filterEl && filterResult) {
+        filterEl.innerHTML = renderFilterBadge(filterResult);
+        filterEl.classList.remove('hidden');
+    }
+
+    // 등급 판정 표시
+    const gradeEl = document.getElementById(`${prefix}GradeResult`);
+    if (gradeEl && gradeResult) {
+        gradeEl.innerHTML = `<span class="grade-badge-large ${gradeResult.cls}">${gradeResult.grade} ${gradeResult.label}</span>`;
+        gradeEl.classList.remove('hidden');
+    }
 }
 
 function getPercentile(score) {
@@ -548,6 +569,348 @@ function getPercentile(score) {
     if (score >= 60) return '55';
     if (score >= 50) return '70';
     return '85';
+}
+
+// ========== 통합 필터 시스템 (Excel 번호_생성기 기준) ==========
+function checkFilters(nums) {
+    const sorted = [...nums].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    const oddCount = sorted.filter(n => n % 2 === 1).length;
+    const range = sorted[5] - sorted[0];
+
+    // 연속쌍 계산
+    let consecPairs = 0;
+    for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i + 1] - sorted[i] === 1) consecPairs++;
+    }
+
+    // 구간 밀집도 (한 구간에 최대 몇 개)
+    const sections = [0, 0, 0, 0, 0]; // 1-9, 10-19, 20-29, 30-39, 40-45
+    sorted.forEach(n => {
+        if (n <= 9) sections[0]++;
+        else if (n <= 19) sections[1]++;
+        else if (n <= 29) sections[2]++;
+        else if (n <= 39) sections[3]++;
+        else sections[4]++;
+    });
+    const maxSectionConcentration = Math.max(...sections);
+
+    const results = {
+        sum: { pass: sum >= 78 && sum <= 197, value: sum, label: '합계', icon: sum >= 78 && sum <= 197 ? '✓' : '✗', range: '78~197' },
+        oddEven: { pass: oddCount >= 1 && oddCount <= 5, value: `홀${oddCount} 짝${6-oddCount}`, label: '홀짝', icon: oddCount >= 1 && oddCount <= 5 ? '✓' : '✗', range: '홀1~5' },
+        consec: { pass: consecPairs <= 2, value: `${consecPairs}쌍`, label: '연속쌍', icon: consecPairs <= 2 ? '✓' : '✗', range: '≤2쌍' },
+        section: { pass: maxSectionConcentration <= 3, value: `최대${maxSectionConcentration}개`, label: '구간밀집', icon: maxSectionConcentration <= 3 ? '✓' : '✗', range: '≤3개' },
+        range: { pass: range >= 14, value: `${range}`, label: '번호폭', icon: range >= 14 ? '✓' : '✗', range: '≥14' }
+    };
+
+    const allPass = Object.values(results).every(r => r.pass);
+    const passCount = Object.values(results).filter(r => r.pass).length;
+
+    return { results, allPass, passCount, details: { sum, oddCount, consecPairs, maxSectionConcentration, range } };
+}
+
+// ========== 등급 판정 (Excel 번호_생성기 기준) ==========
+function determineGrade(filterResult, percentileRank) {
+    let gradeScore = 0;
+    if (filterResult.allPass) gradeScore += 3;
+    else if (filterResult.passCount >= 3) gradeScore += 1;
+
+    if (percentileRank >= 75) gradeScore += 3;
+    else if (percentileRank >= 50) gradeScore += 2;
+    else if (percentileRank >= 25) gradeScore += 1;
+
+    if (gradeScore >= 6) return { grade: '★★★', label: '적극권장', cls: 'grade-jackpot' };
+    if (gradeScore >= 4) return { grade: '★★☆', label: '긍정적', cls: 'grade-high' };
+    if (gradeScore >= 2) return { grade: '★☆☆', label: '중립', cls: 'grade-mid' };
+    return { grade: '☆☆☆', label: '신중', cls: 'grade-low' };
+}
+
+// ========== 전체 회차 교차 매칭 (Excel _참고계산 시트 로직) ==========
+function crossMatchAllHistory(nums) {
+    if (!lottoDb || lottoDb.length === 0) return null;
+    const numSet = new Set(nums);
+    let results = [];
+
+    lottoDb.forEach(entry => {
+        if (!entry.numbers) return;
+        const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
+        const bonusMatch = entry.bonus && numSet.has(entry.bonus) ? 1 : 0;
+
+        let crossScore = 0;
+        if (matchCount === 6) crossScore = 6;
+        else if (matchCount === 5 && bonusMatch) crossScore = 5;
+        else if (matchCount === 5) crossScore = 4;
+        else if (matchCount === 4) crossScore = 3;
+        else if (matchCount === 3) crossScore = 2;
+
+        let gradeLabel = '-';
+        if (matchCount >= 6) gradeLabel = '1등';
+        else if (matchCount === 5 && bonusMatch) gradeLabel = '2등';
+        else if (matchCount === 5) gradeLabel = '3등';
+        else if (matchCount === 4) gradeLabel = '4등';
+        else if (matchCount === 3) gradeLabel = '5등';
+
+        results.push({
+            round: entry.round,
+            numbers: entry.numbers,
+            bonus: entry.bonus,
+            matchCount,
+            bonusMatch,
+            crossScore,
+            gradeLabel
+        });
+    });
+
+    const totalCrossScore = results.reduce((sum, r) => sum + r.crossScore, 0);
+    const totalMatches = results.reduce((sum, r) => sum + (r.matchCount >= 3 ? 1 : 0), 0);
+    const statBreakdown = {
+        first: results.filter(r => r.matchCount >= 6).length,
+        second: results.filter(r => r.matchCount === 5 && r.bonusMatch).length,
+        third: results.filter(r => r.matchCount === 5 && !r.bonusMatch).length,
+        fourth: results.filter(r => r.matchCount === 4).length,
+        fifth: results.filter(r => r.matchCount === 3).length
+    };
+
+    return { results, totalCrossScore, totalMatches, statBreakdown };
+}
+
+// ========== 백분위 순위 계산 ==========
+function calculatePercentileRank(nums) {
+    if (!lottoDb || lottoDb.length === 0) return 0;
+    const numSet = new Set(nums);
+    const ownScore = crossMatchScore(nums);
+
+    let lowerCount = 0;
+    lottoDb.forEach(entry => {
+        if (!entry.numbers) return;
+        const entryScore = crossMatchScore(entry.numbers);
+        if (entryScore < ownScore) lowerCount++;
+    });
+
+    return Math.round((1 - lowerCount / lottoDb.length) * 1000) / 10;
+}
+
+function crossMatchScore(nums) {
+    if (!lottoDb || lottoDb.length === 0) return 0;
+    const numSet = new Set(nums);
+    let total = 0;
+    lottoDb.forEach(entry => {
+        if (!entry.numbers) return;
+        const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
+        const bonusMatch = entry.bonus && numSet.has(entry.bonus) ? 1 : 0;
+        if (matchCount >= 6) total += 6;
+        else if (matchCount === 5 && bonusMatch) total += 5;
+        else if (matchCount === 5) total += 4;
+        else if (matchCount === 4) total += 3;
+        else if (matchCount === 3) total += 2;
+        else total += 0;
+    });
+    return total;
+}
+
+// ========== 유사 과거 회차 TOP3 ==========
+function findTop3SimilarRounds(nums) {
+    if (!lottoDb || lottoDb.length === 0) return [];
+    const numSet = new Set(nums);
+    const scored = lottoDb.map(entry => {
+        if (!entry.numbers) return null;
+        const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
+        const bonusMatch = entry.bonus && numSet.has(entry.bonus) ? 1 : 0;
+        const sortKey = matchCount * 10000 + bonusMatch * 1000 + Math.random() * 100;
+        return { ...entry, matchCount, bonusMatch, sortKey };
+    }).filter(Boolean);
+
+    scored.sort((a, b) => b.sortKey - a.sortKey);
+    return scored.slice(0, 3);
+}
+
+// ========== 최근 5회차 가상 매칭 ==========
+function runRecentMatchSimulation(nums) {
+    if (!lottoDb || lottoDb.length < 5) return [];
+    const numSet = new Set(nums);
+    const recent5 = lottoDb.slice(-5).reverse();
+
+    return recent5.map(entry => {
+        const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
+        const bonusMatch = entry.bonus && numSet.has(entry.bonus) ? true : false;
+
+        let gradeLabel = '-', gradeClass = '';
+        if (matchCount >= 6) { gradeLabel = '1등'; gradeClass = 'grade-jackpot'; }
+        else if (matchCount === 5 && bonusMatch) { gradeLabel = '2등'; gradeClass = 'grade-jackpot'; }
+        else if (matchCount === 5) { gradeLabel = '3등'; gradeClass = 'grade-high'; }
+        else if (matchCount === 4) { gradeLabel = '4등'; gradeClass = 'grade-mid'; }
+        else if (matchCount === 3) { gradeLabel = '5등'; gradeClass = 'grade-low'; }
+
+        return { round: entry.round, numbers: entry.numbers, bonus: entry.bonus, matchCount, bonusMatch, gradeLabel, gradeClass };
+    });
+}
+
+// ========== 번호별 추천점수/제외점수 ==========
+let cachedNumberScores = null;
+function computeNumberScores() {
+    if (!lottoDb || lottoDb.length === 0) return null;
+    if (cachedNumberScores) return cachedNumberScores;
+    const scores = {};
+    const latestRound = lottoDb[lottoDb.length - 1].round;
+    const recent10 = lottoDb.slice(-10);
+    const recent20 = lottoDb.slice(-20);
+    const recent50 = lottoDb.slice(-50);
+
+    // 각 번호별 기본 통계
+    for (let n = 1; n <= 45; n++) {
+        const appearances = [];
+        lottoDb.forEach((entry, idx) => {
+            if (entry.numbers && entry.numbers.includes(n)) {
+                appearances.push({ round: entry.round, bonus: entry.bonus === n });
+            }
+        });
+
+        const totalAppearances = appearances.length;
+        const recent10Count = recent10.filter(e => e.numbers && e.numbers.includes(n)).length;
+        const recent20Count = recent20.filter(e => e.numbers && e.numbers.includes(n)).length;
+        const recent50Count = recent50.filter(e => e.numbers && e.numbers.includes(n)).length;
+
+        // 갭 계산
+        let lastSeen = 0;
+        for (let i = lottoDb.length - 1; i >= 0; i--) {
+            if (lottoDb[i].numbers && lottoDb[i].numbers.includes(n)) {
+                lastSeen = lottoDb[i].round;
+                break;
+            }
+        }
+        const currentGap = latestRound - lastSeen;
+
+        // 평균 갭과 최대 갭
+        let gaps = [];
+        for (let i = 1; i < appearances.length; i++) {
+            gaps.push(appearances[i].round - appearances[i-1].round);
+        }
+        const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+        const maxGap = gaps.length > 0 ? Math.max(...gaps) : 0;
+        const stdDev = gaps.length > 1 ? Math.sqrt(gaps.reduce((s, g) => s + Math.pow(g - avgGap, 2), 0) / gaps.length) : 1;
+        const zScore = stdDev > 0 ? (currentGap - avgGap) / stdDev : 0;
+
+        // 최근 10회 갭 추이
+        const recentGaps = gaps.slice(-10);
+
+        // 추세 (↑↑ 가속 / ↑ 증가 / → 유지 / ↓ 감소 / ↓↓ 감속)
+        let trend = '→';
+        if (recent20Count >= 5) trend = recent20Count >= 7 ? '↑↑' : '↑';
+        else if (recent20Count <= 1) trend = recent20Count === 0 ? '↓↓' : '↓';
+
+        // 추천점수 (0~4): 낮을수록 포함 추천
+        let recScore = 0;
+        if (recent10Count >= 3) recScore = 0; // 핫넘버
+        else if (zScore > 1.0) recScore = 0; // 과도결번 (평균회귀 신호)
+        else if (recent10Count >= 2) recScore = 1;
+        else if (zScore > 0.5) recScore = 1;
+        else if (zScore > -0.5) recScore = 2;
+        else if (recent20Count <= 1) recScore = 3;
+        else recScore = 3;
+
+        // 제외점수 (0~4): 높을수록 제외 고려
+        let exclScore = 0;
+        if (recent5Count(n) >= 3) exclScore = 3; // 최근 과출현
+        else if (trend === '↓↓') exclScore = 2;
+        else if (trend === '↓' && recent10Count === 0) exclScore = 3;
+        else if (recent10Count === 0 && currentGap < 15) exclScore = 1;
+        else exclScore = recScore >= 3 ? 2 : 0;
+
+        scores[n] = {
+            appearances: totalAppearances,
+            recent10: recent10Count,
+            recent20: recent20Count,
+            recent50: recent50Count,
+            avgGap: Math.round(avgGap * 10) / 10,
+            currentGap,
+            maxGap,
+            zScore: Math.round(zScore * 100) / 100,
+            trend,
+            recScore,
+            exclScore,
+            recentGaps,
+            lastSeen
+        };
+    }
+    cachedNumberScores = scores;
+    return scores;
+
+    function recent5Count(n) {
+        return lottoDb.slice(-5).filter(e => e.numbers && e.numbers.includes(n)).length;
+    }
+}
+
+// ========== 필터 결과 렌더링 ==========
+function renderFilterBadge(filterResult) {
+    const { results, allPass, passCount } = filterResult;
+    return `
+        <div class="filter-badge-container">
+            <div class="filter-summary ${allPass ? 'filter-pass' : 'filter-fail'}">
+                ${allPass ? '★ 필터 전체 통과' : `✗ 필터 ${5 - passCount}개 불통과`}
+            </div>
+            <div class="filter-details">
+                ${Object.entries(results).map(([key, r]) => `
+                    <span class="filter-item ${r.pass ? 'pass' : 'fail'}" title="${r.label}: ${r.value} (기준: ${r.range})">
+                        ${r.icon} ${r.label}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderCrossMatchSummary(crossResult) {
+    if (!crossResult) return '';
+    return `
+        <div class="crossmatch-summary">
+            <div class="crossmatch-title">📊 전체 회차 교차 매칭</div>
+            <div class="crossmatch-stats">
+                <span>1등: ${crossResult.statBreakdown.first}회</span>
+                <span>2등: ${crossResult.statBreakdown.second}회</span>
+                <span>3등: ${crossResult.statBreakdown.third}회</span>
+                <span>4등: ${crossResult.statBreakdown.fourth}회</span>
+                <span>5등: ${crossResult.statBreakdown.fifth}회</span>
+            </div>
+            <div style="font-size:0.8rem;color:var(--text-secondary);">총 교차점수: ${crossResult.totalCrossScore}점 | 3등 이상 매칭: ${crossResult.totalMatches}회</div>
+        </div>
+    `;
+}
+
+function renderTop3Similar(top3) {
+    if (!top3 || top3.length === 0) return '';
+    return `
+        <div class="top3-container">
+            <div class="top3-title">🔍 유사 과거 회차 TOP3</div>
+            ${top3.map((r, i) => `
+                <div class="top3-item">
+                    <span class="top3-rank">TOP${i + 1}</span>
+                    <span class="top3-round">제 ${r.round}회</span>
+                    <span class="top3-numbers">${r.numbers.join(' ')}</span>
+                    ${r.bonus ? `<span class="top3-bonus">+${r.bonus}</span>` : ''}
+                    <span class="top3-match">${r.matchCount}개 일치${r.bonusMatch ? '+보너스' : ''}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderRecent5Match(recent5) {
+    if (!recent5 || recent5.length === 0) return '';
+    return `
+        <div class="recent5-container">
+            <div class="recent5-title">📅 최근 5회차 가상 매칭</div>
+            <div class="recent5-list">
+                ${recent5.map(r => `
+                    <div class="recent5-item ${r.matchCount >= 3 ? 'has-match' : ''}">
+                        <span class="recent5-round">${r.round}회</span>
+                        <span class="recent5-nums">${r.numbers.join(' ')}</span>
+                        ${r.bonus ? `<span class="recent5-bonus">+${r.bonus}</span>` : ''}
+                        <span class="recent5-match ${r.gradeClass}">${r.matchCount}개${r.gradeLabel !== '-' ? ` (${r.gradeLabel})` : ''}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
 }
 
 // 상세 분석 렌더링 (개선된 버전)
@@ -917,18 +1280,28 @@ function handleComplete(data) {
 function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
     renderBalls(prediction, 'predictionBalls');
     document.getElementById('predictionMeta').textContent = isRandom ? `랜덤 생성 | ${formatNumber(attempts)}회 분석 (패턴 미발견)` : `제 ${currentRound}회 기준 | ${formatNumber(attempts)}회에서 발견 (${elapsed.toFixed(1)}초)`;
-    
+
     const analysis = analyzeNumbers(prediction);
     const score = calculateQualityScore(analysis);
-    displayScoreCard('prediction', score, analysis);
+    const filterResult = checkFilters(prediction);
+    const percentileRank = calculatePercentileRank(prediction);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
+
+    // 교차 매칭, TOP3, 최근5회
+    const crossResult = crossMatchAllHistory(prediction);
+    const top3 = findTop3SimilarRounds(prediction);
+    const recent5 = runRecentMatchSimulation(prediction);
+    updateAdvancedAnalysis('prediction', crossResult, top3, recent5, percentileRank);
+
     document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
-    
+
     const matching = prediction.filter(n => currentWinningNumbers.includes(n));
     const bonusMatch = currentBonusNumber && prediction.includes(currentBonusNumber);
-    if (matching.length > 0) { 
-        document.getElementById('matchCount').textContent = matching.length; 
-        renderBalls(matching, 'matchingBalls'); 
-        
+    if (matching.length > 0) {
+        document.getElementById('matchCount').textContent = matching.length;
+        renderBalls(matching, 'matchingBalls');
+
         let gradeInfo = '';
         if (matching.length >= 6) gradeInfo = '🏆 1등 조건 충족! (모든 번호 일치)';
         else if (matching.length === 5 && bonusMatch) gradeInfo = '🥈 2등 조건 충족! (5개 + 보너스 일치)';
@@ -937,11 +1310,23 @@ function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
         else if (matching.length === 3) gradeInfo = '5등 조건 충족!';
         else gradeInfo = `${matching.length}개 일치 (당첨 조건 미달)`;
         document.getElementById('matchGradeInfo').textContent = gradeInfo;
-        
-        document.getElementById('matchingSection').classList.remove('hidden'); 
+
+        document.getElementById('matchingSection').classList.remove('hidden');
     }
     else document.getElementById('matchingSection').classList.add('hidden');
     document.getElementById('predictionResult').classList.remove('hidden');
+}
+
+function updateAdvancedAnalysis(prefix, crossResult, top3, recent5, percentileRank) {
+    const container = document.getElementById(`${prefix}AdvancedAnalysis`);
+    if (!container) return;
+    container.innerHTML = `
+        ${crossResult ? renderCrossMatchSummary(crossResult) : ''}
+        ${top3 && top3.length > 0 ? renderTop3Similar(top3) : ''}
+        ${recent5 && recent5.length > 0 ? renderRecent5Match(recent5) : ''}
+        <div class="percentile-info">📊 백분위 순위: <strong>상위 ${percentileRank}%</strong> (전체 ${lottoDb ? lottoDb.length : 0}회차 기준)</div>
+    `;
+    container.classList.remove('hidden');
 }
 
 function updatePredictionList() {
@@ -1473,7 +1858,103 @@ function computeDbStats() {
         }
     });
 
-    return { rounds, freq, hot, cold, topDormant, recent50Freq: recentFreq, sections, totalOdd, totalEven };
+    // 합계 분포 통계
+    const sumHist = { '21-80': 0, '81-110': 0, '111-140': 0, '141-170': 0, '171-200': 0, '201-279': 0 };
+    lottoDb.forEach(entry => {
+        if (entry.numbers) {
+            const s = entry.numbers.reduce((a, b) => a + b, 0);
+            if (s <= 80) sumHist['21-80']++;
+            else if (s <= 110) sumHist['81-110']++;
+            else if (s <= 140) sumHist['111-140']++;
+            else if (s <= 170) sumHist['141-170']++;
+            else if (s <= 200) sumHist['171-200']++;
+            else sumHist['201-279']++;
+        }
+    });
+
+    // 홀짝 구성 분포
+    const oddEvenDist = {};
+    lottoDb.forEach(entry => {
+        if (entry.numbers) {
+            const oc = entry.numbers.filter(n => n % 2 === 1).length;
+            const key = `홀${oc} 짝${6-oc}`;
+            oddEvenDist[key] = (oddEvenDist[key] || 0) + 1;
+        }
+    });
+
+    // 고저 구성 분포
+    const lowHighDist = {};
+    lottoDb.forEach(entry => {
+        if (entry.numbers) {
+            const hi = entry.numbers.filter(n => n >= 23).length;
+            const key = `고${hi} 저${6-hi}`;
+            lowHighDist[key] = (lowHighDist[key] || 0) + 1;
+        }
+    });
+
+    // AC값 분포
+    const acDist = {};
+    lottoDb.forEach(entry => {
+        if (entry.numbers) {
+            const s = [...entry.numbers].sort((a, b) => a - b);
+            const diffs = new Set();
+            for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) diffs.add(s[j] - s[i]);
+            const ac = diffs.size - 5;
+            acDist[ac] = (acDist[ac] || 0) + 1;
+        }
+    });
+
+    // 연속쌍 분포
+    const consecDist = { '없음': 0, '1쌍': 0, '2쌍': 0, '3쌍': 0, '4쌍': 0 };
+    lottoDb.forEach(entry => {
+        if (entry.numbers) {
+            const s = [...entry.numbers].sort((a, b) => a - b);
+            let cp = 0;
+            for (let i = 0; i < 5; i++) if (s[i+1] - s[i] === 1) cp++;
+            if (cp === 0) consecDist['없음']++;
+            else if (cp === 1) consecDist['1쌍']++;
+            else if (cp === 2) consecDist['2쌍']++;
+            else if (cp === 3) consecDist['3쌍']++;
+            else consecDist['4쌍']++;
+        }
+    });
+
+    // 번호별 갭 분석
+    const numGapAnalysis = [];
+    for (let n = 1; n <= 45; n++) {
+        const appearances = [];
+        lottoDb.forEach(entry => {
+            if (entry.numbers && entry.numbers.includes(n)) {
+                appearances.push(entry.round);
+            }
+        });
+        const gaps = [];
+        for (let i = 1; i < appearances.length; i++) {
+            gaps.push(appearances[i] - appearances[i-1]);
+        }
+        const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+        const maxGap = gaps.length > 0 ? Math.max(...gaps) : 0;
+        const stdDev = gaps.length > 1 ? Math.sqrt(gaps.reduce((s, g) => s + Math.pow(g - avgGap, 2), 0) / gaps.length) : 1;
+        const currentGap = latestRound - (lastSeen[n] || 0);
+        const zScore = stdDev > 0 ? Math.round((currentGap - avgGap) / stdDev * 100) / 100 : 0;
+        const recentGaps = gaps.slice(-10);
+
+        let trend = '→';
+        const recent20Count = lottoDb.slice(-20).filter(e => e.numbers && e.numbers.includes(n)).length;
+        if (recent20Count >= 5) trend = recent20Count >= 7 ? '↑↑' : '↑';
+        else if (recent20Count <= 1) trend = recent20Count === 0 ? '↓↓' : '↓';
+
+        numGapAnalysis.push({
+            number: n, freq: freq[n], avgGap: Math.round(avgGap * 10) / 10,
+            currentGap, maxGap, zScore, trend, recentGaps, lastSeen: lastSeen[n]
+        });
+    }
+
+    return {
+        rounds, freq, hot, cold, topDormant, recent50Freq: recentFreq,
+        sections, totalOdd, totalEven,
+        sumHist, oddEvenDist, lowHighDist, acDist, consecDist, numGapAnalysis
+    };
 }
 
 function renderStatsDashboard() {
@@ -1488,16 +1969,28 @@ function renderStatsDashboard() {
     document.getElementById('statsReady').classList.remove('hidden');
     document.getElementById('statsTotalRounds').textContent = dbStats.rounds;
 
-    // 빈도 히트맵
+    // 빈도 히트맵 (추천 상태 색상 반영)
+    const numScores = computeNumberScores();
     const maxFreq = Math.max(...dbStats.freq.slice(1));
     const heatmap = document.getElementById('frequencyHeatmap');
     heatmap.innerHTML = '';
     for (let n = 1; n <= 45; n++) {
         const intensity = dbStats.freq[n] / maxFreq;
+        const ns = numScores ? numScores[n] : null;
+        let statusColor = 'var(--accent-cyan)';
+        let statusLabel = '';
+        if (ns) {
+            if (ns.recScore <= 0) { statusColor = '#10b981'; statusLabel = '포함 추천'; }
+            else if (ns.recScore <= 1) { statusColor = '#10b981'; statusLabel = '포함 추천'; }
+            else if (ns.recScore <= 2) { statusColor = '#f59e0b'; statusLabel = '중립'; }
+            else if (ns.recScore <= 3) { statusColor = '#f97316'; statusLabel = '제외 고려'; }
+        }
         const span = document.createElement('span');
         span.className = 'freq-cell';
         span.style.backgroundColor = `rgba(0, 245, 255, ${(0.15 + intensity * 0.85).toFixed(2)})`;
         span.style.color = intensity > 0.5 ? '#000' : 'var(--text-primary)';
+        span.style.borderBottom = `3px solid ${statusColor}`;
+        span.setAttribute('title', ns ? `${n}번 | 출현 ${dbStats.freq[n]}회 | 현재갭 ${ns.currentGap}회 | Z점수 ${ns.zScore} | ${statusLabel} | 추세 ${ns.trend}` : '');
         span.innerHTML = `<div class="freq-num">${n}</div><div class="freq-count">${dbStats.freq[n]}</div>`;
         if (intensity > 0.85) span.classList.add('freq-hot');
         heatmap.appendChild(span);
@@ -1508,10 +2001,132 @@ function renderStatsDashboard() {
     renderHotColdList('coldNumbersList', dbStats.cold, 'cold', dbStats.recent50Freq);
     renderDormantList('dormantNumbersList', dbStats.topDormant);
 
+    // 갭 분석 히트맵
+    renderGapHeatmap();
+
+    // 바코드
+    renderBarcodeView();
+
+    // 분포표
+    renderDistributionStats();
+
     // 차트 그리기 (탭 열릴 때 lazy draw)
     drawFrequencyChart();
     drawSectionDonut();
     drawOddEvenPie();
+}
+
+// ========== 갭 분석 히트맵 ==========
+function renderGapHeatmap() {
+    if (!dbStats || !dbStats.numGapAnalysis) return;
+    const container = document.getElementById('gapHeatmap');
+    if (!container) return;
+    const maxGap = Math.max(...dbStats.numGapAnalysis.map(n => n.currentGap), 1);
+    container.innerHTML = dbStats.numGapAnalysis.map(n => {
+        const intensity = n.currentGap / maxGap;
+        let bgColor;
+        if (n.zScore > 1.5) bgColor = 'rgba(16,185,129,0.5)'; // 강한 평균회귀 신호
+        else if (n.zScore > 0.5) bgColor = 'rgba(16,185,129,0.3)';
+        else if (n.zScore > -0.5) bgColor = 'rgba(245,158,11,0.3)';
+        else bgColor = 'rgba(239,68,68,0.3)';
+        return `
+            <div class="gap-cell" style="background:${bgColor};border:1px solid rgba(255,255,255,0.1);padding:8px 5px;border-radius:6px;text-align:center;cursor:help;"
+                 title="${n.number}번 | 평균갭 ${n.avgGap}회 | 현재갭 ${n.currentGap}회 | 최대갭 ${n.maxGap}회 | Z점수 ${n.zScore} | 추세 ${n.trend}">
+                <div style="font-weight:700;color:var(--accent-gold);font-size:0.9rem;">${n.number}</div>
+                <div style="font-size:0.7rem;color:var(--text-primary);">갭${n.currentGap}</div>
+                <div style="font-size:0.65rem;color:${n.zScore > 0 ? 'var(--grade-excellent)' : 'var(--grade-caution)'};">Z:${n.zScore}</div>
+                <div style="font-size:0.7rem;">${n.trend}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========== 52주 바코드 ==========
+function renderBarcodeView() {
+    if (!lottoDb || lottoDb.length < 52) return;
+    const container = document.getElementById('barcodeContainer');
+    if (!container) return;
+    const recent52 = lottoDb.slice(-52);
+    const latestRound = lottoDb[lottoDb.length - 1].round;
+
+    let html = '<div class="barcode-legend"><span>■=당첨</span><span>○=보너스</span><span>□=미출현</span><span>←좌최신</span></div>';
+    html += '<div class="barcode-grid">';
+
+    for (let n = 1; n <= 45; n++) {
+        let barcode = '';
+        for (let i = recent52.length - 1; i >= 0; i--) {
+            const entry = recent52[i];
+            if (entry.numbers && entry.numbers.includes(n)) barcode += '■';
+            else if (entry.bonus === n) barcode += '○';
+            else barcode += '□';
+        }
+
+        // 13주 x 4구간
+        const segments = [];
+        for (let s = 0; s < 4; s++) {
+            segments.push(barcode.slice(s * 13, (s + 1) * 13));
+        }
+
+        const numData = dbStats.numGapAnalysis ? dbStats.numGapAnalysis.find(x => x.number === n) : null;
+        let statusColor = 'var(--text-secondary)';
+        let statusText = '';
+        if (numData) {
+            if (numData.zScore > 1.0) { statusColor = '#10b981'; statusText = '포함추천'; }
+            else if (numData.zScore > 0) { statusColor = '#f59e0b'; statusText = '중립'; }
+            else { statusColor = '#ef4444'; statusText = '제외고려'; }
+        }
+
+        html += `
+            <div class="barcode-row">
+                <span class="barcode-num" style="color:${statusColor};" title="${statusText}">${n}</span>
+                <span class="barcode-segments">
+                    ${segments.map(seg => `<span class="barcode-seg">${seg}</span>`).join('<span class="barcode-sep"> </span>')}
+                </span>
+            </div>
+        `;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ========== 분포 통계 ==========
+function renderDistributionStats() {
+    if (!dbStats) return;
+    const container = document.getElementById('distributionStats');
+    if (!container) return;
+
+    const totalRounds = dbStats.rounds;
+
+    const buildDistTable = (title, dist, headers) => {
+        const entries = Object.entries(dist).sort((a, b) => b[1] - a[1]);
+        return `
+            <div class="dist-section">
+                <h4 class="dist-title">${title}</h4>
+                <div class="dist-table">
+                    ${entries.map(([key, count]) => `
+                        <div class="dist-row">
+                            <span class="dist-label">${key}</span>
+                            <span class="dist-bar" style="width:${Math.max(count / totalRounds * 100, 1)}%"></span>
+                            <span class="dist-count">${count}회 (${(count / totalRounds * 100).toFixed(1)}%)</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    container.innerHTML = `
+        <div class="distribution-grid">
+            ${buildDistTable('합계 구간 분포', dbStats.sumHist)}
+            ${buildDistTable('홀짝 구성 분포', dbStats.oddEvenDist)}
+            ${buildDistTable('고저 구성 분포', dbStats.lowHighDist)}
+            ${buildDistTable('AC값 분포', dbStats.acDist)}
+            ${buildDistTable('연속쌍 분포', dbStats.consecDist)}
+        </div>
+        <div style="text-align:center;color:var(--text-secondary);font-size:0.8rem;margin-top:15px;">
+            전체 ${totalRounds}회차 기준 | 평균 합계 138.2 | 평균 교차점수 59.4점
+        </div>
+    `;
 }
 
 function renderHotColdList(containerId, items, type, freq) {
@@ -1548,6 +2163,10 @@ function switchStatsTab(tab) {
         setTimeout(() => { drawFrequencyChart(); drawSectionDonut(); drawOddEvenPie(); }, 100);
     } else if (tab === 'pairs') {
         setTimeout(() => renderPairAnalysis(), 100);
+    } else if (tab === 'barcode') {
+        setTimeout(() => renderBarcodeView(), 100);
+    } else if (tab === 'distribution') {
+        setTimeout(() => renderDistributionStats(), 100);
     }
 }
 
@@ -1798,11 +2417,15 @@ function runSmartRecommend() {
     list.innerHTML = recommendations.map((rec, i) => {
         const matching = rec.numbers.filter(n => currentWinningNumbers.includes(n));
         const analysis = analyzeNumbers(rec.numbers);
+        const filterResult = checkFilters(rec.numbers);
+        const percentileRank = calculatePercentileRank(rec.numbers);
+        const gradeResult = determineGrade(filterResult, percentileRank);
         return `
             <div class="smart-card">
                 <div class="smart-card-header">
                     <span class="smart-rank">#${i + 1}</span>
                     <span class="smart-score" style="color:${rec.score >= 70 ? 'var(--grade-excellent)' : rec.score >= 50 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${rec.score.toFixed(0)}점</span>
+                    <span class="grade-badge-inline ${gradeResult.cls}">${gradeResult.grade} ${gradeResult.label}</span>
                     ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
                     <div style="margin-left:auto;display:flex;gap:4px;">
                         <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${rec.numbers}], ${rec.score.toFixed(0)})">📤</button>
@@ -1819,6 +2442,12 @@ function runSmartRecommend() {
                     <span>${analysis.lowHighRatio}</span>
                     <span>${analysis.sectionsWithNumbers}개 구간</span>
                 </div>
+                <div class="smart-filter-row">
+                    ${Object.entries(filterResult.results).map(([k, r]) => `
+                        <span class="mini-filter ${r.pass ? 'pass' : 'fail'}">${r.icon} ${r.label}</span>
+                    `).join('')}
+                    <span style="font-size:0.7rem;color:var(--text-secondary);">상위 ${percentileRank}%</span>
+                </div>
             </div>
         `;
     }).join('');
@@ -1830,6 +2459,7 @@ function runSmartRecommend() {
 
 // ========== 수동 조합 생성 ==========
 let excludedNumbers = new Set();
+let fixedNumbers = new Set();
 
 function initExcludeGrid() {
     const grid = document.getElementById('excludeGrid');
@@ -1843,74 +2473,157 @@ function initExcludeGrid() {
         btn.onclick = () => toggleExclude(i, btn);
         grid.appendChild(btn);
     }
+    initFixedGrid();
+}
+
+function initFixedGrid() {
+    const grid = document.getElementById('fixedGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 1; i <= 45; i++) {
+        const btn = document.createElement('button');
+        btn.className = `fixed-btn ${getBallClass(i)}`;
+        btn.textContent = i;
+        btn.setAttribute('data-num', i);
+        btn.onclick = () => toggleFixed(i, btn);
+        grid.appendChild(btn);
+    }
 }
 
 function toggleExclude(num, btn) {
     if (excludedNumbers.has(num)) {
         excludedNumbers.delete(num);
         btn.classList.remove('excluded');
+        // 제외 해제 시 고정 가능하도록
+        const fixedBtn = document.querySelector(`.fixed-btn[data-num="${num}"]`);
+        if (fixedBtn) fixedBtn.disabled = false;
     } else if (excludedNumbers.size < 20) {
         excludedNumbers.add(num);
         btn.classList.add('excluded');
+        // 제외된 번호는 고정 불가
+        if (fixedNumbers.has(num)) {
+            fixedNumbers.delete(num);
+            const fixedBtn = document.querySelector(`.fixed-btn[data-num="${num}"]`);
+            if (fixedBtn) fixedBtn.classList.remove('fixed-selected');
+        }
     }
     document.getElementById('excludeCount').textContent = `선택: ${excludedNumbers.size}개`;
+}
+
+function toggleFixed(num, btn) {
+    if (fixedNumbers.has(num)) {
+        fixedNumbers.delete(num);
+        btn.classList.remove('fixed-selected');
+    } else if (fixedNumbers.size < 5 && !excludedNumbers.has(num)) {
+        fixedNumbers.add(num);
+        btn.classList.add('fixed-selected');
+    }
+    document.getElementById('fixedCount').textContent = `선택: ${fixedNumbers.size}개`;
 }
 
 function clearExcludes() {
     excludedNumbers.clear();
     document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('excluded'));
     document.getElementById('excludeCount').textContent = '선택: 0개';
-    vibrate(15);
+}
+
+function clearFixed() {
+    fixedNumbers.clear();
+    document.querySelectorAll('.fixed-btn').forEach(b => b.classList.remove('fixed-selected'));
+    document.getElementById('fixedCount').textContent = '선택: 0개';
 }
 
 function quickExclude() {
-    // 최근 50회에서 가장 많이 나온 번호 10개를 제외 추천으로 자동 선택
     if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
+    // 제외점수 기반으로 제외 추천 (제외점수 3 이상 번호)
+    const numScores = computeNumberScores();
+    if (!numScores) { showStatus('warning', '⚠️ 번호 점수를 계산할 수 없습니다.'); return; }
     clearExcludes();
-    const topNumbers = dbStats.hot.slice(0, 10);
+    const highExclScores = [];
+    for (let n = 1; n <= 45; n++) {
+        if (numScores[n].exclScore >= 2) highExclScores.push({ num: n, score: numScores[n].exclScore });
+    }
+    highExclScores.sort((a, b) => b.score - a.score);
+    const topExclude = highExclScores.slice(0, 10);
     document.querySelectorAll('.exclude-btn').forEach(btn => {
         const num = parseInt(btn.getAttribute('data-num'));
-        if (topNumbers.some(h => h.number === num)) {
+        if (topExclude.some(e => e.num === num)) {
             excludedNumbers.add(num);
             btn.classList.add('excluded');
         }
     });
     document.getElementById('excludeCount').textContent = `선택: ${excludedNumbers.size}개`;
-    showStatus('info', '⚡ 최근 자주 나온 번호 10개를 제외 목록에 추가했습니다.');
+    showStatus('info', '⚡ 제외점수 기준 추천 번호 10개를 제외 목록에 추가했습니다.');
+    playBeep(500, 0.05);
+}
+
+function quickFix() {
+    if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
+    const numScores = computeNumberScores();
+    if (!numScores) return;
+    clearFixed();
+    const highRecScores = [];
+    for (let n = 1; n <= 45; n++) {
+        if (numScores[n].recScore <= 0) highRecScores.push({ num: n, score: numScores[n].recScore });
+    }
+    highRecScores.sort((a, b) => a.score - b.score);
+    const topFix = highRecScores.slice(0, 3);
+    document.querySelectorAll('.fixed-btn').forEach(btn => {
+        const num = parseInt(btn.getAttribute('data-num'));
+        if (topFix.some(f => f.num === num)) {
+            fixedNumbers.add(num);
+            btn.classList.add('fixed-selected');
+        }
+    });
+    document.getElementById('fixedCount').textContent = `선택: ${fixedNumbers.size}개`;
+    showStatus('info', '⚡ 추천점수 기준 3개 번호를 고정 목록에 추가했습니다.');
     playBeep(500, 0.05);
 }
 
 function generateCustomCombos() {
     if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
     const count = parseInt(document.getElementById('customCount').value);
-    const available = [];
-    for (let i = 1; i <= 45; i++) {
-        if (!excludedNumbers.has(i)) available.push(i);
-    }
-    if (available.length < 6) {
-        showStatus('error', '❌ 선택 가능한 번호가 6개 미만입니다. 제외 번호를 줄여주세요.');
+
+    // 고정 번호는 항상 포함
+    const fixedArr = [...fixedNumbers];
+    if (fixedArr.length > 6) {
+        showStatus('error', '❌ 고정 번호는 최대 6개까지 가능합니다.');
         return;
     }
 
+    const available = [];
+    for (let i = 1; i <= 45; i++) {
+        if (!excludedNumbers.has(i) && !fixedNumbers.has(i)) available.push(i);
+    }
+    const needCount = 6 - fixedArr.length;
+    if (available.length < needCount) {
+        showStatus('error', `❌ 선택 가능한 번호가 ${needCount}개 미만입니다. 제외 번호를 줄여주세요.`);
+        return;
+    }
+
+    const numScores = computeNumberScores();
     const combos = [];
     const seen = new Set();
     const weights = available.map(n => {
-        const hot = dbStats.hot.find(h => h.number === n);
-        const dormant = dbStats.topDormant.find(d => d.number === n);
         let w = 1;
-        if (hot) w += hot.count * 2;
-        if (dormant && dormant.gap > 10) w += dormant.gap;
-        return w;
+        if (numScores && numScores[n]) {
+            // 추천점수 낮을수록 가중치 높음
+            w += (4 - numScores[n].recScore) * 2;
+            // Z-score 양수(평균회귀 신호) 가중치
+            if (numScores[n].zScore > 1.0) w += 4;
+            else if (numScores[n].zScore > 0.5) w += 2;
+        }
+        return Math.max(w, 1);
     });
 
     let attempts = 0;
     while (combos.length < count && attempts < count * 200) {
         attempts++;
-        const selected = [];
+        const selected = [...fixedArr];
         const pool = [...available];
         const poolWeights = [...weights];
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < needCount; i++) {
             const totalW = poolWeights.reduce((a, b) => a + b, 0);
             const rand = new Uint32Array(1);
             crypto.getRandomValues(rand);
@@ -1941,12 +2654,16 @@ function renderCustomCombos(combos) {
     list.innerHTML = combos.map((nums, i) => {
         const analysis = analyzeNumbers(nums);
         const score = calculateQualityScore(analysis);
+        const filterResult = checkFilters(nums);
         const matching = currentWinningNumbers ? nums.filter(n => currentWinningNumbers.includes(n)) : [];
+        const percentileRank = calculatePercentileRank(nums);
+        const gradeResult = determineGrade(filterResult, percentileRank);
         return `
             <div class="smart-card">
                 <div class="smart-card-header">
                     <span class="smart-rank">#${i + 1}</span>
                     <span class="smart-score" style="color:${score.totalScore >= 75 ? 'var(--grade-excellent)' : score.totalScore >= 60 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${score.totalScore}점 (${score.grade})</span>
+                    <span class="grade-badge-inline ${gradeResult.cls}">${gradeResult.grade} ${gradeResult.label}</span>
                     ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
                     <div style="margin-left:auto;display:flex;gap:4px;">
                         <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${nums}], ${score.totalScore})">📤</button>
@@ -1962,6 +2679,12 @@ function renderCustomCombos(combos) {
                     <span>${analysis.oddEvenRatio}</span>
                     <span>${analysis.lowHighRatio}</span>
                     <span>${analysis.sectionsWithNumbers}개 구간</span>
+                </div>
+                <div class="smart-filter-row">
+                    ${Object.entries(filterResult.results).map(([k, r]) => `
+                        <span class="mini-filter ${r.pass ? 'pass' : 'fail'}">${r.icon} ${r.label}</span>
+                    `).join('')}
+                    <span style="font-size:0.7rem;color:var(--text-secondary);">상위 ${percentileRank}%</span>
                 </div>
             </div>
         `;

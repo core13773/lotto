@@ -63,6 +63,8 @@
                     <div class="score-main" id="winningScore">-</div>
                     <div class="score-label" id="winningScoreGrade">분석 중...</div>
                     <div class="score-breakdown" id="winningScoreBreakdown"></div>
+                    <div id="winningFilterResult" class="hidden" style="margin-top:10px;"></div>
+                    <div id="winningGradeResult" class="hidden" style="margin-top:8px;text-align:center;"></div>
                 </div>
                 <div class="collapsible open" id="winningAnalysis">
                     <div class="collapsible-header" onclick="toggleCollapsible('winningAnalysis')"><span>📊 당첨번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
@@ -187,6 +189,17 @@
                             </div>
                         </div>
                     </div>
+                    <div class="collapsible open" id="fixedSection" style="margin-top:10px;">
+                        <div class="collapsible-header" onclick="toggleCollapsible('fixedSection')"><span>✅ 꼭 포함할 번호 선택 (최대 5개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-content">
+                            <div class="fixed-grid" id="fixedGrid"></div>
+                            <div style="text-align:center;margin-top:10px;">
+                                <span id="fixedCount" style="color:var(--text-secondary);">선택: 0개</span>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" onclick="clearFixed()">전체 해제</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" onclick="quickFix()">⚡ 고정 추천</button>
+                            </div>
+                        </div>
+                    </div>
                     <div style="text-align:center;margin:15px 0;">
                         <label style="color:var(--text-secondary);margin-right:10px;">생성 개수:</label>
                         <select id="customCount" class="sim-input" style="width:auto;padding:8px 12px;">
@@ -217,7 +230,10 @@
                     <div class="score-main" id="predictionScore">-</div>
                     <div class="score-label" id="predictionScoreGrade">분석 중...</div>
                     <div class="score-breakdown" id="predictionScoreBreakdown"></div>
+                    <div id="predictionFilterResult" class="hidden" style="margin-top:10px;"></div>
+                    <div id="predictionGradeResult" class="hidden" style="margin-top:8px;text-align:center;"></div>
                 </div>
+                <div id="predictionAdvancedAnalysis" class="hidden" style="margin-top:15px;"></div>
                 <div id="matchingSection" class="hidden">
                     <div class="match-highlight">
                         <div class="match-count" id="matchCount">0</div>
@@ -256,6 +272,8 @@
                     <button class="stats-tab" data-tab="hotcold" onclick="switchStatsTab('hotcold')">핫/콜드</button>
                     <button class="stats-tab" data-tab="charts" onclick="switchStatsTab('charts')">📈 차트</button>
                     <button class="stats-tab" data-tab="pairs" onclick="switchStatsTab('pairs')">🔗 번호쌍</button>
+                    <button class="stats-tab" data-tab="barcode" onclick="switchStatsTab('barcode')">📋 바코드</button>
+                    <button class="stats-tab" data-tab="distribution" onclick="switchStatsTab('distribution')">📊 분포표</button>
                 </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">
@@ -305,6 +323,25 @@
                             <canvas id="oddEvenChart" width="250" height="250"></canvas>
                         </div>
                     </div>
+                </div>
+                <div class="stats-tab-content" id="statsTabBarcode">
+                    <div class="interpretation-box" style="margin-bottom:15px;">
+                        <div class="interpretation-title">📋 52주 바코드 (번호별 출현 현황)</div>
+                        <div class="interpretation-content">최근 52주 기준 각 번호의 출현 여부를 표시합니다. <strong>■=당첨 ○=보너스 □=미출현</strong>. 초록=포함추천, 빨강=제외고려</div>
+                    </div>
+                    <div class="interpretation-box" style="margin-bottom:15px;">
+                        <div class="interpretation-title">🔬 번호별 갭 분석 (Z-Score)</div>
+                        <div class="interpretation-content">Z-Score가 높을수록(초록) 평균보다 오래 안 나왔다는 뜻으로 <strong>평균회귀(포함추천)</strong> 신호입니다. Z-Score가 낮을수록(빨강) 평균보다 자주 출현 중입니다.</div>
+                    </div>
+                    <div class="gap-heatmap" id="gapHeatmap"></div>
+                    <div style="margin-top:20px;" id="barcodeContainer"></div>
+                </div>
+                <div class="stats-tab-content" id="statsTabDistribution">
+                    <div class="interpretation-box" style="margin-bottom:15px;">
+                        <div class="interpretation-title">📊 통계 분포표 (전체 회차 기준)</div>
+                        <div class="interpretation-content">Excel 통계_종합 시트의 분포 데이터를 표시합니다. 각 지표별 실제 출현 분포를 통해 균형 잡힌 번호 조합의 기준을 확인할 수 있습니다.</div>
+                    </div>
+                    <div id="distributionStats"></div>
                 </div>
             </div>
         </div>
