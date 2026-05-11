@@ -28,6 +28,7 @@
     <div class="container">
         <header>
             <div class="header-controls">
+                <button class="settings-btn" onclick="shareSite()" title="사이트 공유">📤</button>
                 <button class="settings-btn" onclick="toggleNotifications()" title="추첨 알림" id="notifyBtn">🔔</button>
                 <button class="settings-btn" onclick="toggleSettings()" title="설정">⚙️</button>
                 <button class="theme-toggle" onclick="toggleTheme()" title="테마 전환">🌓</button>
@@ -368,6 +369,9 @@
             <p style="color:var(--text-secondary);font-size:0.75rem;margin-top:12px;">
                 GitHub 계정이 없으시면 이메일로 보내주세요.
             </p>
+            <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1);">
+                <button class="btn btn-gold" onclick="shareSite()" style="width:100%;justify-content:center;">📤 이 사이트 공유하기</button>
+            </div>
         </div>
     </div>
     <div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)toggleSettings()">

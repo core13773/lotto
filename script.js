@@ -2451,6 +2451,27 @@ async function shareSmartPrediction(numbers, score) {
     }
 }
 
+async function shareSite() {
+    const text = `🎰 로또 645 AI 예측 시스템\n몬테카를로 시뮬레이션 + 통계 분석 + 스마트 추천\nhttps://123lotto.co.kr`;
+
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: '로또 645 AI 예측', text, url: 'https://123lotto.co.kr' });
+            return;
+        } catch (e) {}
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+        showStatus('success', '📋 사이트 주소가 복사됐습니다! 카톡/문자에 붙여넣기 하세요.');
+    } catch (e) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+        document.body.appendChild(textarea); textarea.select();
+        document.execCommand('copy'); document.body.removeChild(textarea);
+        showStatus('success', '📋 사이트 주소가 복사됐습니다!');
+    }
+}
+
 // ========== PWA 알림 ==========
 let notificationEnabled = false;
 
