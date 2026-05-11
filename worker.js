@@ -6,19 +6,32 @@ self.onmessage = function(e) {
     const POOL = Array.from({ length: 45 }, (_, i) => i + 1);
 
     function generateNumbers() {
-        const pool = POOL.slice();
-        // Fisher-Yates shuffle: 45개의 난수를 한 번에 생성 (crypto 호출 1회)
-        const rand = new Uint32Array(45);
+        const rand = new Uint32Array(6);
         crypto.getRandomValues(rand);
-        for (let i = pool.length - 1; i > 0; i--) {
-            const j = rand[pool.length - 1 - i] % (i + 1);
-            [pool[i], pool[j]] = [pool[j], pool[i]];
+        const swaps = [];
+
+        for (let i = 0; i < 6; i++) {
+            const j = i + (rand[i] % (45 - i));
+            swaps.push(i, j, POOL[i], POOL[j]);
+            const tmp = POOL[i];
+            POOL[i] = POOL[j];
+            POOL[j] = tmp;
         }
-        return pool.slice(0, 6).sort((a, b) => a - b);
+
+        const result = [POOL[0], POOL[1], POOL[2], POOL[3], POOL[4], POOL[5]];
+
+        for (let k = swaps.length - 4; k >= 0; k -= 4) {
+            POOL[swaps[k]] = swaps[k + 2];
+            POOL[swaps[k + 1]] = swaps[k + 3];
+        }
+
+        return result.sort((a, b) => a - b);
     }
 
-    // 기기 성능에 따라 배치 크기 동적 조정
     let batchSize = 50000;
+    let lastProgressPost = 0;
+    let lastProgressPct = 0;
+    const PROGRESS_INTERVAL = 50;
 
     function runBatch() {
         const batchStart = performance.now();
@@ -35,14 +48,18 @@ self.onmessage = function(e) {
             }
         }
         const batchTime = performance.now() - batchStart;
-        // 배치 처리 시간에 따라 크기 조정 (목표: 50ms~200ms per batch)
         if (batchTime < 30) batchSize = Math.min(batchSize * 2, 500000);
         else if (batchTime > 300) batchSize = Math.max(batchSize / 2, 10000);
 
         const elapsed = (Date.now() - startTime) / 1000;
-        const speed = Math.round(attempts / elapsed);
         const progress = attempts / maxIterations;
-        self.postMessage({ type: 'progress', data: { attempts, progress, speed, elapsed, matchCount } });
+        const progressPct = Math.floor(progress * 100);
+        if (progressPct > lastProgressPct || performance.now() - lastProgressPost > PROGRESS_INTERVAL) {
+            const speed = Math.round(attempts / elapsed);
+            self.postMessage({ type: 'progress', data: { attempts, progress, speed, elapsed, matchCount } });
+            lastProgressPost = performance.now();
+            lastProgressPct = progressPct;
+        }
         if (attempts < maxIterations) setTimeout(runBatch, 0);
         else self.postMessage({ type: 'complete', data: { attempts, matchCount, elapsed, predictions } });
     }

@@ -24,6 +24,32 @@
             --grade-excellent: #1e8449; --grade-good: #2471a3; --grade-normal: #b7950b; --grade-caution: #d35400; --grade-bad: #c0392b;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        :focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+        /* ── Utility Classes ── */
+        .text-secondary { color: var(--text-secondary); }
+        .text-center { text-align: center; }
+        .text-cyan { color: var(--accent-cyan); }
+        .text-gold { color: var(--accent-gold); }
+        .text-sm { font-size: 0.85rem; }
+        .text-xs { font-size: 0.8rem; }
+        .text-xs-secondary { font-size: 0.8rem; color: var(--text-secondary); }
+        .mt-8 { margin-top: 8px; }
+        .mt-10 { margin-top: 10px; }
+        .mt-15 { margin-top: 15px; }
+        .mt-20 { margin-top: 20px; }
+        .mb-8 { margin-bottom: 8px; }
+        .mb-15 { margin-bottom: 15px; }
+        .mb-20 { margin-bottom: 20px; }
+        .w-full { width: 100%; }
+        .p-15 { padding: 15px; }
+        .p-20 { padding: 20px; }
+        .rounded-12 { border-radius: 12px; }
+        .rounded-15 { border-radius: 15px; }
+        .bg-dark-20 { background: rgba(0,0,0,0.2); }
+        .flex-center-wrap { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
         body {
             font-family: 'Noto Sans KR', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh;
             transition: background 0.3s ease, color 0.3s ease;
@@ -34,7 +60,7 @@
         [data-theme="light"] body { background-image: none !important; }
         .container { max-width: 900px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 40px 20px; position: relative; }
-        .header-controls { position: absolute; top: 20px; right: 20px; z-index: 10; }
+        .header-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; align-items: center; gap: 6px; }
         .theme-toggle {
             width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
             background: var(--bg-card); color: var(--text-primary); font-size: 1.2rem;
@@ -87,7 +113,7 @@
             flex: 1; min-width: 120px; padding: 15px 20px; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
             background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 1.1rem; font-family: 'Orbitron', sans-serif; transition: all 0.3s ease;
         }
-        .input-field:focus { outline: none; border-color: var(--accent-cyan); box-shadow: 0 0 20px rgba(0,245,255,0.3); }
+        .input-field:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; border-color: var(--accent-cyan); box-shadow: 0 0 20px rgba(0,245,255,0.3); }
         .btn { padding: 15px 30px; border: none; border-radius: 12px; font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; }
         .btn-primary { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: white; box-shadow: 0 4px 20px rgba(0,245,255,0.3); }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,245,255,0.5); }
@@ -136,9 +162,9 @@
         /* 도움말 툴팁 */
         .help-icon {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 16px; height: 16px; border-radius: 50%;
+            width: 22px; height: 22px; border-radius: 50%;
             background: rgba(255,255,255,0.1); color: var(--text-secondary);
-            font-size: 0.65rem; cursor: help; position: relative;
+            font-size: 0.7rem; cursor: help; position: relative;
         }
         .help-icon:hover .tooltip { display: block; }
         .tooltip {
@@ -230,7 +256,7 @@
         .feedback-title { font-family: 'Black Han Sans', sans-serif; font-size: 1.2rem; color: var(--accent-cyan); margin-bottom: 10px; }
         .sim-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: center; margin: 20px 0; }
         .sim-input { width: 150px; padding: 12px 15px; border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: 'Orbitron', sans-serif; font-size: 1rem; }
-        .sim-input:focus { outline: none; border-color: var(--accent-purple); }
+        .sim-input:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; border-color: var(--accent-purple); }
         .hidden { display: none !important; }
         .section-bar { display: flex; gap: 3px; margin-top: 10px; }
         .section-segment { flex: 1; height: 35px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; opacity: 0.3; transition: all 0.3s ease; flex-direction: column; }
@@ -414,8 +440,18 @@
         .prize-tier.tier-5 { background: rgba(139,92,246,0.3); color: #a78bfa; }
         .matching-balls-detail { margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
         
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .card { padding: 20px; }
+            .ball { width: 48px; height: 48px; font-size: 1rem; }
+            .chart-row { grid-template-columns: 1fr; }
+            header { padding: 30px 15px; }
+        }
+
         @media (max-width: 480px) {
             .container { padding: 4px; }
+            .header-controls { position: static; justify-content: flex-end; margin-bottom: 10px; }
+            .settings-btn, .theme-toggle { width: 44px; height: 44px; font-size: 1rem; }
             .card { padding: 10px; }
             .ball { width: 40px; height: 40px; font-size: 0.9rem; }
             .balls-container { gap: 6px; }
@@ -615,7 +651,6 @@
             width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
             background: var(--bg-card); color: var(--text-primary); font-size: 1.2rem;
             cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;
-            margin-left: 8px;
         }
         .settings-btn:hover { transform: scale(1.1); border-color: var(--accent-purple); }
         .settings-overlay {
@@ -1009,4 +1044,14 @@
             margin-left: 4px;
         }
 
+        /* ── 글꼴 선택기 ── */
+        .font-selector {
+            width: 150px; padding: 10px 14px; border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary);
+            font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease;
+            font-family: inherit; flex-shrink: 0;
+        }
+        @media (max-width: 400px) { .font-selector { width: 120px; font-size: 0.8rem; } }
+        .font-selector:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; border-color: var(--accent-purple); }
+        [data-theme="light"] .font-selector { background: #fff; border-color: rgba(0,0,0,0.2); }
 

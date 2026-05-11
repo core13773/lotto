@@ -12,7 +12,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23ffd700'/><stop offset='100%25' style='stop-color:%2300f5ff'/></linearGradient></defs><rect width='100' height='100' rx='20' fill='%230a0a1a'/><circle cx='50' cy='50' r='42' fill='none' stroke='url(%23g)' stroke-width='4'/><text x='50' y='62' text-anchor='middle' font-size='30' font-weight='bold' fill='url(%23g)' font-family='sans-serif'>645</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23ffd700'/><stop offset='100%25' style='stop-color:%2300f5ff'/></linearGradient></defs><rect width='180' height='180' rx='36' fill='%230a0a1a'/><circle cx='90' cy='90' r='75' fill='none' stroke='url(%23g)' stroke-width='6'/><text x='90' y='110' text-anchor='middle' font-size='52' font-weight='bold' fill='url(%23g)' font-family='sans-serif'>645</text></svg>">
     <link rel="manifest" href="manifest.json">
-    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Jua&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-3QLZDF9S2Z"></script>
     <script>
@@ -28,38 +28,39 @@
     <div class="container">
         <header>
             <div class="header-controls">
-                <button class="settings-btn" onclick="shareSite()" title="사이트 공유">📤</button>
-                <button class="settings-btn" onclick="toggleNotifications()" title="추첨 알림" id="notifyBtn">🔔</button>
-                <button class="settings-btn" onclick="toggleSettings()" title="설정">⚙️</button>
-                <button class="theme-toggle" onclick="toggleTheme()" title="테마 전환">🌓</button>
+                <button class="settings-btn" onclick="shareSite()" aria-label="사이트 공유" title="사이트 공유">📤</button>
+                <button class="settings-btn" onclick="toggleNotifications()" aria-label="추첨 알림" title="추첨 알림" id="notifyBtn">🔔</button>
+                <button class="settings-btn" onclick="toggleSettings()" aria-label="설정" title="설정">⚙️</button>
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="테마 전환" title="테마 전환">🌓</button>
             </div>
             <h1 class="title">🎰 로또 645 AI 예측 시스템</h1>
         </header>
         <div class="card">
             <div class="card-header"><div class="card-icon gold">🏆</div><h2 class="card-title">당첨번호 조회</h2></div>
             <div class="input-group">
+                <label for="roundInput" class="sr-only">회차 입력</label>
                 <input type="number" id="roundInput" class="input-field" placeholder="회차 입력" min="1">
                 <button class="btn btn-primary" onclick="fetchWinningNumbers()">🔍 조회</button>
             </div>
             <div id="fetchStatus" class="hidden"></div>
             <div class="collapsible open" id="manualInputSection">
-                <div class="collapsible-header" onclick="toggleCollapsible('manualInputSection')"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" aria-controls="manualInputContent" onclick="toggleCollapsible('manualInputSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('manualInputSection'); }"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
                 <div class="collapsible-content">
-                    <p style="color:var(--text-secondary);margin-bottom:15px;">6개의 번호를 선택하세요</p>
+                    <p class="text-secondary mb-15">6개의 번호를 선택하세요</p>
                     <div class="number-grid" id="numberGrid"></div>
-                    <div style="text-align:center;margin:15px 0;"><span id="selectedCount">선택: 0개 / 6개</span></div>
+                    <div class="text-center mt-15 mb-15"><span id="selectedCount">선택: 0개 / 6개</span></div>
                     <div class="balls-container" id="selectedBalls"></div>
                     <button class="btn btn-gold" onclick="applyManualNumbers()" id="applyBtn" disabled>✅ 적용</button>
                 </div>
             </div>
             <div id="currentWinning" class="hidden">
-                <div style="background:linear-gradient(135deg,rgba(255,0,110,0.2),rgba(255,75,43,0.2));padding:20px;border-radius:15px;text-align:center;margin-top:20px;">
-                    <h3 style="margin-bottom:10px;">제 <span id="winningRound">-</span>회 당첨번호</h3>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;">출처: <span id="winningSource">-</span></p>
+                <div class="p-20 rounded-15 text-center mt-20" style="background:linear-gradient(135deg,rgba(255,0,110,0.2),rgba(255,75,43,0.2));">
+                    <h3 class="mb-8">제 <span id="winningRound">-</span>회 당첨번호</h3>
+                    <p class="text-xs-secondary">출처: <span id="winningSource">-</span></p>
                 </div>
                 <div class="balls-container" id="winningBalls"></div>
                 <div class="score-card" id="winningScoreCard">
-                    <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:5px;">📊 번호 품질 종합 점수</div>
+                    <div class="text-xs-secondary" style="margin-bottom:5px;">📊 번호 품질 종합 점수</div>
                     <div class="score-main" id="winningScore">-</div>
                     <div class="score-label" id="winningScoreGrade">분석 중...</div>
                     <div class="score-breakdown" id="winningScoreBreakdown"></div>
@@ -67,7 +68,7 @@
                     <div id="winningGradeResult" class="hidden" style="margin-top:8px;text-align:center;"></div>
                 </div>
                 <div class="collapsible open" id="winningAnalysis">
-                    <div class="collapsible-header" onclick="toggleCollapsible('winningAnalysis')"><span>📊 당첨번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('winningAnalysis')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('winningAnalysis'); }"><span>📊 당첨번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content" id="winningAnalysisContent"></div>
                 </div>
             </div>
@@ -179,7 +180,7 @@
                 </div>
                 <div class="ai-mode-content" id="aiModeCustom">
                     <div class="collapsible open" id="excludeSection">
-                        <div class="collapsible-header" onclick="toggleCollapsible('excludeSection')"><span>🚫 제외할 번호 선택 (최대 20개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('excludeSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('excludeSection'); }"><span>🚫 제외할 번호 선택 (최대 20개)</span><span class="collapsible-icon">▼</span></div>
                         <div class="collapsible-content">
                             <div class="exclude-grid" id="excludeGrid"></div>
                             <div style="text-align:center;margin-top:10px;">
@@ -190,7 +191,7 @@
                         </div>
                     </div>
                     <div class="collapsible open" id="fixedSection" style="margin-top:10px;">
-                        <div class="collapsible-header" onclick="toggleCollapsible('fixedSection')"><span>✅ 꼭 포함할 번호 선택 (최대 5개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('fixedSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('fixedSection'); }"><span>✅ 꼭 포함할 번호 선택 (최대 5개)</span><span class="collapsible-icon">▼</span></div>
                         <div class="collapsible-content">
                             <div class="fixed-grid" id="fixedGrid"></div>
                             <div style="text-align:center;margin-top:10px;">
@@ -254,11 +255,11 @@
                     </table>
                 </div>
                 <div class="collapsible open" id="predictionAnalysis">
-                    <div class="collapsible-header" onclick="toggleCollapsible('predictionAnalysis')"><span>📊 예측번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('predictionAnalysis')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('predictionAnalysis'); }"><span>📊 예측번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content" id="predictionAnalysisContent"></div>
                 </div>
                 <div class="collapsible" id="allPredictions">
-                    <div class="collapsible-header" onclick="toggleCollapsible('allPredictions')"><span>📋 발견된 모든 예측 번호 (<span id="predictionCount">0</span>개)</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('allPredictions')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('allPredictions'); }"><span>📋 발견된 모든 예측 번호 (<span id="predictionCount">0</span>개)</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content"><div class="prediction-list" id="predictionList"></div></div>
                 </div>
             </div>
@@ -311,16 +312,16 @@
                 <div class="stats-tab-content" id="statsTabCharts">
                     <div class="chart-container">
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">번호별 출현 빈도</h4>
-                        <canvas id="freqChart" width="600" height="300"></canvas>
+                        <canvas id="freqChart"></canvas>
                     </div>
                     <div class="chart-row" style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:20px;">
                         <div class="chart-container">
                             <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">구간별 분포</h4>
-                            <canvas id="sectionChart" width="250" height="250"></canvas>
+                            <canvas id="sectionChart"></canvas>
                         </div>
                         <div class="chart-container">
                             <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:10px;">홀짝 비율</h4>
-                            <canvas id="oddEvenChart" width="250" height="250"></canvas>
+                            <canvas id="oddEvenChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -348,6 +349,7 @@
         <div class="card">
             <div class="card-header"><div class="card-icon cyan">📊</div><h2 class="card-title">회차 비교 분석</h2></div>
             <div class="input-group">
+                <label for="compareRoundInput" class="sr-only">비교할 회차 입력</label>
                 <input type="number" id="compareRoundInput" class="input-field" placeholder="비교할 회차 입력" min="1">
                 <button class="btn btn-primary" onclick="compareRounds()">📊 비교</button>
             </div>
@@ -359,11 +361,12 @@
             <div class="card-header"><div class="card-icon cyan">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2></div>
             <p style="color:var(--text-secondary);margin-bottom:15px;">내 번호로 지난 1년 동안 샀다면 몇 번 당첨됐을까요?</p>
             <div class="input-group">
+                <label for="retroInput" class="sr-only">6개 번호 입력</label>
                 <input type="text" id="retroInput" class="input-field" placeholder="6개 번호 입력 (예: 1,13,21,27,34,42)" style="font-family:'Noto Sans KR',sans-serif;">
                 <button class="btn btn-primary" onclick="runRetrospective()">⏪ 회고 실행</button>
             </div>
             <div class="collapsible open" id="retroSection" style="margin-top:15px;">
-                <div class="collapsible-header" onclick="toggleCollapsible('retroSection')"><span>✋ 번호 선택</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('retroSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('retroSection'); }"><span>✋ 번호 선택</span><span class="collapsible-icon">▼</span></div>
                 <div class="collapsible-content">
                     <div class="number-grid" id="retroNumberGrid"></div>
                     <div id="retroSelectedBalls" style="text-align:center;margin:10px 0;"></div>
@@ -396,7 +399,7 @@
         </div>
         <div class="feedback-box">
             <div class="feedback-title">💬 피드백 / 문의</div>
-            <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">
+            <p class="text-secondary mb-15" style="font-size:0.9rem;">
                 버그 신고, 개선 아이디어, 문의사항이 있으시면 아래 방법으로 알려주세요.
             </p>
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -407,11 +410,11 @@
                 GitHub 계정이 없으시면 이메일로 보내주세요.
             </p>
             <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1);">
-                <button class="btn btn-gold" onclick="shareSite()" style="width:100%;justify-content:center;">📤 이 사이트 공유하기</button>
+                <button class="btn btn-gold" onclick="shareSite()" style="width:100%;justify-content:center;">📤 123lotto.co.kr 공유하기</button>
             </div>
         </div>
     </div>
-    <div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)toggleSettings()">
+    <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="설정" onclick="if(event.target===this)toggleSettings()">
         <div class="settings-panel">
             <h3>⚙️ 설정</h3>
             <div class="settings-row">
@@ -420,7 +423,7 @@
                     <div class="settings-desc">번호 선택/매칭 시 진동</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="vibration" checked onchange="toggleUxSetting('vibration', this.checked)">
+                    <input type="checkbox" class="ux-toggle" data-key="vibration" checked onchange="toggleUxSetting('vibration', this.checked)" aria-label="진동 피드백">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -430,7 +433,7 @@
                     <div class="settings-desc">시뮬레이션 매칭 시 비프음</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="sound" onchange="toggleUxSetting('sound', this.checked)">
+                    <input type="checkbox" class="ux-toggle" data-key="sound" onchange="toggleUxSetting('sound', this.checked)" aria-label="효과음">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -440,9 +443,22 @@
                     <div class="settings-desc">파티클 효과 및 전환 애니메이션</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="animation" checked onchange="toggleUxSetting('animation', this.checked)">
+                    <input type="checkbox" class="ux-toggle" data-key="animation" checked onchange="toggleUxSetting('animation', this.checked)" aria-label="애니메이션">
                     <span class="toggle-slider"></span>
                 </label>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label">🔤 글꼴</div>
+                    <div class="settings-desc">사이트 전체 글꼴 변경</div>
+                </div>
+                <select class="font-selector" id="fontSelector" onchange="changeFont(this.value)">
+                    <option value="Noto Sans KR">Noto Sans KR (기본)</option>
+                    <option value="Nanum Gothic">나눔고딕</option>
+                    <option value="Nanum Myeongjo">나눔명조</option>
+                    <option value="Do Hyeon">도현</option>
+                    <option value="Jua">주아</option>
+                </select>
             </div>
             <button class="btn btn-secondary" onclick="toggleSettings()" style="width:100%;margin-top:20px;">닫기</button>
         </div>

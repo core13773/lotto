@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createNumberGrid();
     setupPredictionToggleEvents();
     loadTheme();
+    loadFontSetting();
     loadSavedPredictions();
     // GitHub Pages: latest.json에서 최신 당첨번호 자동 로드
     loadLatestJson();
@@ -64,10 +65,8 @@ function toggleTheme() {
     const current = html.getAttribute('data-theme');
     const next = current === 'light' ? 'dark' : 'light';
     html.setAttribute('data-theme', next);
-    document.body.setAttribute('data-theme', next);
     try { localStorage.setItem('lotto-theme', next); } catch (e) {}
 
-    // 버튼 아이콘 즉시 변경 (시각적 피드백)
     const btn = document.querySelector('.theme-toggle');
     if (btn) btn.textContent = next === 'light' ? '☀️' : '🌓';
 }
@@ -79,9 +78,32 @@ function loadTheme() {
         saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     document.documentElement.setAttribute('data-theme', saved);
-    document.body.setAttribute('data-theme', saved);
     const btn = document.querySelector('.theme-toggle');
     if (btn) btn.textContent = saved === 'light' ? '☀️' : '🌓';
+}
+
+// ========== 글꼴 변경 ==========
+const FONT_OPTIONS = {
+    'Noto Sans KR': "'Noto Sans KR', sans-serif",
+    'Nanum Gothic': "'Nanum Gothic', sans-serif",
+    'Nanum Myeongjo': "'Nanum Myeongjo', serif",
+    'Do Hyeon': "'Do Hyeon', sans-serif",
+    'Jua': "'Jua', sans-serif"
+};
+
+function changeFont(fontName) {
+    const fontStack = FONT_OPTIONS[fontName] || FONT_OPTIONS['Noto Sans KR'];
+    document.body.style.fontFamily = fontStack;
+    try { localStorage.setItem('lotto-font', fontName); } catch (e) {}
+}
+
+function loadFontSetting() {
+    let fontName;
+    try { fontName = localStorage.getItem('lotto-font'); } catch (e) { fontName = null; }
+    if (!fontName || !FONT_OPTIONS[fontName]) fontName = 'Noto Sans KR';
+    document.body.style.fontFamily = FONT_OPTIONS[fontName];
+    const sel = document.getElementById('fontSelector');
+    if (sel) sel.value = fontName;
 }
 
 // ========== 예측 결과 저장/불러오기 ==========
@@ -174,7 +196,7 @@ function loadSavedPrediction(index) {
     displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
     document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
 
-    const matching = item.numbers.filter(n => currentWinningNumbers.includes(n));
+    const matching = item.numbers.filter(n => (currentWinningNumbers || []).includes(n));
     if (matching.length > 0) {
         document.getElementById('matchCount').textContent = matching.length;
         renderBalls(matching, 'matchingBalls');
@@ -279,21 +301,23 @@ function handleToggleClick(e) {
 }
 
 function calculateLatestRound() {
-    // 최초 추첨: 2002년 12월 7일 토요일 20:00 KST
-    const firstDraw = new Date(2002, 11, 7, 21, 0, 0);
+    // KST(UTC+9) 기준으로 계산
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0=일, 6=토
-    const hours = now.getHours();
+    const kstNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
+    const kstDay = kstNow.getUTCDay();
+    const kstHours = kstNow.getUTCHours();
 
-    // 토요일 21시 이후면 오늘 추첨 완료, 아니면 지난 토요일 기준
+    // 최초 추첨: 2002-12-07 21:00 KST = 2002-12-07 12:00 UTC
+    const firstDraw = Date.UTC(2002, 11, 7, 12, 0, 0);
+
     let lastDraw;
-    if (dayOfWeek === 6 && hours >= 21) {
-        lastDraw = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
+    if (kstDay === 6 && kstHours >= 21) {
+        lastDraw = Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), 12, 0, 0);
     } else {
-        const daysSinceSat = dayOfWeek === 6 ? 7 : dayOfWeek + 1;
-        lastDraw = new Date(now);
-        lastDraw.setDate(now.getDate() - daysSinceSat);
-        lastDraw.setHours(21, 0, 0, 0);
+        const daysSinceSat = kstDay === 6 ? 7 : kstDay + 1;
+        const prev = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), 12, 0, 0));
+        prev.setUTCDate(prev.getUTCDate() - daysSinceSat);
+        lastDraw = prev.getTime();
     }
     return Math.floor((lastDraw - firstDraw) / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
@@ -347,6 +371,8 @@ async function fetchWinningNumbers() {
 
     isFetching = true;
     const btn = document.querySelector('.btn-primary');
+    try {
+    if (!btn) return;
     btn.disabled = true;
     btn.textContent = '⏳ 조회 중...';
     // 1. 내장 DB에서 먼저 확인
@@ -354,7 +380,6 @@ async function fetchWinningNumbers() {
     if (dbResult) {
         setWinningNumbers(dbResult.numbers, dbResult.bonus, roundNo, '내장 DB');
         showStatus('success', `✅ 제 ${roundNo}회 당첨번호 (내장 DB)`);
-        finishFetch(btn);
         return;
     }
 
@@ -364,14 +389,15 @@ async function fetchWinningNumbers() {
     if (localResult) {
         setWinningNumbers(localResult.numbers, localResult.bonus, roundNo, '네이버 검색');
         showStatus('success', '✅ 조회 성공!');
-        finishFetch(btn);
         return;
     }
 
     // 3. 조회 실패 → 수동 입력으로 안내
     showStatus('warning', '⚠️ DB에 없는 회차입니다. 아래에서 직접 번호를 선택해주세요.');
     document.getElementById('manualInputSection').classList.add('open');
-    finishFetch(btn);
+    } finally {
+        if (btn) finishFetch(btn);
+    }
 }
 
 function finishFetch(btn) {
@@ -1206,7 +1232,9 @@ function renderDetailedAnalysis(a) {
 }
 
 function startSimulation() {
+    if (isSimulating) return;
     if (!currentWinningNumbers) { alert('먼저 당첨번호를 설정해주세요!'); return; }
+    if (typeof Worker === 'undefined') { alert('이 브라우저는 시뮬레이션을 지원하지 않습니다.'); return; }
     const maxIterations = parseInt(document.getElementById('iterationSelect').value);
     document.getElementById('startSimBtn').classList.add('hidden');
     document.getElementById('stopSimBtn').classList.remove('hidden');
@@ -1222,6 +1250,11 @@ function startSimulation() {
     document.getElementById('simNote').textContent = `${formatNumber(maxIterations)}회 시뮬레이션 중 약 ${expectedMatches}회 패턴 발견 예상`;
     
     simulationWorker = new Worker('worker.js');
+    simulationWorker.onerror = function(err) {
+        console.error('Worker error:', err);
+        showStatus('error', '시뮬레이션 Worker 로드 실패. 페이지를 새로고침해주세요.');
+        stopSimulation();
+    };
     simulationWorker.onmessage = function(e) { const { type, data } = e.data; if (type === 'progress') updateProgress(data); else if (type === 'match') handleMatch(data); else if (type === 'complete') handleComplete(data); };
     simulationWorker.postMessage({ targetNums: currentWinningNumbers, maxIterations });
 }
@@ -1296,7 +1329,7 @@ function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
 
     document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
 
-    const matching = prediction.filter(n => currentWinningNumbers.includes(n));
+    const matching = prediction.filter(n => (currentWinningNumbers || []).includes(n));
     const bonusMatch = currentBonusNumber && prediction.includes(currentBonusNumber);
     if (matching.length > 0) {
         document.getElementById('matchCount').textContent = matching.length;
@@ -1337,7 +1370,7 @@ function updatePredictionList() {
         const item = document.createElement('div');
         item.className = 'prediction-item-expanded';
         const ballsHtml = pred.prediction.map(n => `<span class="ball ${getBallClass(n)}" style="width:40px;height:40px;line-height:40px;font-size:0.9rem;">${n}</span>`).join('');
-        const matching = pred.prediction.filter(n => currentWinningNumbers.includes(n));
+        const matching = pred.prediction.filter(n => (currentWinningNumbers || []).includes(n));
         const analysis = analyzeNumbers(pred.prediction);
         const score = calculateQualityScore(analysis);
         
@@ -1676,7 +1709,16 @@ function renderCompactAnalysis(a, score, matching) {
 
 function generateRandomNumbers() { const pool = Array.from({length: 45}, (_, i) => i + 1); for (let i = pool.length - 1; i > 0; i--) { const randomArray = new Uint32Array(1); crypto.getRandomValues(randomArray); const j = randomArray[0] % (i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; } return pool.slice(0, 6).sort((a, b) => a - b); }
 function showStatus(type, message) { const container = document.getElementById('fetchStatus'); container.className = `status ${type}`; container.textContent = message; container.classList.remove('hidden'); }
-function toggleCollapsible(id) { document.getElementById(id).classList.toggle('open'); }
+function toggleCollapsible(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+    const header = el.querySelector('.collapsible-header');
+    if (header) {
+        const isOpen = el.classList.contains('open');
+        header.setAttribute('aria-expanded', String(isOpen));
+    }
+}
 function preventRefresh(e) { e.preventDefault(); e.returnValue = ''; }
 function formatNumber(num) { if (num >= 100000000) return (num / 100000000).toFixed(1) + '억'; if (num >= 10000) return (num / 10000).toFixed(0) + '만'; return num.toLocaleString(); }
 
@@ -2415,7 +2457,7 @@ function runSmartRecommend() {
     const recommendations = generateSmartRecommendation(10);
     const list = document.getElementById('smartRecommendList');
     list.innerHTML = recommendations.map((rec, i) => {
-        const matching = rec.numbers.filter(n => currentWinningNumbers.includes(n));
+        const matching = rec.numbers.filter(n => (currentWinningNumbers || []).includes(n));
         const analysis = analyzeNumbers(rec.numbers);
         const filterResult = checkFilters(rec.numbers);
         const percentileRank = calculatePercentileRank(rec.numbers);
@@ -2726,7 +2768,27 @@ function loadUxSettings() {
 
 function toggleSettings() {
     const overlay = document.getElementById('settingsOverlay');
-    overlay.classList.toggle('open');
+    const isOpen = overlay.classList.toggle('open');
+    if (isOpen) {
+        overlay.addEventListener('keydown', settingsKeyHandler);
+        const first = overlay.querySelector('input, select, button');
+        if (first) first.focus();
+    } else {
+        overlay.removeEventListener('keydown', settingsKeyHandler);
+        document.querySelector('.settings-btn[aria-label="설정"]')?.focus();
+    }
+}
+
+function settingsKeyHandler(e) {
+    if (e.key === 'Escape') { toggleSettings(); return; }
+    if (e.key === 'Tab') {
+        const overlay = document.getElementById('settingsOverlay');
+        const focusable = overlay.querySelectorAll('input, select, button, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length === 0) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
 }
 
 function toggleUxSetting(key, checked) {
