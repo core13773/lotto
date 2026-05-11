@@ -200,6 +200,23 @@ function clearSavedPredictions() {
     }
 }
 
+function saveSmartPrediction(numbers, score, meta) {
+    const saved = getSavedPredictions();
+    saved.unshift({
+        date: new Date().toLocaleString('ko-KR'),
+        round: currentRound || '-',
+        numbers,
+        meta: `스마트 추천 | ${meta}`,
+        score,
+        grade: score >= 70 ? '최상' : score >= 50 ? '양호' : '보통'
+    });
+    if (saved.length > 50) saved.length = 50;
+    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    loadSavedPredictions();
+    showStatus('success', '💾 스마트 추천 결과가 저장되었습니다!');
+    playBeep(600, 0.08);
+}
+
 // ========== 내보내기 ==========
 async function exportPrediction() {
     const predictionBalls = document.getElementById('predictionBalls');
@@ -1893,6 +1910,7 @@ function runSmartRecommend() {
                     <span class="smart-rank">#${i + 1}</span>
                     <span class="smart-score" style="color:${rec.score >= 70 ? 'var(--grade-excellent)' : rec.score >= 50 ? 'var(--grade-good)' : 'var(--grade-normal)'}">${rec.score.toFixed(0)}점</span>
                     ${matching.length >= 3 ? `<span class="pred-grade-badge grade-low">${matching.length}개 일치</span>` : ''}
+                    <button class="btn btn-secondary" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" onclick="saveSmartPrediction([${rec.numbers}], ${rec.score.toFixed(0)}, '${analysis.sum}|${analysis.ac}|${analysis.oddEvenRatio}|${analysis.sectionsWithNumbers}개구간')">💾 저장</button>
                 </div>
                 <div class="balls-container" style="padding:10px 0;gap:6px;">
                     ${rec.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:42px;height:42px;line-height:42px;font-size:0.9rem;">${n}</span>`).join('')}
