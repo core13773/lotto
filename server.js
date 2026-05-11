@@ -1,0 +1,137 @@
+const http = require('http');
+const https = require('https');
+
+const PORT = process.env.PORT || 3456;
+const CACHE = new Map(); // { round: { data, timestamp } }
+const CACHE_TTL = 60 * 60 * 1000; // 1시간
+
+function fetchHtml(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    fetchHtml(res.headers.location.startsWith('http') ? res.headers.location : 'https://search.naver.com' + res.headers.location)
+                        .then(resolve).catch(reject);
+                    return;
+                }
+                resolve(body);
+            });
+        }).on('error', reject);
+    });
+}
+
+function extractLottoNumbers(html) {
+    // HTML 태그/엔티티 제거 후 텍스트만 추출
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ');
+    // \'를 일반 따옴표로 정규화
+    const normalized = text.replace(/[‘’]/g, "'");
+
+    // 네이버 검색 결과 형식:
+    // "'17, 26, 29, 30, 31, 43' ... 보너스 숫자는 '12'"
+    // 또는 "17, 26, 29, 30, 31, 43 ... 보너스 ... 12"
+
+    // 1. 6개 번호 패턴 찾기 (따옴표 안 또는 일반 텍스트)
+    const num6Pattern = /(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})/;
+    const num6Match = normalized.match(num6Pattern);
+
+    if (!num6Match) return null;
+
+    const nums = [parseInt(num6Match[1]), parseInt(num6Match[2]), parseInt(num6Match[3]),
+                  parseInt(num6Match[4]), parseInt(num6Match[5]), parseInt(num6Match[6])];
+
+    if (!nums.every(n => n >= 1 && n <= 45) || new Set(nums).size !== 6) return null;
+
+    // 2. 보너스 번호 찾기 (번호 뒤쪽 텍스트에서)
+    const afterNumbers = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 200);
+    let bonus = null;
+    const bonusPatterns = [
+        /보너스[^0-9]*(\d{1,2})/,
+        /보너스[^0-9]*'(\d{1,2})'/,
+        /bonus[^0-9]*(\d{1,2})/i,
+    ];
+    for (const bp of bonusPatterns) {
+        const bm = afterNumbers.match(bp);
+        if (bm) {
+            const bn = parseInt(bm[1]);
+            if (bn >= 1 && bn <= 45 && !nums.includes(bn)) {
+                bonus = bn;
+                break;
+            }
+        }
+    }
+
+    return { numbers: nums.sort((a, b) => a - b), bonus };
+}
+
+async function fetchLottoNumbers(round) {
+    // 캐시 확인
+    const cached = CACHE.get(round);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+    }
+
+    // 네이버 검색에서 가져오기
+    const url = `https://search.naver.com/search.naver?where=nexearch&query=${round}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8`;
+    const html = await fetchHtml(url);
+
+    if (!html) {
+        return { error: '네이버 검색 결과를 가져올 수 없습니다.' };
+    }
+
+    const result = extractLottoNumbers(html);
+    if (!result) {
+        return { error: `${round}회차 당첨번호를 찾을 수 없습니다.` };
+    }
+
+    // 캐시 저장
+    CACHE.set(round, { data: result, timestamp: Date.now() });
+    return result;
+}
+
+const server = http.createServer(async (req, res) => {
+    // CORS 헤더
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    // URL 파싱
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    const path = url.pathname;
+
+    if (path === '/api/lotto' || path === '/api/lotto/') {
+        const round = parseInt(url.searchParams.get('round')) || 0;
+        if (!round || round < 1) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '올바른 회차(round)를 지정해주세요.' }));
+            return;
+        }
+
+        try {
+            const data = await fetchLottoNumbers(round);
+            res.writeHead(data.error ? 404 : 200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(data));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '서버 오류: ' + e.message }));
+        }
+    } else if (path === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', cached: CACHE.size }));
+    } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+    }
+});
+
+server.listen(PORT, () => {
+    console.log(`🎰 로또 645 프록시 서버 실행 중: http://localhost:${PORT}`);
+    console.log(`   API: http://localhost:${PORT}/api/lotto?round=1100`);
+});

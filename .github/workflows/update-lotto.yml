@@ -1,0 +1,81 @@
+name: 로또 당첨번호 자동 업데이트
+on:
+  schedule:
+    # 매주 토요일 21:30 UTC (한국 시간 일요일 06:30)
+    - cron: '30 21 * * 6'
+  workflow_dispatch:  # 수동 실행도 가능
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 최신 당첨번호 가져오기
+        run: |
+          # 최신 회차 계산 (한국 시간 기준 토요일 21시)
+          ROUND=$(node -e "
+            const first = new Date(Date.UTC(2002, 11, 7, 12, 0, 0));
+            const now = new Date();
+            const kst = new Date(now.getTime() + 9 * 3600000);
+            const dow = kst.getUTCDay();
+            const hours = kst.getUTCHours();
+            let lastDraw;
+            if (dow === 6 && hours >= 21) {
+              lastDraw = new Date(kst.getFullYear(), kst.getMonth(), kst.getDate(), 12, 0, 0);
+            } else {
+              const daysSinceSat = dow === 6 ? 7 : dow + 1;
+              lastDraw = new Date(kst.getFullYear(), kst.getMonth(), kst.getDate() - daysSinceSat, 12, 0, 0);
+            }
+            console.log(Math.floor((lastDraw.getTime() - first.getTime()) / (7*24*3600000)) + 1);
+          ")
+
+          echo "조회할 회차: $ROUND"
+          curl -sL -H "User-Agent: Mozilla/5.0" \
+            "https://search.naver.com/search.naver?where=nexearch&query=${ROUND}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8" \
+            > /tmp/naver.html
+
+          # 번호 추출하여 기존 배열에 추가
+          python3 -c "
+          import re, json, os
+          with open('/tmp/naver.html') as f:
+              text = re.sub('<[^>]+>', ' ', f.read())
+          m = re.search(r'(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})', text)
+          if not m:
+              print('번호를 찾을 수 없음')
+              exit(1)
+          nums = [int(m.group(i)) for i in range(1,7)]
+          bonus = None
+          bm = re.search(r'보너스[^0-9]*(\d{1,2})', text[m.end():m.end()+200])
+          if bm:
+              bn = int(bm.group(1))
+              if 1 <= bn <= 45 and bn not in nums:
+                  bonus = bn
+          entry = {'round': int(os.environ['ROUND']), 'numbers': sorted(nums), 'bonus': bonus}
+          # 기존 데이터 읽고 새 회차 추가
+          try:
+              with open('latest.json') as f:
+                  data = json.load(f)
+              if not isinstance(data, list):
+                  data = []
+          except:
+              data = []
+          # 중복 제거 후 추가
+          data = [d for d in data if d['round'] != entry['round']]
+          data.append(entry)
+          data.sort(key=lambda x: x['round'])
+          with open('latest.json', 'w') as f:
+              json.dump(data, f, ensure_ascii=False)
+          print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {sorted(nums)}, 보너스: {bonus}, 총 {len(data)}개')
+          " 2>&1
+
+      - name: 변경사항 커밋
+        run: |
+          git config user.name "lotto-bot"
+          git config user.email "bot@example.com"
+          git add latest.json
+          git diff --staged --quiet || git commit -m "최신 당첨번호 업데이트" && git push
