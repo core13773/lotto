@@ -3,4 +3,4 @@ node_modules/
 .DS_Store
 *.log
 *.xlsx
-fill_data.py
+__pycache__/
