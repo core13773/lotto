@@ -1527,7 +1527,13 @@ function updatePredictionList() {
                 <div class="pred-balls-row">
                     ${ballsHtml}
                 </div>
-                
+
+                <!-- 공유/저장 액션 -->
+                <div style="display:flex;gap:8px;justify-content:center;padding:0 20px 12px;">
+                    <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="event.stopPropagation();shareSmartPrediction([${pred.prediction}], ${score.totalScore})">📤 공유</button>
+                    <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="event.stopPropagation();saveSimPrediction([${pred.prediction}], ${score.totalScore}, '${score.grade}', ${pred.attempt}, '${pred.time.toFixed(1)}')">💾 저장</button>
+                </div>
+
                 ${matching.length > 0 ? `
                     <div class="pred-match-info">
                         <span class="match-label">✓ 당첨번호와 일치:</span>
@@ -1539,7 +1545,7 @@ function updatePredictionList() {
                         <span>당첨번호와 일치하는 번호 없음</span>
                     </div>
                 `}
-                
+
                 <!-- 간단 요약 (항상 표시) -->
                 <div class="pred-quick-stats">
                     <div class="quick-stat">
@@ -2620,6 +2626,17 @@ function runSmartRecommend() {
     }).join('');
 
     document.getElementById('smartResult').classList.remove('hidden');
+    // 전체 공유 버튼 추가
+    const smartHeader = document.querySelector('#smartResult h4');
+    if (smartHeader && !document.getElementById('smartShareAllBtn')) {
+        const allBtn = document.createElement('button');
+        allBtn.id = 'smartShareAllBtn';
+        allBtn.className = 'btn btn-secondary';
+        allBtn.style.cssText = 'padding:6px 14px;font-size:0.8rem;margin-left:12px;';
+        allBtn.textContent = '📤 전체 공유';
+        allBtn.onclick = () => shareAllCombos(recommendations);
+        smartHeader.appendChild(allBtn);
+    }
     vibrate(30);
     showStatus('success', `✅ ${recommendations.length}개의 스마트 추천 조합을 생성했습니다!`);
 }
@@ -2857,6 +2874,17 @@ function renderCustomCombos(combos) {
         `;
     }).join('');
     document.getElementById('customResult').classList.remove('hidden');
+    // 전체 공유 버튼 추가
+    const customHeader = document.querySelector('#customResult h4');
+    if (customHeader && !document.getElementById('customShareAllBtn')) {
+        const allBtn = document.createElement('button');
+        allBtn.id = 'customShareAllBtn';
+        allBtn.className = 'btn btn-secondary';
+        allBtn.style.cssText = 'padding:6px 14px;font-size:0.8rem;margin-left:12px;';
+        allBtn.textContent = '📤 전체 공유';
+        allBtn.onclick = () => shareAllCombos(combos);
+        customHeader.appendChild(allBtn);
+    }
 }
 
 function saveCustomPrediction(numbers, score, grade) {
@@ -2874,6 +2902,23 @@ function saveCustomPrediction(numbers, score, grade) {
     localStorage.setItem('lotto-predictions', JSON.stringify(saved));
     loadSavedPredictions();
     showStatus('success', '💾 수동 조합이 저장되었습니다!');
+    playBeep(600, 0.08);
+}
+
+function saveSimPrediction(numbers, score, grade, attempts, elapsed) {
+    const saved = getSavedPredictions();
+    saved.unshift({
+        date: new Date().toLocaleString('ko-KR'),
+        round: currentRound || '-',
+        numbers,
+        meta: `시뮬레이션 | ${formatNumber(attempts)}회 중 발견 (${elapsed}초)`,
+        score,
+        grade
+    });
+    if (saved.length > 50) saved.length = 50;
+    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    loadSavedPredictions();
+    showStatus('success', '💾 시뮬레이션 결과가 저장되었습니다!');
     playBeep(600, 0.08);
 }
 
@@ -3233,6 +3278,27 @@ async function shareSmartPrediction(numbers, score) {
     if (!shared) {
         await copyToClipboard(text);
         showStatus('success', '📋 공유 텍스트가 복사되었습니다!');
+    }
+}
+
+async function shareAllCombos(combos) {
+    if (!combos || combos.length === 0) return;
+    let text = `🎱 로또 645 AI 예측 결과\n━━━━━━━━━━━━━━\n`;
+    combos.forEach((c, i) => {
+        const nums = Array.isArray(c.numbers) ? c.numbers : (Array.isArray(c) ? c : []);
+        const numsStr = nums.join(', ');
+        let scoreStr = '';
+        if (c.score !== undefined) {
+            scoreStr = ` (${typeof c.score === 'number' ? c.score.toFixed(0) : c.score}점)`;
+        }
+        text += `#${i + 1} ${numsStr}${scoreStr}\n`;
+    });
+    text += `━━━━━━━━━━━━━━\n🔗 https://123lotto.co.kr`;
+
+    const shared = await shareToKakao(text);
+    if (!shared) {
+        await copyToClipboard(text);
+        showStatus('success', '📋 전체 조합이 복사되었습니다!');
     }
 }
 
