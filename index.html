@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://www.google-analytics.com https://corsproxy.io https://api.allorigins.win https://cdn.jsdelivr.net; media-src 'self'; worker-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>🎰 로또 645 AI 예측 시스템</title>
     <meta name="description" content="몬테카를로 시뮬레이션 기반 로또 번호 분석 시스템">
@@ -25,10 +26,20 @@
 <body>
     <div class="toast-container" id="toastContainer"></div>
     <div class="confetti-container" id="confettiContainer"></div>
+    <div class="qr-overlay" id="qrOverlay" role="dialog" aria-modal="true" aria-label="QR 코드 스캔" onclick="if(event.target===this)closeQRScanner()">
+        <div class="qr-panel">
+            <h3 style="color:var(--accent-gold);margin-bottom:15px;">📷 QR 코드 스캔</h3>
+            <video id="qrVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px;background:#000;"></video>
+            <div id="qrResult" style="margin-top:10px;color:var(--text-secondary);text-align:center;">카메라를 QR코드에 비춰주세요</div>
+            <button class="btn btn-secondary" onclick="closeQRScanner()" style="width:100%;margin-top:15px;">닫기</button>
+        </div>
+    </div>
     <div class="container">
         <header>
             <div class="header-controls">
                 <button class="settings-btn" onclick="shareSite()" aria-label="사이트 공유" title="사이트 공유">📤</button>
+                <button class="settings-btn" onclick="openQRScanner()" aria-label="QR 스캔" title="QR 스캔" id="qrBtn">📷</button>
+                <button class="settings-btn" onclick="openStoreFinder()" aria-label="판매점 찾기" title="판매점 찾기" id="storeBtn">📍</button>
                 <button class="settings-btn" onclick="toggleFontMenu(event)" aria-label="글꼴 변경" title="글꼴 변경" id="fontBtn" aria-expanded="false">🔤</button>
                 <button class="settings-btn" onclick="toggleNotifications()" aria-label="추첨 알림" title="추첨 알림" id="notifyBtn">🔔</button>
                 <button class="settings-btn" onclick="toggleSettings()" aria-label="설정" title="설정" id="settingsBtn" aria-expanded="false">⚙️</button>
@@ -52,6 +63,14 @@
                     <div class="text-center mt-15 mb-15"><span id="selectedCount">선택: 0개 / 6개</span></div>
                     <div class="balls-container" id="selectedBalls"></div>
                     <button class="btn btn-gold" onclick="applyManualNumbers()" id="applyBtn" disabled>✅ 적용</button>
+                    <div class="collapsible" id="bonusNumberSection" style="margin-top:12px;">
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('bonusNumberSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('bonusNumberSection'); }"><span>⭐ 보너스 번호 선택 (선택사항)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-content">
+                            <p class="text-secondary mb-15" style="font-size:0.85rem;">보너스 번호를 선택하면 2등 판정이 가능합니다.</p>
+                            <div class="number-grid" id="bonusNumberGrid"></div>
+                            <div class="text-center mt-15" id="bonusSelectedDisplay"><span style="font-size:0.8rem;color:var(--text-secondary);">보너스 번호 미선택</span></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="currentWinning" class="hidden">
@@ -265,8 +284,9 @@
                 </div>
             </div>
         </div>
-        <div class="card" id="statsDashboard">
-            <div class="card-header"><div class="card-icon gold">📊</div><h2 class="card-title">전체 통계 분석</h2></div>
+        <div class="card collapsible" id="statsDashboard">
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="statsDashboardContent" onclick="toggleCollapsible('statsDashboard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('statsDashboard'); }" style="cursor:pointer;width:100%;"><div class="card-icon gold" style="flex-shrink:0;">📊</div><h2 class="card-title">전체 통계 분석</h2><span class="collapsible-icon" style="margin-left:auto;">▼</span></div>
+            <div class="collapsible-content">
             <div id="statsNotReady" class="status warning">⚠️ DB 데이터를 불러오는 중입니다...</div>
             <div id="statsReady" class="hidden">
                 <div class="stats-tabs">
@@ -346,9 +366,11 @@
                     <div id="distributionStats"></div>
                 </div>
             </div>
+            </div>
         </div>
-        <div class="card">
-            <div class="card-header"><div class="card-icon cyan">📊</div><h2 class="card-title">회차 비교 분석</h2></div>
+        <div class="card collapsible" id="compareCard">
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('compareCard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('compareCard'); }" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">📊</div><h2 class="card-title">회차 비교 분석</h2><span class="collapsible-icon">▼</span></div>
+            <div class="collapsible-content">
             <div class="input-group">
                 <label for="compareRoundInput" class="sr-only">비교할 회차 입력</label>
                 <input type="number" id="compareRoundInput" class="input-field" placeholder="비교할 회차 입력" min="1">
@@ -357,9 +379,11 @@
             <div id="comparisonResult" class="hidden">
                 <div id="comparisonContent"></div>
             </div>
+            </div>
         </div>
-        <div class="card" id="retroCard">
-            <div class="card-header"><div class="card-icon cyan">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2></div>
+        <div class="card collapsible" id="retroCard">
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('retroCard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('retroCard'); }" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2><span class="collapsible-icon">▼</span></div>
+            <div class="collapsible-content">
             <p style="color:var(--text-secondary);margin-bottom:15px;">내 번호로 지난 1년 동안 샀다면 몇 번 당첨됐을까요?</p>
             <div class="input-group">
                 <label for="retroInput" class="sr-only">6개 번호 입력</label>
@@ -378,6 +402,20 @@
             <div id="retroResult" class="hidden">
                 <div id="retroContent"></div>
             </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><div class="card-icon gold">💰</div><h2 class="card-title">세금 계산기</h2></div>
+            <p style="color:var(--text-secondary);margin-bottom:15px;">로또 당첨금 실수령액을 계산해보세요.</p>
+            <div class="input-group">
+                <label for="prizeInput" class="sr-only">당첨금 입력</label>
+                <input type="number" id="prizeInput" class="input-field" placeholder="당첨금 입력 (원)" min="1000" step="1000">
+                <button class="btn btn-primary" onclick="calculateTax()">💰 계산</button>
+            </div>
+            <div id="taxResult" class="hidden" style="margin-top:15px;background:rgba(0,0,0,0.2);padding:20px;border-radius:12px;text-align:center;">
+                <div id="taxBreakdown"></div>
+                <p style="color:var(--text-secondary);font-size:0.75rem;margin-top:10px;">※ 2025년 기준 소득세율 적용 (3억 이하 22%, 3억 초과 33%)</p>
+            </div>
         </div>
         <div class="card" id="savedPredictionsCard">
             <div class="card-header"><div class="card-icon gold">💾</div><h2 class="card-title">저장된 예측 결과</h2></div>
@@ -390,7 +428,8 @@
             <div class="card-header" style="justify-content:center;"><div class="card-icon cyan">📊</div><h2 class="card-title">엑셀 사용자용</h2></div>
             <p style="color:var(--text-primary);font-weight:700;margin-bottom:8px;">내가 직접 1등 번호 만들기</p>
             <p style="color:var(--text-secondary);margin-bottom:15px;">자세한 사용법은 엑셀파일을 참고하세요.</p>
-            <a href="lottery_number_generator.xlsx" download class="btn btn-primary" style="display:inline-flex;margin-bottom:10px;">📥 lottery_number_generator.xlsx 다운로드</a>
+            <a href="lottery_number_generator.xlsx" download class="btn btn-primary" style="display:inline-flex;margin-bottom:10px;">📥 엑셀 다운로드 (기본)</a>
+            <button class="btn btn-secondary" onclick="generateDynamicExcel()" style="display:inline-flex;margin-bottom:10px;margin-left:8px;">📊 현재 DB로 엑셀 생성</button>
         </div>
         <div class="sponsor-box">
             <div class="sponsor-title">☕ 커피 한잔 후원</div>
@@ -451,10 +490,16 @@
             <button class="btn btn-secondary" onclick="toggleSettings()" style="width:100%;margin-top:20px;">닫기</button>
         </div>
     </div>
-    <script src="script.js?v=2"></script>
+    <script src="features.js?v=3"></script>
+    <script src="analysis.js?v=3"></script>
+    <script src="stats.js?v=3"></script>
+    <script src="simulation.js?v=3"></script>
+    <script src="ui.js?v=3"></script>
+    <script src="script.js?v=3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=3');
+            navigator.serviceWorker.register('sw.js?v=4');
         }
     </script>
 </body>

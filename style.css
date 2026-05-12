@@ -1102,3 +1102,28 @@
         [data-theme="light"] .font-popup-item:hover { background: rgba(0,0,0,0.05); }
         [data-theme="light"] .font-popup-item.active { background: rgba(139,92,246,0.15); }
 
+        /* ── QR 스캐너 ── */
+        .qr-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 2000; display: none;
+            justify-content: center; align-items: center;
+        }
+        .qr-panel {
+            background: var(--bg-card); border-radius: 20px; padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1); max-width: 440px; width: 95%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;
+        }
+        .bonus-btn.selected-bonus {
+            background: var(--ball-bonus) !important;
+            color: #fff !important;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(139,92,246,0.6);
+        }
+
+        /* ── 카드 collapsible ── */
+        .card.collapsible > .collapsible-header { margin-bottom: 0; }
+        .card.collapsible > .collapsible-header + .collapsible-content { padding-top: 20px; }
+        .card.collapsible.open > .collapsible-header { margin-bottom: 20px; }
+        .card.collapsible > .collapsible-content { display: none; }
+        .card.collapsible.open > .collapsible-content { display: block; }
+
