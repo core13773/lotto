@@ -845,12 +845,16 @@ function useDreamNumbers(numbers) {
     showStatus('success', '💭 꿈해몽 번호로 분석 완료!');
 }
 
-// ========== 10. 사운드트랙 모드 ==========
+// ========== 10. 사운드트랙 모드 (Web Audio API) ==========
+let soundtrackCtx = null;
+let soundtrackNodes = [];
+let soundtrackType = null;
+
 const SOUNDTRACKS = [
-    { title: '로파이 힙합', icon: '🎧', url: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1', desc: '집중해서 번호 고르기 좋은 편안한 비트' },
-    { title: '재즈 카페', icon: '☕', url: 'https://www.youtube.com/embed/Dx5qFachd3A?autoplay=1', desc: '여유로운 주말 아침 로또 명상' },
-    { title: '클래식 피아노', icon: '🎹', url: 'https://www.youtube.com/embed/4Tr0otuiQuU?autoplay=1', desc: '우아한 클래식과 함께하는 행운의 시간' },
-    { title: '자연의 소리', icon: '🌿', url: 'https://www.youtube.com/embed/eKFTSSKCzZk?autoplay=1', desc: '빗소리, 파도 소리와 함께 번호 고르기' },
+    { type: 'lofi', title: '로파이 힙합', icon: '🎧', desc: '부드러운 베이스 + 드리프트 패드 + 로파이 비트' },
+    { type: 'jazz', title: '재즈 카페', icon: '☕', desc: '따뜻한 재즈 코드 + 더블베이스 + 브러시 드럼' },
+    { type: 'piano', title: '클래식 피아노', icon: '🎹', desc: '잔잔한 아르페지오 + 공명 패드' },
+    { type: 'nature', title: '자연의 소리', icon: '🌿', desc: '빗소리 + 파도 + 바람 소리' },
 ];
 
 function openSoundtrack() {
@@ -867,31 +871,371 @@ function openSoundtrack() {
                 </div>
             `).join('')}
         </div>
-        <div id="soundtrackPlayer" class="hidden" style="margin-top:15px;">
-            <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;justify-content:center;">⏹️ 음악 중지</button>
-        </div>
+        <div id="soundtrackPlayer" class="hidden" style="margin-top:15px;"></div>
     `;
 }
 
+function ensureAudioCtx() {
+    if (!soundtrackCtx) {
+        soundtrackCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (soundtrackCtx.state === 'suspended') {
+        soundtrackCtx.resume();
+    }
+    return soundtrackCtx;
+}
+
+function stopSoundtrack() {
+    soundtrackNodes.forEach(n => {
+        try {
+            if (n.stop) n.stop();
+            if (n.disconnect) n.disconnect();
+            if (n.gain && n.gain.cancelScheduledValues) n.gain.cancelScheduledValues(0);
+        } catch (e) {}
+    });
+    soundtrackNodes = [];
+    soundtrackType = null;
+
+    const player = document.getElementById('soundtrackPlayer');
+    if (player) { player.classList.add('hidden'); player.innerHTML = ''; }
+}
+
 function playSoundtrack(idx) {
+    stopSoundtrack();
     const s = SOUNDTRACKS[idx];
+    const ctx = ensureAudioCtx();
+    soundtrackType = s.type;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.12;
+    masterGain.connect(ctx.destination);
+    soundtrackNodes.push(masterGain);
+
+    switch (s.type) {
+        case 'nature': buildNatureSoundscape(ctx, masterGain); break;
+        case 'lofi': buildLofiSoundscape(ctx, masterGain); break;
+        case 'jazz': buildJazzSoundscape(ctx, masterGain); break;
+        case 'piano': buildPianoSoundscape(ctx, masterGain); break;
+    }
+
     const player = document.getElementById('soundtrackPlayer');
     player.classList.remove('hidden');
     player.innerHTML = `
         <div style="text-align:center;margin-bottom:10px;color:var(--accent-gold);">${s.icon} 현재 재생: ${s.title}</div>
-        <div class="youtube-embed-container">
-            <iframe src="${s.url}" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;width:100%;height:180px;"></iframe>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:10px;">
+            ${[...Array(5)].map(() => `<span class="soundwave-bar"></span>`).join('')}
         </div>
-        <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;margin-top:10px;justify-content:center;">⏹️ 음악 중지</button>
+        <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;justify-content:center;">⏹️ 음악 중지</button>
     `;
     showStatus('success', `🎵 ${s.title} 재생 중...`);
 }
 
-function stopSoundtrack() {
-    const player = document.getElementById('soundtrackPlayer');
-    player.classList.add('hidden');
-    player.innerHTML = '';
+// ── 자연의 소리 (빗소리 + 바람 + 파도) ──
+function buildNatureSoundscape(ctx, master) {
+    // 빗소리: 필터링된 화이트 노이즈 (불규칙한 강도)
+    const rainGain = ctx.createGain();
+    rainGain.gain.value = 0;
+    rainGain.connect(master);
+    soundtrackNodes.push(rainGain);
+
+    const rainNode = createNoiseNode(ctx, 4);
+    const rainFilter = ctx.createBiquadFilter();
+    rainFilter.type = 'bandpass';
+    rainFilter.frequency.value = 800;
+    rainFilter.Q.value = 0.3;
+    rainNode.connect(rainFilter);
+    rainFilter.connect(rainGain);
+    soundtrackNodes.push(rainNode, rainFilter);
+
+    // 빗소리 저역(바닥에 떨어지는 소리)
+    const rainLowNode = createNoiseNode(ctx, 3);
+    const rainLowFilter = ctx.createBiquadFilter();
+    rainLowFilter.type = 'lowpass';
+    rainLowFilter.frequency.value = 400;
+    rainLowNode.connect(rainLowFilter);
+    rainLowFilter.connect(rainGain);
+    soundtrackNodes.push(rainLowNode, rainLowFilter);
+
+    // 빗소리 강도 변조 (LFO)
+    const rainLfo = ctx.createOscillator();
+    rainLfo.type = 'sine';
+    rainLfo.frequency.value = 0.08;
+    const rainLfoGain = ctx.createGain();
+    rainLfoGain.gain.value = 0.15;
+    rainLfo.connect(rainLfoGain);
+    rainLfoGain.connect(rainGain.gain);
+    rainLfo.start();
+    rainGain.gain.value = 0.1;
+    soundtrackNodes.push(rainLfo, rainLfoGain);
+
+    // 파도 소리: 매우 느린 저역 노이즈
+    const waveNode = createNoiseNode(ctx, 5);
+    const waveFilter = ctx.createBiquadFilter();
+    waveFilter.type = 'lowpass';
+    waveFilter.frequency.value = 200;
+    const waveGain = ctx.createGain();
+    waveGain.gain.value = 0;
+    waveNode.connect(waveFilter);
+    waveFilter.connect(waveGain);
+    waveGain.connect(master);
+    soundtrackNodes.push(waveNode, waveFilter, waveGain);
+
+    // 파도 엔벨로프 (천천히 올라갔다 내려갔다)
+    const waveLfo = ctx.createOscillator();
+    waveLfo.type = 'sine';
+    waveLfo.frequency.value = 0.04;
+    const waveLfoGain = ctx.createGain();
+    waveLfoGain.gain.value = 0.08;
+    waveLfo.connect(waveLfoGain);
+    waveLfoGain.connect(waveGain.gain);
+    waveLfo.start();
+    waveGain.gain.value = 0.06;
+    soundtrackNodes.push(waveLfo, waveLfoGain);
+
+    // 바람 소리: 매우 낮은 브라운 노이즈
+    const windNode = createNoiseNode(ctx, 6);
+    const windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'lowpass';
+    windFilter.frequency.value = 150;
+    windFilter.Q.value = 0.5;
+    const windGain = ctx.createGain();
+    windGain.gain.value = 0;
+    windNode.connect(windFilter);
+    windFilter.connect(windGain);
+    windGain.connect(master);
+    soundtrackNodes.push(windNode, windFilter, windGain);
+
+    const windLfo = ctx.createOscillator();
+    windLfo.type = 'triangle';
+    windLfo.frequency.value = 0.03;
+    const windLfoGain = ctx.createGain();
+    windLfoGain.gain.value = 0.04;
+    windLfo.connect(windLfoGain);
+    windLfoGain.connect(windGain.gain);
+    windLfo.start();
+    windGain.gain.value = 0.03;
+    soundtrackNodes.push(windLfo, windLfoGain);
 }
+
+// ── 로파이 힙합 (부드러운 패드 + 베이스 + 노이즈 비트) ──
+function buildLofiSoundscape(ctx, master) {
+    // 웜 패드 (부드러운 코드)
+    const chordFreqs = [130.81, 164.81, 196.00, 246.94]; // C3, E3, G3, B3
+    chordFreqs.forEach(f => {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = f;
+        osc.detune.value = Math.random() * 10 - 5;
+        const g = ctx.createGain();
+        g.gain.value = 0.025;
+        osc.connect(g);
+        g.connect(master);
+        osc.start();
+        soundtrackNodes.push(osc, g);
+
+        // 개별 LFO
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.1 + Math.random() * 0.2;
+        const lfoG = ctx.createGain();
+        lfoG.gain.value = 0.01;
+        lfo.connect(lfoG);
+        lfoG.connect(g.gain);
+        lfo.start();
+        soundtrackNodes.push(lfo, lfoG);
+    });
+
+    // 서브 베이스
+    const bass = ctx.createOscillator();
+    bass.type = 'sine';
+    bass.frequency.value = 65.41; // C2
+    const bassGain = ctx.createGain();
+    bassGain.gain.value = 0.04;
+    bass.connect(bassGain);
+    bassGain.connect(master);
+    bass.start();
+    soundtrackNodes.push(bass, bassGain);
+
+    // 로파이 비트 (노이즈 기반 킥/스네어)
+    const beatInterval = setInterval(() => {
+        if (soundtrackType !== 'lofi') { clearInterval(beatInterval); return; }
+        playNoiseClick(ctx, master, 60, 0.06, 0.05);  // 킥
+        setTimeout(() => {
+            if (soundtrackType !== 'lofi') return;
+            playNoiseClick(ctx, master, 1500, 0.15, 0.03); // 스네어
+        }, 400);
+    }, 1200);
+    soundtrackNodes.push({ stop: () => clearInterval(beatInterval), disconnect: () => {}, gain: null });
+}
+
+// ── 재즈 카페 (따뜻한 7th 코드 + 더블베이스 + 브러시) ──
+function buildJazzSoundscape(ctx, master) {
+    // Dm7 코드 (재즈 느낌)
+    const jazzChords = [146.83, 174.61, 220.00, 261.63]; // D3, F3, A3, C4
+    jazzChords.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        osc.detune.value = (i % 2 === 0 ? -5 : 5);
+        const g = ctx.createGain();
+        g.gain.value = 0.03;
+        osc.connect(g);
+        g.connect(master);
+        osc.start();
+        soundtrackNodes.push(osc, g);
+
+        // 부드러운 트레몰로
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.3 + i * 0.1;
+        const lfoG = ctx.createGain();
+        lfoG.gain.value = 0.008;
+        lfo.connect(lfoG);
+        lfoG.connect(g.gain);
+        lfo.start();
+        soundtrackNodes.push(lfo, lfoG);
+    });
+
+    // 더블베이스 (낮은 피치)
+    const dbass = ctx.createOscillator();
+    dbass.type = 'triangle';
+    dbass.frequency.value = 73.42; // D2
+    const dbassGain = ctx.createGain();
+    dbassGain.gain.value = 0.05;
+    dbass.connect(dbassGain);
+    dbassGain.connect(master);
+    dbass.start();
+    soundtrackNodes.push(dbass, dbassGain);
+
+    // 브러시 드럼 (부드러운 쉐이커)
+    const brushInterval = setInterval(() => {
+        if (soundtrackType !== 'jazz') { clearInterval(brushInterval); return; }
+        playNoiseClick(ctx, master, 3000, 0.04, 0.02);
+        setTimeout(() => playNoiseClick(ctx, master, 4000, 0.03, 0.015), 200);
+        setTimeout(() => playNoiseClick(ctx, master, 3500, 0.03, 0.018), 500);
+        setTimeout(() => playNoiseClick(ctx, master, 4500, 0.03, 0.015), 700);
+    }, 1000);
+    soundtrackNodes.push({ stop: () => clearInterval(brushInterval), disconnect: () => {}, gain: null });
+}
+
+// ── 클래식 피아노 (부드러운 아르페지오) ──
+function buildPianoSoundscape(ctx, master) {
+    // C 메이저 스케일 기반 아르페지오
+    const scaleFreqs = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C4 E4 G4 C5 G4 E4
+    let noteIdx = 0;
+
+    function playNextNote() {
+        if (soundtrackType !== 'piano') return;
+        const freq = scaleFreqs[noteIdx % scaleFreqs.length];
+        noteIdx++;
+
+        // 피아노 같은 감쇄 사인파
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.08, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 1.8);
+        soundtrackNodes.push(osc, g);
+
+        // 약한 배음 (피아노 느낌)
+        const overtone = ctx.createOscillator();
+        overtone.type = 'sine';
+        overtone.frequency.value = freq * 2.01;
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(0.02, ctx.currentTime);
+        og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        overtone.connect(og);
+        og.connect(master);
+        overtone.start(ctx.currentTime);
+        overtone.stop(ctx.currentTime + 1.0);
+        soundtrackNodes.push(overtone, og);
+
+        setTimeout(playNextNote, 1500);
+    }
+    playNextNote();
+
+    // 패드 (공명)
+    const padOsc = ctx.createOscillator();
+    padOsc.type = 'sine';
+    padOsc.frequency.value = 130.81; // C3
+    const padGain = ctx.createGain();
+    padGain.gain.value = 0.015;
+    padOsc.connect(padGain);
+    padGain.connect(master);
+    padOsc.start();
+    soundtrackNodes.push(padOsc, padGain);
+
+    const padLfo = ctx.createOscillator();
+    padLfo.type = 'sine';
+    padLfo.frequency.value = 0.15;
+    const padLfoG = ctx.createGain();
+    padLfoG.gain.value = 0.005;
+    padLfo.connect(padLfoG);
+    padLfoG.connect(padGain.gain);
+    padLfo.start();
+    soundtrackNodes.push(padLfo, padLfoG);
+}
+
+// ── 유틸: 노이즈 노드 생성 ──
+function createNoiseNode(ctx, bufferCount = 4) {
+    const bufferSize = 2 * ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // 여러 버퍼에 걸쳐 노이즈 생성 (더 자연스러운 소리)
+    for (let i = 0; i < bufferSize; i++) {
+        let sample = 0;
+        for (let j = 0; j < bufferCount; j++) {
+            sample += Math.random() * 2 - 1;
+        }
+        data[i] = sample / bufferCount;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
+    return source;
+}
+
+// ── 유틸: 짧은 노이즈 클릭 (퍼커션) ──
+function playNoiseClick(ctx, master, freq, duration, vol) {
+    if (soundtrackNodes.length === 0) return;
+    const bufferSize = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        const envelope = 1 - (i / bufferSize);
+        data[i] = (Math.random() * 2 - 1) * envelope;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = freq;
+    filter.Q.value = 0.8;
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    source.connect(filter);
+    filter.connect(g);
+    g.connect(master);
+    source.start();
+    source.stop(ctx.currentTime + duration + 0.01);
+}
+
+// ── 탭 전환 시 사운드트랙 정리 ──
+const origSwitchFunTab = switchFunTab;
+switchFunTab = function(tabName) {
+    if (tabName !== 'soundtrack' && soundtrackType) {
+        stopSoundtrack();
+    }
+    origSwitchFunTab(tabName);
+};
 
 // ========== 탭 전환 ==========
 function switchFunTab(tabName) {
