@@ -139,12 +139,64 @@ function getCurrentFontName() {
     return name && FONT_OPTIONS[name] ? name : 'Noto Sans KR';
 }
 
-function cycleFont() {
+function toggleFontMenu(e) {
+    e.stopPropagation();
+    let popup = document.getElementById('fontPopup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'fontPopup';
+        popup.className = 'font-popup';
+        document.getElementById('fontBtn').parentElement.appendChild(popup);
+        buildFontPopupItems(popup);
+    }
+    const isOpen = popup.classList.toggle('open');
+    if (isOpen) {
+        buildFontPopupItems(popup);
+        document.addEventListener('click', closeFontMenu);
+        document.addEventListener('keydown', fontMenuKeyHandler);
+    } else {
+        document.removeEventListener('click', closeFontMenu);
+        document.removeEventListener('keydown', fontMenuKeyHandler);
+    }
+}
+
+function fontMenuKeyHandler(e) {
+    if (e.key === 'Escape') {
+        const popup = document.getElementById('fontPopup');
+        if (popup) popup.classList.remove('open');
+        document.removeEventListener('click', closeFontMenu);
+        document.removeEventListener('keydown', fontMenuKeyHandler);
+        document.getElementById('fontBtn').focus();
+    }
+}
+
+function closeFontMenu(e) {
+    const popup = document.getElementById('fontPopup');
+    const btn = document.getElementById('fontBtn');
+    if (popup && !popup.contains(e.target) && e.target !== btn) {
+        popup.classList.remove('open');
+        document.removeEventListener('click', closeFontMenu);
+        btn.focus();
+    }
+}
+
+function buildFontPopupItems(popup) {
     const current = getCurrentFontName();
-    const idx = FONT_ORDER.indexOf(current);
-    const next = FONT_ORDER[(idx + 1) % FONT_ORDER.length];
-    changeFont(next);
-    showToast(`🔤 ${FONT_LABELS[next] || next}`);
+    popup.innerHTML = FONT_ORDER.map(f => {
+        const active = f === current ? ' active' : '';
+        const fontStack = FONT_OPTIONS[f];
+        return `<button class="font-popup-item${active}" style="font-family:${fontStack}" onclick="event.stopPropagation();selectFont('${f}')">${FONT_LABELS[f] || f}<span class="font-preview" style="font-family:${fontStack}">1234567890 가나다ABC</span></button>`;
+    }).join('');
+}
+
+function selectFont(fontName) {
+    changeFont(fontName);
+    const popup = document.getElementById('fontPopup');
+    if (popup) popup.classList.remove('open');
+    document.removeEventListener('click', closeFontMenu);
+    document.removeEventListener('keydown', fontMenuKeyHandler);
+    document.getElementById('fontBtn').focus();
+    showToast(`🔤 ${FONT_LABELS[fontName] || fontName}`);
 }
 
 function loadFontSetting() {
@@ -1126,7 +1178,7 @@ function renderDetailedAnalysis(a) {
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;background:rgba(0,0,0,0.2);padding:15px;border-radius:10px;">
                     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">비율</div>
-                    <div style="font-family:'Orbitron';font-size:1.5rem;color:var(--accent-gold);">${a.oddEvenRatio}</div>
+                    <div style="font-size:1.5rem;color:var(--accent-gold);">${a.oddEvenRatio}</div>
                     <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:5px;">홀수 : 짝수</div>
                 </div>
                 <div style="flex:2;min-width:200px;">
@@ -1154,7 +1206,7 @@ function renderDetailedAnalysis(a) {
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;background:rgba(0,0,0,0.2);padding:15px;border-radius:10px;">
                     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">비율</div>
-                    <div style="font-family:'Orbitron';font-size:1.5rem;color:var(--accent-gold);">${a.lowHighRatio}</div>
+                    <div style="font-size:1.5rem;color:var(--accent-gold);">${a.lowHighRatio}</div>
                     <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:5px;">저번호 : 고번호</div>
                 </div>
                 <div style="flex:2;min-width:200px;">
@@ -1242,15 +1294,15 @@ function renderDetailedAnalysis(a) {
                 <div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:15px;">
                     <div style="text-align:center;">
                         <div style="font-size:0.75rem;color:var(--text-secondary);">최소 간격</div>
-                        <div style="font-family:'Orbitron';font-size:1.3rem;color:${a.minGap === 1 ? 'var(--accent-pink)' : 'var(--accent-cyan)'}">${a.minGap}</div>
+                        <div style="font-size:1.3rem;color:${a.minGap === 1 ? 'var(--accent-pink)' : 'var(--accent-cyan)'}">${a.minGap}</div>
                     </div>
                     <div style="text-align:center;">
                         <div style="font-size:0.75rem;color:var(--text-secondary);">최대 간격</div>
-                        <div style="font-family:'Orbitron';font-size:1.3rem;color:var(--accent-cyan)">${a.maxGap}</div>
+                        <div style="font-size:1.3rem;color:var(--accent-cyan)">${a.maxGap}</div>
                     </div>
                     <div style="text-align:center;">
                         <div style="font-size:0.75rem;color:var(--text-secondary);">평균 간격</div>
-                        <div style="font-family:'Orbitron';font-size:1.3rem;color:var(--accent-cyan)">${a.avgGap}</div>
+                        <div style="font-size:1.3rem;color:var(--accent-cyan)">${a.avgGap}</div>
                     </div>
                 </div>
                 <div style="font-size:0.9rem;color:var(--text-secondary);">
@@ -1861,19 +1913,19 @@ function renderComparison(compareNums, compareBonus, compareRound) {
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
                 <div style="text-align:center;">
                     <div style="font-size:0.75rem;color:var(--text-secondary);">합계 변화</div>
-                    <div style="font-family:'Orbitron';font-size:1.2rem;color:${sumDiff > 0 ? 'var(--accent-pink)' : sumDiff < 0 ? 'var(--accent-cyan)' : 'var(--text-secondary)'};">${sumDiff > 0 ? '+' : ''}${sumDiff}</div>
+                    <div style="font-size:1.2rem;color:${sumDiff > 0 ? 'var(--accent-pink)' : sumDiff < 0 ? 'var(--accent-cyan)' : 'var(--text-secondary)'};">${sumDiff > 0 ? '+' : ''}${sumDiff}</div>
                 </div>
                 <div style="text-align:center;">
                     <div style="font-size:0.75rem;color:var(--text-secondary);">AC값 변화</div>
-                    <div style="font-family:'Orbitron';font-size:1.2rem;color:${acDiff > 0 ? 'var(--grade-excellent)' : acDiff < 0 ? 'var(--grade-caution)' : 'var(--text-secondary)'};">${acDiff > 0 ? '+' : ''}${acDiff}</div>
+                    <div style="font-size:1.2rem;color:${acDiff > 0 ? 'var(--grade-excellent)' : acDiff < 0 ? 'var(--grade-caution)' : 'var(--text-secondary)'};">${acDiff > 0 ? '+' : ''}${acDiff}</div>
                 </div>
                 <div style="text-align:center;">
                     <div style="font-size:0.75rem;color:var(--text-secondary);">홀짝 (기준 → 비교)</div>
-                    <div style="font-family:'Orbitron';font-size:1.2rem;color:var(--accent-cyan);">${currentAnalysis.oddEvenRatio} → ${compareAnalysis.oddEvenRatio}</div>
+                    <div style="font-size:1.2rem;color:var(--accent-cyan);">${currentAnalysis.oddEvenRatio} → ${compareAnalysis.oddEvenRatio}</div>
                 </div>
                 <div style="text-align:center;">
                     <div style="font-size:0.75rem;color:var(--text-secondary);">고저 (기준 → 비교)</div>
-                    <div style="font-family:'Orbitron';font-size:1.2rem;color:var(--accent-cyan);">${currentAnalysis.lowHighRatio} → ${compareAnalysis.lowHighRatio}</div>
+                    <div style="font-size:1.2rem;color:var(--accent-cyan);">${currentAnalysis.lowHighRatio} → ${compareAnalysis.lowHighRatio}</div>
                 </div>
             </div>
         </div>

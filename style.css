@@ -1081,14 +1081,25 @@
             margin-left: 4px;
         }
 
-        /* ── 글꼴 선택기 ── */
-        .font-selector {
-            width: 150px; padding: 10px 14px; border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary);
-            font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease;
-            font-family: inherit; flex-shrink: 0;
+        /* ── 글꼴 선택 팝업 ── */
+        .font-popup {
+            position: absolute; top: 100%; right: 0; margin-top: 8px;
+            background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 8px; z-index: 1600;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); min-width: 240px; max-height: 400px;
+            overflow-y: auto; display: none;
         }
-        @media (max-width: 400px) { .font-selector { width: 120px; font-size: 0.8rem; } }
-        .font-selector:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; border-color: var(--accent-purple); }
-        [data-theme="light"] .font-selector { background: #fff; border-color: rgba(0,0,0,0.2); }
+        .font-popup.open { display: block; }
+        .font-popup-item {
+            display: block; width: 100%; padding: 10px 14px; border: none;
+            border-radius: 8px; background: transparent; color: var(--text-primary);
+            font-size: 0.9rem; cursor: pointer; text-align: left; transition: background 0.15s ease;
+        }
+        .font-popup-item:hover { background: rgba(255,255,255,0.08); }
+        .font-popup-item.active { background: rgba(139,92,246,0.25); color: var(--accent-gold); font-weight: 700; }
+        .font-popup-item .font-preview { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
+        @media (max-width: 400px) { .font-popup { min-width: 200px; right: -40px; } }
+        [data-theme="light"] .font-popup { border-color: rgba(0,0,0,0.15); }
+        [data-theme="light"] .font-popup-item:hover { background: rgba(0,0,0,0.05); }
+        [data-theme="light"] .font-popup-item.active { background: rgba(139,92,246,0.15); }
 
