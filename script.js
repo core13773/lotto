@@ -580,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initRetroGrid();
     initScrollTopBtn();
     initOnboarding();
+    if (typeof initGameZone === 'function') initGameZone();
     try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
     if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
     updateNotifyBtn();

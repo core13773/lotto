@@ -570,6 +570,20 @@
                 <div id="sharecardContent"><p class="text-secondary text-center">🖼️ 로딩 중...</p></div>
             </div>
         </div>
+        <div class="card" id="gameZoneCard">
+            <div class="card-header"><div class="fun2-card-icon green" style="background:linear-gradient(135deg,#f97316,#ef4444);">🎮</div><h2 class="card-title">🎮 미니 게임존</h2></div>
+            <div class="game-tabs" id="gameTabs">
+                <button class="game-tab active" data-game="race" onclick="switchGameTab('race')">🏇 경마</button>
+                <button class="game-tab" data-game="fishing" onclick="switchGameTab('fishing')">🎣 낚시</button>
+                <button class="game-tab" data-game="breakout" onclick="switchGameTab('breakout')">🧱 벽돌</button>
+                <button class="game-tab" data-game="roulette" onclick="switchGameTab('roulette')">🎡 룰렛</button>
+            </div>
+            <div class="game-basket" id="gameBasket"><span style="color:var(--text-secondary);font-size:0.85rem;">번호를 모아보세요! (0/6)</span></div>
+            <div class="game-content active" id="gameContentRace"><p class="text-secondary text-center">🏇 게임 로딩 중...</p></div>
+            <div class="game-content" id="gameContentFishing"><p class="text-secondary text-center">🎣 게임 로딩 중...</p></div>
+            <div class="game-content" id="gameContentBreakout"><p class="text-secondary text-center">🧱 게임 로딩 중...</p></div>
+            <div class="game-content" id="gameContentRoulette"><p class="text-secondary text-center">🎡 게임 로딩 중...</p></div>
+        </div>
         <div class="sponsor-box">
             <div class="sponsor-title">☕ 커피 한잔 후원</div>
             <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
@@ -632,6 +646,7 @@
     <script src="features.js?v=3"></script>
     <script src="fun.js?v=1"></script>
     <script src="fun2.js?v=1"></script>
+    <script src="games.js?v=1"></script>
     <script src="analysis.js?v=3"></script>
     <script src="stats.js?v=3"></script>
     <script src="simulation.js?v=3"></script>
@@ -640,7 +655,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=5');
+            navigator.serviceWorker.register('sw.js?v=6');
         }
     </script>
 </body>
