@@ -127,10 +127,11 @@ function generateDynamicExcel() {
 
     const wb = XLSX.utils.book_new();
 
-    // 통계_종합 시트
+    // 통계_종합 시트 (최신 회차 우선)
     const summaryHeaders = ['회차', '번호1', '번호2', '번호3', '번호4', '번호5', '번호6', '보너스', '합계', '홀수', '짝수', 'AC값', '저번호', '고번호', '구간수'];
     const summaryRows = [summaryHeaders];
-    lottoDb.forEach(entry => {
+    const sortedDb = [...lottoDb].sort((a, b) => b.round - a.round);
+    sortedDb.forEach(entry => {
         if (!entry.numbers) return;
         const s = entry.numbers;
         const sum = s.reduce((a, b) => a + b, 0);
@@ -159,7 +160,7 @@ function generateDynamicExcel() {
     }
     const ws2 = XLSX.utils.aoa_to_sheet(genRows);
     ws2['!cols'] = genHeaders.map(() => ({ wch: 10 }));
-    XLSX.utils.book_append_sheet(wb, ws2, '번호_생성기');
+    XLSX.utils.book_append_sheet(wb, ws2, '번호별_추세');
 
     XLSX.writeFile(wb, 'lotto645_통계.xlsx');
     showStatus('success', '📊 현재 DB 기준 엑셀 파일이 생성되었습니다!');
