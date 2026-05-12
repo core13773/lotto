@@ -966,9 +966,10 @@ function ensureAudioCtx() {
 function stopSoundtrack() {
     soundtrackNodes.forEach(n => {
         try {
-            if (n.stop) n.stop();
-            if (n.disconnect) n.disconnect();
-            if (n.gain && n.gain.cancelScheduledValues) n.gain.cancelScheduledValues(0);
+            if (typeof n.stop === 'function') n.stop();
+        } catch (e) {}
+        try {
+            if (typeof n.disconnect === 'function') n.disconnect();
         } catch (e) {}
     });
     soundtrackNodes = [];
@@ -985,7 +986,7 @@ function playSoundtrack(idx) {
     soundtrackType = s.type;
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.12;
+    masterGain.gain.value = 0.3;
     masterGain.connect(ctx.destination);
     soundtrackNodes.push(masterGain);
 
@@ -1008,198 +1009,149 @@ function playSoundtrack(idx) {
     showStatus('success', `🎵 ${s.title} 재생 중...`);
 }
 
-// ── 자연의 소리 (빗소리 + 바람 + 파도) ──
-function buildNatureSoundscape(ctx, master) {
-    // 빗소리: 필터링된 화이트 노이즈 (불규칙한 강도)
-    const rainGain = ctx.createGain();
-    rainGain.gain.value = 0;
-    rainGain.connect(master);
-    soundtrackNodes.push(rainGain);
-
-    const rainNode = createNoiseNode(ctx, 4);
-    const rainFilter = ctx.createBiquadFilter();
-    rainFilter.type = 'bandpass';
-    rainFilter.frequency.value = 800;
-    rainFilter.Q.value = 0.3;
-    rainNode.connect(rainFilter);
-    rainFilter.connect(rainGain);
-    soundtrackNodes.push(rainNode, rainFilter);
-
-    // 빗소리 저역(바닥에 떨어지는 소리)
-    const rainLowNode = createNoiseNode(ctx, 3);
-    const rainLowFilter = ctx.createBiquadFilter();
-    rainLowFilter.type = 'lowpass';
-    rainLowFilter.frequency.value = 400;
-    rainLowNode.connect(rainLowFilter);
-    rainLowFilter.connect(rainGain);
-    soundtrackNodes.push(rainLowNode, rainLowFilter);
-
-    // 빗소리 강도 변조 (LFO)
-    const rainLfo = ctx.createOscillator();
-    rainLfo.type = 'sine';
-    rainLfo.frequency.value = 0.08;
-    const rainLfoGain = ctx.createGain();
-    rainLfoGain.gain.value = 0.15;
-    rainLfo.connect(rainLfoGain);
-    rainLfoGain.connect(rainGain.gain);
-    rainLfo.start();
-    rainGain.gain.value = 0.1;
-    soundtrackNodes.push(rainLfo, rainLfoGain);
-
-    // 파도 소리: 매우 느린 저역 노이즈
-    const waveNode = createNoiseNode(ctx, 5);
-    const waveFilter = ctx.createBiquadFilter();
-    waveFilter.type = 'lowpass';
-    waveFilter.frequency.value = 200;
-    const waveGain = ctx.createGain();
-    waveGain.gain.value = 0;
-    waveNode.connect(waveFilter);
-    waveFilter.connect(waveGain);
-    waveGain.connect(master);
-    soundtrackNodes.push(waveNode, waveFilter, waveGain);
-
-    // 파도 엔벨로프 (천천히 올라갔다 내려갔다)
-    const waveLfo = ctx.createOscillator();
-    waveLfo.type = 'sine';
-    waveLfo.frequency.value = 0.04;
-    const waveLfoGain = ctx.createGain();
-    waveLfoGain.gain.value = 0.08;
-    waveLfo.connect(waveLfoGain);
-    waveLfoGain.connect(waveGain.gain);
-    waveLfo.start();
-    waveGain.gain.value = 0.06;
-    soundtrackNodes.push(waveLfo, waveLfoGain);
-
-    // 바람 소리: 매우 낮은 브라운 노이즈
-    const windNode = createNoiseNode(ctx, 6);
-    const windFilter = ctx.createBiquadFilter();
-    windFilter.type = 'lowpass';
-    windFilter.frequency.value = 150;
-    windFilter.Q.value = 0.5;
-    const windGain = ctx.createGain();
-    windGain.gain.value = 0;
-    windNode.connect(windFilter);
-    windFilter.connect(windGain);
-    windGain.connect(master);
-    soundtrackNodes.push(windNode, windFilter, windGain);
-
-    const windLfo = ctx.createOscillator();
-    windLfo.type = 'triangle';
-    windLfo.frequency.value = 0.03;
-    const windLfoGain = ctx.createGain();
-    windLfoGain.gain.value = 0.04;
-    windLfo.connect(windLfoGain);
-    windLfoGain.connect(windGain.gain);
-    windLfo.start();
-    windGain.gain.value = 0.03;
-    soundtrackNodes.push(windLfo, windLfoGain);
+// ── 공통: GainNode 생성 헬퍼 (항상 track하고, 0 아닌 값으로 시작) ──
+function createTrackedGain(ctx, value, dest) {
+    const g = ctx.createGain();
+    g.gain.value = value;
+    g.connect(dest);
+    soundtrackNodes.push(g);
+    return g;
 }
 
-// ── 로파이 힙합 (부드러운 패드 + 베이스 + 노이즈 비트) ──
+// ── 자연의 소리 (빗소리 + 파도 + 바람) ──
+function buildNatureSoundscape(ctx, master) {
+    // 빗소리 (밴드패스 노이즈)
+    const rainGain = createTrackedGain(ctx, 0.22, master);
+    const rainNode = createNoiseNode(ctx, 4);
+    const rainF = ctx.createBiquadFilter();
+    rainF.type = 'bandpass'; rainF.frequency.value = 900; rainF.Q.value = 0.3;
+    rainNode.connect(rainF); rainF.connect(rainGain);
+    soundtrackNodes.push(rainNode, rainF);
+
+    const rainLow = createNoiseNode(ctx, 3);
+    const rainLowF = ctx.createBiquadFilter();
+    rainLowF.type = 'lowpass'; rainLowF.frequency.value = 500;
+    rainLow.connect(rainLowF); rainLowF.connect(rainGain);
+    soundtrackNodes.push(rainLow, rainLowF);
+
+    // 빗소리 약한 강도 변화 (LFO가 깊게 깎지 않게)
+    const rLfo = ctx.createOscillator();
+    rLfo.type = 'sine'; rLfo.frequency.value = 0.12;
+    const rLfoG = ctx.createGain();
+    rLfoG.gain.value = 0.06; // 작은 변조 — 0.22±0.06 = 0.16~0.28
+    rLfo.connect(rLfoG); rLfoG.connect(rainGain.gain);
+    rLfo.start();
+    soundtrackNodes.push(rLfo, rLfoG);
+
+    // 파도 (저역 노이즈)
+    const waveGain = createTrackedGain(ctx, 0.12, master);
+    const waveNode = createNoiseNode(ctx, 5);
+    const waveF = ctx.createBiquadFilter();
+    waveF.type = 'lowpass'; waveF.frequency.value = 180;
+    waveNode.connect(waveF); waveF.connect(waveGain);
+    soundtrackNodes.push(waveNode, waveF);
+
+    const wLfo = ctx.createOscillator();
+    wLfo.type = 'sine'; wLfo.frequency.value = 0.05;
+    const wLfoG = ctx.createGain();
+    wLfoG.gain.value = 0.04;
+    wLfo.connect(wLfoG); wLfoG.connect(waveGain.gain);
+    wLfo.start();
+    soundtrackNodes.push(wLfo, wLfoG);
+
+    // 바람 (저역 노이즈, 느린 변조)
+    const windGain = createTrackedGain(ctx, 0.06, master);
+    const windNode = createNoiseNode(ctx, 6);
+    const windF = ctx.createBiquadFilter();
+    windF.type = 'lowpass'; windF.frequency.value = 120; windF.Q.value = 0.5;
+    windNode.connect(windF); windF.connect(windGain);
+    soundtrackNodes.push(windNode, windF);
+
+    const wdLfo = ctx.createOscillator();
+    wdLfo.type = 'triangle'; wdLfo.frequency.value = 0.04;
+    const wdLfoG = ctx.createGain();
+    wdLfoG.gain.value = 0.02;
+    wdLfo.connect(wdLfoG); wdLfoG.connect(windGain.gain);
+    wdLfo.start();
+    soundtrackNodes.push(wdLfo, wdLfoG);
+}
+
+// ── 로파이 힙합 ──
 function buildLofiSoundscape(ctx, master) {
-    // 웜 패드 (부드러운 코드)
-    const chordFreqs = [130.81, 164.81, 196.00, 246.94]; // C3, E3, G3, B3
+    const chordFreqs = [130.81, 164.81, 196.00, 246.94];
     chordFreqs.forEach(f => {
         const osc = ctx.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.value = f;
+        osc.type = 'triangle'; osc.frequency.value = f;
         osc.detune.value = Math.random() * 10 - 5;
-        const g = ctx.createGain();
-        g.gain.value = 0.025;
-        osc.connect(g);
-        g.connect(master);
-        osc.start();
-        soundtrackNodes.push(osc, g);
+        const g = createTrackedGain(ctx, 0.05, master);
+        osc.connect(g); osc.start();
+        soundtrackNodes.push(osc);
 
-        // 개별 LFO
         const lfo = ctx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.value = 0.1 + Math.random() * 0.2;
+        lfo.type = 'sine'; lfo.frequency.value = 0.1 + Math.random() * 0.2;
         const lfoG = ctx.createGain();
-        lfoG.gain.value = 0.01;
-        lfo.connect(lfoG);
-        lfoG.connect(g.gain);
+        lfoG.gain.value = 0.015;
+        lfo.connect(lfoG); lfoG.connect(g.gain);
         lfo.start();
         soundtrackNodes.push(lfo, lfoG);
     });
 
-    // 서브 베이스
     const bass = ctx.createOscillator();
-    bass.type = 'sine';
-    bass.frequency.value = 65.41; // C2
-    const bassGain = ctx.createGain();
-    bassGain.gain.value = 0.04;
-    bass.connect(bassGain);
-    bassGain.connect(master);
-    bass.start();
-    soundtrackNodes.push(bass, bassGain);
+    bass.type = 'sine'; bass.frequency.value = 65.41;
+    const bassG = createTrackedGain(ctx, 0.08, master);
+    bass.connect(bassG); bass.start();
+    soundtrackNodes.push(bass);
 
-    // 로파이 비트 (노이즈 기반 킥/스네어)
     const beatInterval = setInterval(() => {
         if (soundtrackType !== 'lofi') { clearInterval(beatInterval); return; }
-        playNoiseClick(ctx, master, 60, 0.06, 0.05);  // 킥
+        playNoiseClick(ctx, master, 60, 0.06, 0.08);
         setTimeout(() => {
             if (soundtrackType !== 'lofi') return;
-            playNoiseClick(ctx, master, 1500, 0.15, 0.03); // 스네어
+            playNoiseClick(ctx, master, 1500, 0.15, 0.05);
         }, 400);
     }, 1200);
-    soundtrackNodes.push({ stop: () => clearInterval(beatInterval), disconnect: () => {}, gain: null });
+    soundtrackNodes.push({ stop: () => clearInterval(beatInterval), disconnect: () => {} });
 }
 
-// ── 재즈 카페 (따뜻한 7th 코드 + 더블베이스 + 브러시) ──
+// ── 재즈 카페 ──
 function buildJazzSoundscape(ctx, master) {
-    // Dm7 코드 (재즈 느낌)
-    const jazzChords = [146.83, 174.61, 220.00, 261.63]; // D3, F3, A3, C4
+    const jazzChords = [146.83, 174.61, 220.00, 261.63];
     jazzChords.forEach((f, i) => {
         const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = f;
+        osc.type = 'sine'; osc.frequency.value = f;
         osc.detune.value = (i % 2 === 0 ? -5 : 5);
-        const g = ctx.createGain();
-        g.gain.value = 0.03;
-        osc.connect(g);
-        g.connect(master);
-        osc.start();
-        soundtrackNodes.push(osc, g);
+        const g = createTrackedGain(ctx, 0.06, master);
+        osc.connect(g); osc.start();
+        soundtrackNodes.push(osc);
 
-        // 부드러운 트레몰로
         const lfo = ctx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.value = 0.3 + i * 0.1;
+        lfo.type = 'sine'; lfo.frequency.value = 0.3 + i * 0.1;
         const lfoG = ctx.createGain();
-        lfoG.gain.value = 0.008;
-        lfo.connect(lfoG);
-        lfoG.connect(g.gain);
+        lfoG.gain.value = 0.015;
+        lfo.connect(lfoG); lfoG.connect(g.gain);
         lfo.start();
         soundtrackNodes.push(lfo, lfoG);
     });
 
-    // 더블베이스 (낮은 피치)
     const dbass = ctx.createOscillator();
-    dbass.type = 'triangle';
-    dbass.frequency.value = 73.42; // D2
-    const dbassGain = ctx.createGain();
-    dbassGain.gain.value = 0.05;
-    dbass.connect(dbassGain);
-    dbassGain.connect(master);
-    dbass.start();
-    soundtrackNodes.push(dbass, dbassGain);
+    dbass.type = 'triangle'; dbass.frequency.value = 73.42;
+    const dbassG = createTrackedGain(ctx, 0.1, master);
+    dbass.connect(dbassG); dbass.start();
+    soundtrackNodes.push(dbass);
 
-    // 브러시 드럼 (부드러운 쉐이커)
     const brushInterval = setInterval(() => {
         if (soundtrackType !== 'jazz') { clearInterval(brushInterval); return; }
-        playNoiseClick(ctx, master, 3000, 0.04, 0.02);
-        setTimeout(() => playNoiseClick(ctx, master, 4000, 0.03, 0.015), 200);
-        setTimeout(() => playNoiseClick(ctx, master, 3500, 0.03, 0.018), 500);
-        setTimeout(() => playNoiseClick(ctx, master, 4500, 0.03, 0.015), 700);
+        playNoiseClick(ctx, master, 3000, 0.04, 0.025);
+        setTimeout(() => playNoiseClick(ctx, master, 4000, 0.03, 0.02), 200);
+        setTimeout(() => playNoiseClick(ctx, master, 3500, 0.03, 0.02), 500);
+        setTimeout(() => playNoiseClick(ctx, master, 4500, 0.03, 0.02), 700);
     }, 1000);
-    soundtrackNodes.push({ stop: () => clearInterval(brushInterval), disconnect: () => {}, gain: null });
+    soundtrackNodes.push({ stop: () => clearInterval(brushInterval), disconnect: () => {} });
 }
 
-// ── 클래식 피아노 (부드러운 아르페지오) ──
+// ── 클래식 피아노 ──
 function buildPianoSoundscape(ctx, master) {
-    // C 메이저 스케일 기반 아르페지오
-    const scaleFreqs = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C4 E4 G4 C5 G4 E4
+    const scaleFreqs = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
     let noteIdx = 0;
 
     function playNextNote() {
@@ -1207,54 +1159,39 @@ function buildPianoSoundscape(ctx, master) {
         const freq = scaleFreqs[noteIdx % scaleFreqs.length];
         noteIdx++;
 
-        // 피아노 같은 감쇄 사인파
         const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
+        osc.type = 'sine'; osc.frequency.value = freq;
         const g = ctx.createGain();
-        g.gain.setValueAtTime(0.08, ctx.currentTime);
+        g.gain.setValueAtTime(0.15, ctx.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-        osc.connect(g);
-        g.connect(master);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 1.8);
+        osc.connect(g); g.connect(master);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.8);
         soundtrackNodes.push(osc, g);
 
-        // 약한 배음 (피아노 느낌)
         const overtone = ctx.createOscillator();
-        overtone.type = 'sine';
-        overtone.frequency.value = freq * 2.01;
+        overtone.type = 'sine'; overtone.frequency.value = freq * 2.01;
         const og = ctx.createGain();
-        og.gain.setValueAtTime(0.02, ctx.currentTime);
+        og.gain.setValueAtTime(0.04, ctx.currentTime);
         og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-        overtone.connect(og);
-        og.connect(master);
-        overtone.start(ctx.currentTime);
-        overtone.stop(ctx.currentTime + 1.0);
+        overtone.connect(og); og.connect(master);
+        overtone.start(ctx.currentTime); overtone.stop(ctx.currentTime + 1.0);
         soundtrackNodes.push(overtone, og);
 
         setTimeout(playNextNote, 1500);
     }
     playNextNote();
 
-    // 패드 (공명)
     const padOsc = ctx.createOscillator();
-    padOsc.type = 'sine';
-    padOsc.frequency.value = 130.81; // C3
-    const padGain = ctx.createGain();
-    padGain.gain.value = 0.015;
-    padOsc.connect(padGain);
-    padGain.connect(master);
-    padOsc.start();
-    soundtrackNodes.push(padOsc, padGain);
+    padOsc.type = 'sine'; padOsc.frequency.value = 130.81;
+    const padGain = createTrackedGain(ctx, 0.03, master);
+    padOsc.connect(padGain); padOsc.start();
+    soundtrackNodes.push(padOsc);
 
     const padLfo = ctx.createOscillator();
-    padLfo.type = 'sine';
-    padLfo.frequency.value = 0.15;
+    padLfo.type = 'sine'; padLfo.frequency.value = 0.15;
     const padLfoG = ctx.createGain();
-    padLfoG.gain.value = 0.005;
-    padLfo.connect(padLfoG);
-    padLfoG.connect(padGain.gain);
+    padLfoG.gain.value = 0.01;
+    padLfo.connect(padLfoG); padLfoG.connect(padGain.gain);
     padLfo.start();
     soundtrackNodes.push(padLfo, padLfoG);
 }
@@ -1264,16 +1201,11 @@ function createNoiseNode(ctx, bufferCount = 4) {
     const bufferSize = 2 * ctx.sampleRate;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
-
-    // 여러 버퍼에 걸쳐 노이즈 생성 (더 자연스러운 소리)
     for (let i = 0; i < bufferSize; i++) {
         let sample = 0;
-        for (let j = 0; j < bufferCount; j++) {
-            sample += Math.random() * 2 - 1;
-        }
+        for (let j = 0; j < bufferCount; j++) { sample += Math.random() * 2 - 1; }
         data[i] = sample / bufferCount;
     }
-
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
@@ -1288,20 +1220,15 @@ function playNoiseClick(ctx, master, freq, duration, vol) {
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-        const envelope = 1 - (i / bufferSize);
-        data[i] = (Math.random() * 2 - 1) * envelope;
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
     }
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = freq;
-    filter.Q.value = 0.8;
+    filter.type = 'bandpass'; filter.frequency.value = freq; filter.Q.value = 0.8;
     const g = ctx.createGain();
     g.gain.value = vol;
-    source.connect(filter);
-    filter.connect(g);
-    g.connect(master);
+    source.connect(filter); filter.connect(g); g.connect(master);
     source.start();
     source.stop(ctx.currentTime + duration + 0.01);
 }
