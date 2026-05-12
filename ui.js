@@ -14,6 +14,7 @@ function cycleTheme() {
     try { localStorage.setItem('lotto-theme', next); } catch (e) {}
     updateThemeBtn(next);
     showToast(`${THEME_ICONS[next]} ${THEME_LABELS[next]} 테마`);
+    if (typeof trackThemeUse === 'function') trackThemeUse();
 }
 
 function updateThemeBtn(theme) {
@@ -78,6 +79,7 @@ function changeFont(fontName) {
     const fontStack = FONT_OPTIONS[fontName] || FONT_OPTIONS['Noto Sans KR'];
     document.body.style.fontFamily = fontStack;
     try { localStorage.setItem('lotto-font', fontName); } catch (e) {}
+    if (typeof trackFontUse === 'function') trackFontUse();
 }
 
 function getCurrentFontName() {

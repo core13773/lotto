@@ -1,0 +1,932 @@
+// fun.js - 재미있는 콘텐츠 기능 모음
+// 출석 체크, 오늘의 행운 번호, 추첨 카운트다운, 사진→번호, 통계 스포트라이트,
+// 업적/뱃지, 스핀 더 휠, 번호 성격 테스트, 꿈해몽, 사운드트랙
+
+// ========== 1. 출석 체크 + 연속 보상 ==========
+function getToday() { return new Date().toISOString().slice(0, 10); }
+function getYesterday(d) { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().slice(0, 10); }
+
+function getCheckinData() {
+    try { return JSON.parse(localStorage.getItem('lotto-checkin') || '{"lastDate":"","streak":0,"total":0,"coins":0,"history":[]}'); } catch (e) { return { lastDate: '', streak: 0, total: 0, coins: 0, history: [] }; }
+}
+
+function saveCheckinData(data) {
+    try { localStorage.setItem('lotto-checkin', JSON.stringify(data)); } catch (e) {}
+}
+
+function doCheckin() {
+    const data = getCheckinData();
+    const today = getToday();
+    if (data.lastDate === today) {
+        showStatus('info', '✅ 오늘 이미 출석하셨어요! ' + data.streak + '일 연속 출석 중 🔥');
+        renderCheckinUI();
+        return;
+    }
+    const yesterday = getYesterday(today);
+    if (data.lastDate === yesterday) {
+        data.streak += 1;
+    } else {
+        data.streak = 1;
+    }
+    data.lastDate = today;
+    data.total += 1;
+    // 보상: 연속 일수에 따라 코인 지급
+    let coinReward = 1;
+    if (data.streak >= 30) coinReward = 10;
+    else if (data.streak >= 14) coinReward = 7;
+    else if (data.streak >= 7) coinReward = 5;
+    else if (data.streak >= 3) coinReward = 3;
+    data.coins += coinReward;
+    data.history.push({ date: today, streak: data.streak, coins: coinReward });
+    if (data.history.length > 365) data.history = data.history.slice(-365);
+    saveCheckinData(data);
+
+    // 보상 뱃지 체크
+    if (data.streak === 7) unlockAchievement('checkin_7');
+    if (data.streak === 30) unlockAchievement('checkin_30');
+    if (data.streak === 100) unlockAchievement('checkin_100');
+    if (data.total === 1) unlockAchievement('first_checkin');
+
+    showStatus('success', `🎉 ${data.streak}일 연속 출석! 행운 코인 +${coinReward} (보유: ${data.coins}🪙)`);
+    fireConfetti();
+    vibrate(100);
+    playBeep(800, 0.15);
+    renderCheckinUI();
+}
+
+function renderCheckinUI() {
+    const data = getCheckinData();
+    const today = getToday();
+    const checkedToday = data.lastDate === today;
+
+    const el = document.getElementById('checkinContent');
+    if (!el) return;
+
+    // 주간 출석 달력
+    const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+
+    let weekHtml = '<div class="checkin-week">';
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        const ds = d.toISOString().slice(0, 10);
+        const isChecked = data.history.some(h => h.date === ds);
+        const isToday = ds === today;
+        weekHtml += `<div class="checkin-day${isChecked ? ' checked' : ''}${isToday ? ' today' : ''}">
+            <span class="checkin-day-label">${weekDays[i]}</span>
+            <span class="checkin-day-icon">${isChecked ? '✅' : isToday && !checkedToday ? '🎯' : '○'}</span>
+            <span class="checkin-day-date">${d.getDate()}</span>
+        </div>`;
+    }
+    weekHtml += '</div>';
+
+    el.innerHTML = `
+        ${weekHtml}
+        <div class="checkin-stats">
+            <div class="checkin-stat"><span class="checkin-stat-val">🔥 ${data.streak}일</span><span class="checkin-stat-lbl">연속 출석</span></div>
+            <div class="checkin-stat"><span class="checkin-stat-val">📅 ${data.total}일</span><span class="checkin-stat-lbl">전체 출석</span></div>
+            <div class="checkin-stat"><span class="checkin-stat-val">🪙 ${data.coins}</span><span class="checkin-stat-lbl">행운 코인</span></div>
+        </div>
+        <button class="btn btn-gold" onclick="doCheckin()" ${checkedToday ? 'disabled' : ''} style="width:100%;justify-content:center;">
+            ${checkedToday ? '✅ 오늘 출석 완료! (내일 또 만나요)' : '🎯 오늘 출석 체크!'}
+        </button>
+        ${data.streak >= 3 ? `<p class="text-xs-secondary text-center mt-10">🔥 ${data.streak}일 연속! ${data.streak >= 7 ? '대단해요!' : '내일도 출석하면 보너스 코인!'}</p>` : ''}
+    `;
+}
+
+// ========== 2. 오늘의 행운 번호 ==========
+function getDailyLuckyNumber() {
+    const today = getToday();
+    const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
+    // 결정적 랜덤
+    function seededRandom(s) {
+        let x = Math.sin(s * 9301 + 49297) * 49297;
+        return x - Math.floor(x);
+    }
+    const nums = new Set();
+    let s = seed;
+    while (nums.size < 6) {
+        const n = Math.floor(seededRandom(s) * 45) + 1;
+        nums.add(n);
+        s++;
+    }
+    return [...nums].sort((a, b) => a - b);
+}
+
+function renderDailyLuckyNumber() {
+    const el = document.getElementById('dailyLuckyContent');
+    if (!el) return;
+    const nums = getDailyLuckyNumber();
+    const today = getToday();
+
+    // 번호별 운세 키워드
+    const keywords = [
+        '행운', '사랑', '건강', '재물', '명예', '지혜',
+        '모험', '평화', '성공', '우정', '기쁨', '희망',
+        '용기', '인내', '창의', '열정', '신뢰', '감사'
+    ];
+
+    const ballsHtml = nums.map((n, i) => {
+        const cls = getBallClass(n);
+        const kw = keywords[n % keywords.length];
+        return `<div class="daily-lucky-ball-wrapper">
+            <span class="ball ${cls}">${n}</span>
+            <span class="daily-ball-kw">${kw}</span>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div class="daily-lucky-date">📅 ${today}</div>
+        <div class="balls-container" style="flex-wrap:wrap;gap:8px;">${ballsHtml}</div>
+        <p class="text-xs-secondary text-center">오늘의 행운 키워드와 함께하는 번호입니다.</p>
+        <button class="btn btn-primary" onclick="useDailyLuckyNumbers()" style="width:100%;margin-top:10px;justify-content:center;">🎱 이 번호로 예측 분석하기</button>
+    `;
+}
+
+function useDailyLuckyNumbers() {
+    const nums = getDailyLuckyNumber();
+    if (!currentWinningNumbers) {
+        // DB 데이터로 강제 설정 시도
+        if (lottoDb && lottoDb.length > 0) {
+            const latest = lottoDb[lottoDb.length - 1];
+            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+        } else {
+            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
+            return;
+        }
+    }
+    const analysis = analyzeNumbers(nums);
+    const score = calculateQualityScore(analysis);
+    const filterResult = checkFilters(nums);
+    const percentileRank = calculatePercentileRank(nums);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    renderBalls(nums, 'predictionBalls');
+    document.getElementById('predictionMeta').textContent = `오늘의 행운 번호 | ${getToday()}`;
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
+    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
+    document.getElementById('predictionResult').classList.remove('hidden');
+    document.getElementById('matchingSection').classList.add('hidden');
+    showStatus('success', '🍀 오늘의 행운 번호가 적용되었습니다!');
+}
+
+// ========== 3. 추첨 카운트다운 ==========
+let countdownInterval = null;
+
+function getNextDrawTime() {
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 3600000);
+    const day = kst.getUTCDay();
+    const hours = kst.getUTCHours();
+    const minutes = kst.getUTCMinutes();
+
+    const drawTime = new Date(kst);
+    if (day === 6 && hours < 20) {
+        // 오늘 토요일, 20:00 이전
+        drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+    } else if (day === 6 && hours >= 20 && minutes >= 45) {
+        // 토요일 20:45 이후 → 다음 주
+        drawTime.setUTCDate(drawTime.getUTCDate() + 7);
+        drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+    } else {
+        const daysUntil = day === 6 ? 0 : (6 - day + 7) % 7;
+        if (daysUntil === 0 && hours >= 20 && minutes >= 45) {
+            drawTime.setUTCDate(drawTime.getUTCDate() + 7);
+        } else if (daysUntil === 0) {
+            drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+        } else {
+            drawTime.setUTCDate(drawTime.getUTCDate() + daysUntil);
+            drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+        }
+    }
+
+    const diff = drawTime.getTime() - kst.getTime();
+    return Math.max(0, diff);
+}
+
+function formatCountdown(ms) {
+    if (ms <= 0) return { d: 0, h: 0, m: 0, s: 0, live: true };
+    const totalSec = Math.floor(ms / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return { d, h, m, s, live: false };
+}
+
+function updateCountdown() {
+    const el = document.getElementById('countdownDisplay');
+    if (!el) return;
+    const remaining = getNextDrawTime();
+    const cd = formatCountdown(remaining);
+
+    if (cd.live) {
+        el.innerHTML = '<div class="countdown-live">🔴 지금 추첨 생방송 중!</div>';
+        return;
+    }
+
+    const pad = n => String(n).padStart(2, '0');
+    el.innerHTML = `
+        <div class="countdown-timer">
+            <div class="countdown-unit"><span class="countdown-val">${cd.d}</span><span class="countdown-lbl">일</span></div>
+            <div class="countdown-sep">:</div>
+            <div class="countdown-unit"><span class="countdown-val">${pad(cd.h)}</span><span class="countdown-lbl">시</span></div>
+            <div class="countdown-sep">:</div>
+            <div class="countdown-unit"><span class="countdown-val">${pad(cd.m)}</span><span class="countdown-lbl">분</span></div>
+            <div class="countdown-sep">:</div>
+            <div class="countdown-unit"><span class="countdown-val">${pad(cd.s)}</span><span class="countdown-lbl">초</span></div>
+        </div>
+        <p class="text-xs-secondary text-center mt-10">매주 토요일 오후 8:45 MBC 추첨</p>
+    `;
+}
+
+function initCountdown() {
+    updateCountdown();
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+// ========== 4. 사진 → 번호 변환 ==========
+function openPhotoToNumbers() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const size = 300;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, size, size);
+            const imageData = ctx.getImageData(0, 0, size, size);
+            const pixels = imageData.data;
+
+            // 사진에서 특징 추출
+            const colorBuckets = Array.from({ length: 5 }, () => []);
+            const sampleSize = 100;
+            const step = Math.floor(pixels.length / 4 / sampleSize);
+
+            for (let i = 0; i < sampleSize; i++) {
+                const idx = i * step * 4;
+                const r = pixels[idx], g = pixels[idx + 1], b = pixels[idx + 2];
+                const brightness = (r + g + b) / 3;
+                const bucketIdx = Math.min(4, Math.floor(brightness / 51));
+                const hue = Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b);
+                const num = Math.floor(((hue + Math.PI) / (2 * Math.PI)) * 45) + 1;
+                if (!colorBuckets[bucketIdx].includes(num)) {
+                    colorBuckets[bucketIdx].push(num);
+                }
+            }
+
+            // 각 구간에서 1~2개 추출하여 6개 완성
+            const result = new Set();
+            const usedBuckets = new Set();
+            while (result.size < 6) {
+                const bi = Math.floor(Math.random() * 5);
+                if (colorBuckets[bi].length === 0) continue;
+                const n = colorBuckets[bi][Math.floor(Math.random() * colorBuckets[bi].length)];
+                if (n >= 1 && n <= 45) result.add(n);
+                usedBuckets.add(bi);
+                if (result.size >= 6) break;
+            }
+            const numbers = [...result].sort((a, b) => a - b);
+
+            // 이미지 미리보기 표시
+            const content = document.getElementById('photoContent');
+            const previewUrl = canvas.toDataURL('image/jpeg', 0.5);
+            content.innerHTML = `
+                <div style="text-align:center;">
+                    <img src="${previewUrl}" alt="분석된 사진" style="max-width:200px;max-height:200px;border-radius:12px;margin-bottom:15px;border:2px solid var(--accent-purple);">
+                    <p class="text-xs-secondary">사진의 색상과 밝기에서 추출된 번호</p>
+                    <div class="balls-container">${numbers.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+                    <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="usePhotoNumbers([${numbers}])">🎱 예측 분석하기</button>
+                        <button class="btn btn-secondary" onclick="openPhotoToNumbers()">📷 다른 사진으로</button>
+                    </div>
+                </div>
+            `;
+            showStatus('success', '📷 사진에서 번호를 추출했어요!');
+            playBeep(600, 0.1);
+        };
+        img.src = URL.createObjectURL(file);
+    };
+    input.click();
+}
+
+function usePhotoNumbers(numbers) {
+    if (!currentWinningNumbers) {
+        if (lottoDb && lottoDb.length > 0) {
+            const latest = lottoDb[lottoDb.length - 1];
+            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+        } else {
+            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
+            return;
+        }
+    }
+    const analysis = analyzeNumbers(numbers);
+    const score = calculateQualityScore(analysis);
+    const filterResult = checkFilters(numbers);
+    const percentileRank = calculatePercentileRank(numbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    renderBalls(numbers, 'predictionBalls');
+    document.getElementById('predictionMeta').textContent = '📷 사진에서 추출한 번호';
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
+    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
+    document.getElementById('predictionResult').classList.remove('hidden');
+    document.getElementById('matchingSection').classList.add('hidden');
+    showStatus('success', '📷 사진 번호로 분석 완료!');
+}
+
+// ========== 5. 통계 스포트라이트 ==========
+function renderStatsSpotlight() {
+    const el = document.getElementById('spotlightContent');
+    if (!el) return;
+    if (!lottoDb || lottoDb.length < 10) {
+        el.innerHTML = '<p class="text-secondary text-center">📊 DB 데이터 로딩 후 확인할 수 있어요.</p>';
+        return;
+    }
+
+    const latest = lottoDb[lottoDb.length - 1];
+    const sorted = [...lottoDb].sort((a, b) => b.round - a.round);
+
+    // 최근 10주 핫 번호
+    const recent10 = sorted.slice(0, 10);
+    const freq10 = {};
+    for (let i = 1; i <= 45; i++) freq10[i] = 0;
+    recent10.forEach(r => { if (r.numbers) r.numbers.forEach(n => freq10[n]++); });
+    const hotNow = Object.entries(freq10).filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]);
+    const coldNow = Object.entries(freq10).filter(([, c]) => c === 0).sort((a, b) => a[0] - b[0]);
+
+    // 현재 최장 미출현
+    let maxGap = 0, maxGapNum = 0;
+    for (let n = 1; n <= 45; n++) {
+        let gap = 0;
+        for (let i = 0; i < sorted.length; i++) {
+            if (sorted[i].numbers && sorted[i].numbers.includes(n)) break;
+            gap++;
+        }
+        if (gap > maxGap) { maxGap = gap; maxGapNum = n; }
+    }
+
+    // 이번 주 번호 합계
+    const latestSum = latest.numbers ? latest.numbers.reduce((a, b) => a + b, 0) : 0;
+    const avgSum = 136; // 이론적 평균
+    const sumComment = latestSum > avgSum + 20 ? '고합계 (번호가 전반적으로 높음)' : latestSum < avgSum - 20 ? '저합계 (번호가 전반적으로 낮음)' : '평균 합계';
+
+    const hotBalls = hotNow.slice(0, 3).map(([n]) => `<span class="ball ${getBallClass(parseInt(n))}" style="width:36px;height:36px;line-height:36px;font-size:0.85rem;">${n}</span>`).join('') || '<span class="text-xs-secondary">없음</span>';
+
+    el.innerHTML = `
+        <div class="spotlight-grid">
+            <div class="spotlight-card hot">
+                <div class="spotlight-title">🔥 최근 10주 핫 번호</div>
+                <div class="spotlight-balls">${hotBalls}</div>
+                <div class="spotlight-desc">${hotNow.length > 0 ? `${hotNow[0][1]}회 출현으로 가장 뜨거워요!` : '3회 이상 출현한 번호가 없습니다.'}</div>
+            </div>
+            <div class="spotlight-card cold">
+                <div class="spotlight-title">❄️ 최근 10주 미출현</div>
+                <div class="spotlight-desc">${coldNow.length}개 번호가 10주 동안 안 나왔어요</div>
+                <div class="spotlight-nums">${coldNow.slice(0, 5).map(([n]) => `<span class="spotlight-num">${n}</span>`).join(' ')}</div>
+            </div>
+            <div class="spotlight-card dormant">
+                <div class="spotlight-title">⏰ 최장 미출현</div>
+                <div class="spotlight-big-num">${maxGapNum}</div>
+                <div class="spotlight-desc">무려 <strong>${maxGap}주</strong> 연속 안 나왔어요</div>
+            </div>
+            <div class="spotlight-card sum">
+                <div class="spotlight-title">📊 제 ${latest.round}회 번호 합계</div>
+                <div class="spotlight-big-num">${latestSum}</div>
+                <div class="spotlight-desc">${sumComment}</div>
+            </div>
+        </div>
+    `;
+}
+
+// ========== 6. 업적/뱃지 시스템 ==========
+const ACHIEVEMENTS = {
+    first_checkin: { icon: '🌟', title: '첫 출석', desc: '처음으로 출석 체크했어요' },
+    checkin_7: { icon: '🔥', title: '7일 연속 출석', desc: '일주일 내내 출석했어요' },
+    checkin_30: { icon: '💎', title: '30일 연속 출석', desc: '한 달 내내 출석했어요' },
+    checkin_100: { icon: '👑', title: '100일 연속 출석', desc: '진정한 로또 매니아!' },
+    first_prediction: { icon: '🎱', title: '첫 예측', desc: '첫 번째 AI 예측을 실행했어요' },
+    prediction_10: { icon: '🔮', title: '예측 마스터', desc: '10회 이상 예측을 실행했어요' },
+    all_themes: { icon: '🎨', title: '테마 탐험가', desc: '모든 테마를 사용해봤어요' },
+    all_fonts: { icon: '✍️', title: '글꼴 수집가', desc: '5개 이상 글꼴을 사용해봤어요' },
+    retro_used: { icon: '⏪', title: '타임머신', desc: '당첨 회고 기능을 사용했어요' },
+    photo_numbers: { icon: '📷', title: '사진술사', desc: '사진으로 번호를 만들어봤어요' },
+    wheel_spin_10: { icon: '🎡', title: '휠 마스터', desc: '행운의 휠을 10회 돌렸어요' },
+    dream_used: { icon: '💭', title: '꿈 해몽가', desc: '꿈으로 번호를 만들어봤어요' },
+    personality_done: { icon: '🧩', title: '자기 발견', desc: '번호 성격 테스트를 완료했어요' },
+};
+
+function getAchievements() {
+    try { return JSON.parse(localStorage.getItem('lotto-achievements') || '[]'); } catch (e) { return []; }
+}
+
+function unlockAchievement(key) {
+    const ach = getAchievements();
+    if (ach.includes(key)) return;
+    ach.push(key);
+    try { localStorage.setItem('lotto-achievements', JSON.stringify(ach)); } catch (e) {}
+    const info = ACHIEVEMENTS[key];
+    if (info) {
+        showToast(`${info.icon} 업적 달성: ${info.title}!`);
+        fireConfetti();
+        playBeep(1000, 0.2);
+    }
+}
+
+// 업적 트래킹 함수들
+function trackPrediction() {
+    const stats = getStats();
+    stats.predictions += 1;
+    saveStats(stats);
+    unlockAchievement('first_prediction');
+    if (stats.predictions >= 10) unlockAchievement('prediction_10');
+}
+
+function trackThemeUse() {
+    const stats = getStats();
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    if (!stats.themes_used.includes(current)) {
+        stats.themes_used.push(current);
+        saveStats(stats);
+        if (stats.themes_used.length >= THEMES.length) unlockAchievement('all_themes');
+    }
+}
+
+function trackFontUse() {
+    const stats = getStats();
+    let fontName;
+    try { fontName = localStorage.getItem('lotto-font'); } catch (e) {}
+    if (fontName && !stats.fonts_used.includes(fontName)) {
+        stats.fonts_used.push(fontName);
+        saveStats(stats);
+        if (stats.fonts_used.length >= 5) unlockAchievement('all_fonts');
+    }
+}
+
+function trackRetroUse() { unlockAchievement('retro_used'); }
+function trackPhotoUse() { unlockAchievement('photo_numbers'); }
+function trackWheelSpin() {
+    const spins = (parseInt(localStorage.getItem('lotto-wheel-spins') || '0')) + 1;
+    localStorage.setItem('lotto-wheel-spins', spins);
+    if (spins >= 10) unlockAchievement('wheel_spin_10');
+}
+function trackDreamUse() { unlockAchievement('dream_used'); }
+function trackPersonalityDone() { unlockAchievement('personality_done'); }
+
+function getStats() {
+    try { return JSON.parse(localStorage.getItem('lotto-stats') || '{"predictions":0,"themes_used":[],"fonts_used":[]}'); } catch (e) { return { predictions: 0, themes_used: [], fonts_used: [] }; }
+}
+
+function saveStats(stats) {
+    try { localStorage.setItem('lotto-stats', JSON.stringify(stats)); } catch (e) {}
+}
+
+function getUsedThemes() {
+    const stats = getStats();
+    return new Set(stats.themes_used || []);
+}
+
+function getUsedFonts() {
+    const stats = getStats();
+    return new Set(stats.fonts_used || []);
+}
+
+function renderAchievements() {
+    const el = document.getElementById('achievementsContent');
+    if (!el) return;
+    const unlocked = getAchievements();
+    const total = Object.keys(ACHIEVEMENTS).length;
+    const unlockedCount = unlocked.length;
+
+    const items = Object.entries(ACHIEVEMENTS).map(([key, info]) => {
+        const isUnlocked = unlocked.includes(key);
+        return `<div class="achievement-item ${isUnlocked ? 'unlocked' : 'locked'}">
+            <span class="achievement-icon">${isUnlocked ? info.icon : '🔒'}</span>
+            <div class="achievement-info">
+                <span class="achievement-title">${info.title}</span>
+                <span class="achievement-desc">${info.desc}</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div class="achievement-progress">
+            <div class="achievement-bar-bg"><div class="achievement-bar-fill" style="width:${(unlockedCount/total*100).toFixed(0)}%"></div></div>
+            <span class="achievement-count">${unlockedCount} / ${total} 달성</span>
+        </div>
+        <div class="achievement-grid">${items}</div>
+    `;
+}
+
+// ========== 7. 스핀 더 휠 ==========
+function canSpinWheel() {
+    const lastSpin = localStorage.getItem('lotto-last-wheel-spin');
+    if (!lastSpin) return true;
+    return lastSpin !== getToday();
+}
+
+function spinWheel() {
+    if (!canSpinWheel()) {
+        showStatus('info', '🎡 오늘 이미 휠을 돌리셨어요! 내일 또 돌려보세요.');
+        return;
+    }
+
+    const el = document.getElementById('wheelResult');
+    const prizes = [
+        { label: '🪙 1코인', coins: 1, color: '#ffd700' },
+        { label: '🪙 3코인', coins: 3, color: '#00f5ff' },
+        { label: '🪙 5코인', coins: 5, color: '#ff006e' },
+        { label: '🪙 10코인', coins: 10, color: '#8b5cf6' },
+        { label: '🎱 보너스 번호', coins: 0, bonus: true, color: '#10b981' },
+        { label: '💫 꽝', coins: 0, color: '#666' },
+        { label: '🪙 2코인', coins: 2, color: '#f97316' },
+        { label: '🪙 7코인', coins: 7, color: '#3b82f6' },
+    ];
+
+    const targetIdx = Math.floor(Math.random() * prizes.length);
+    const prize = prizes[targetIdx];
+
+    // 스핀 애니메이션
+    const wheelEl = document.getElementById('wheelCanvas');
+    if (wheelEl) {
+        const totalRotation = 1800 + targetIdx * (360 / prizes.length) + Math.floor(Math.random() * 30);
+        wheelEl.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+        wheelEl.style.transform = `rotate(${totalRotation}deg)`;
+    }
+
+    // 결과 저장
+    localStorage.setItem('lotto-last-wheel-spin', getToday());
+    trackWheelSpin();
+
+    if (prize.coins > 0) {
+        const data = getCheckinData();
+        data.coins += prize.coins;
+        saveCheckinData(data);
+    }
+
+    setTimeout(() => {
+        el.innerHTML = `
+            <div class="wheel-result-show">
+                <div style="font-size:2rem;">${prize.label}</div>
+                <p class="text-secondary">${prize.coins > 0 ? `행운 코인 +${prize.coins}원 적립!` : prize.bonus ? '보너스 번호가 예측에 추가돼요!' : '다음 기회에...'}</p>
+                ${prize.bonus ? `<button class="btn btn-primary" onclick="applyBonusNumbers()" style="margin-top:10px;">🎱 보너스 번호 받기</button>` : ''}
+                <p class="text-xs-secondary mt-10">내일 다시 돌릴 수 있어요!</p>
+            </div>
+        `;
+        if (prize.coins > 0) playBeep(800, 0.2);
+    }, 4200);
+
+    el.innerHTML = '<div style="text-align:center;color:var(--accent-gold);font-size:1.2rem;">🎡 휠이 돌아가고 있어요...</div>';
+}
+
+function applyBonusNumbers() {
+    if (!currentWinningNumbers) {
+        if (lottoDb && lottoDb.length > 0) {
+            const latest = lottoDb[lottoDb.length - 1];
+            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+        } else {
+            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
+            return;
+        }
+    }
+    // 보너스 번호 기반 추천 실행
+    runSmartRecommend();
+    showStatus('success', '🎱 보너스 번호가 적용된 스마트 추천을 실행합니다!');
+}
+
+function renderWheel() {
+    const el = document.getElementById('wheelContent');
+    if (!el) return;
+
+    const segments = ['🪙', '💎', '🎱', '💫', '💰', '🍀', '⭐', '🏆'];
+    const colors = ['#ffd700', '#00f5ff', '#10b981', '#666', '#f97316', '#3b82f6', '#ff006e', '#8b5cf6'];
+
+    const segAngle = 360 / segments.length;
+    let gradient = 'conic-gradient(';
+    segments.forEach((_, i) => {
+        const start = i * segAngle;
+        gradient += `${colors[i]} ${start}deg ${start + segAngle}deg`;
+        if (i < segments.length - 1) gradient += ', ';
+    });
+    gradient += ')';
+
+    el.innerHTML = `
+        <div class="wheel-container">
+            <div class="wheel-pointer">▼</div>
+            <div class="wheel-canvas" id="wheelCanvas" style="background:${gradient};">
+                ${segments.map((s, i) => `<span class="wheel-seg" style="transform:rotate(${i * segAngle + segAngle/2}deg) translateY(-55px);">${s}</span>`).join('')}
+            </div>
+        </div>
+        <button class="btn btn-gold" onclick="spinWheel()" ${!canSpinWheel() ? 'disabled' : ''} style="width:100%;justify-content:center;margin-top:15px;">
+            ${canSpinWheel() ? '🎡 오늘의 행운 휠 돌리기!' : '✅ 오늘 휠 사용 완료'}
+        </button>
+        <div id="wheelResult" style="margin-top:15px;text-align:center;"></div>
+    `;
+}
+
+// ========== 8. 번호 성격 테스트 ==========
+function startPersonalityQuiz() {
+    const el = document.getElementById('personalityContent');
+    if (!el) return;
+
+    const questions = [
+        { q: '로또 번호를 고를 때 당신은?', options: ['직감적으로 찍는다', '통계를 분석한다', '생일/기념일을 활용한다', '그냥 자동으로 돌린다'] },
+        { q: '당첨되면 가장 먼저 할 일은?', options: ['가족에게 알린다', '조용히 은행부터 간다', 'SNS에 자랑한다', '일단 아무 말도 안 한다'] },
+        { q: '당신의 투자 성향은?', options: ['공격적 (한 방을 노린다)', '안정적 (꾸준히 산다)', '즉흥적 (기분 따라 산다)', '전략적 (데이터 기반)'] },
+        { q: '로또를 사는 주된 이유는?', options: ['인생 역전의 꿈', '작은 즐거움/취미', '친구/가족 따라', '습관적으로'] },
+    ];
+
+    let qi = 0;
+    const answers = [];
+
+    function showQuestion() {
+        if (qi >= questions.length) {
+            showResult();
+            return;
+        }
+        const q = questions[qi];
+        el.innerHTML = `
+            <div class="quiz-card">
+                <div class="quiz-progress">질문 ${qi + 1} / ${questions.length}</div>
+                <h3 class="quiz-question">${q.q}</h3>
+                <div class="quiz-options">
+                    ${q.options.map((o, i) => `
+                        <button class="quiz-option" onclick="answerQuiz(${qi}, ${i})">${o}</button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    window.answerQuiz = function(qIdx, aIdx) {
+        answers.push(aIdx);
+        qi++;
+        showQuestion();
+    };
+
+    function showResult() {
+        const score = answers.reduce((a, b) => a + b, 0);
+        const profiles = [
+            { type: '직감형 플레이어', emoji: '🎯', desc: '당신은 촉을 믿는 타입! 번호 선택은 그냥 느낌대로. 가끔은 그 직감이 기적을 만들기도 해요.', rec: '인기 번호보다는 나만의 의미 있는 번호를 선택하세요.' },
+            { type: '분석형 플레이어', emoji: '🧠', desc: '데이터와 통계를 사랑하는 이성파. 몬테카를로 시뮬레이션과 찰떡궁합!', rec: 'AI 예측 + 스마트 추천 조합이 당신에게 딱이에요.' },
+            { type: '낭만형 플레이어', emoji: '🌙', desc: '로또를 꿈과 희망으로 생각하는 낭만주의자. 당첨 상상을 즐기는 것만으로도 행복한 타입!', rec: '오늘의 행운 번호와 사진 번호 변환을 추천드려요.' },
+            { type: '소셜형 플레이어', emoji: '🤝', desc: '주변 사람들과 함께하는 걸 좋아하는 사교적 타입. 함께 당첨되는 상상을 자주 해요.', rec: '친구들과 번호를 공유하고 함께 분석해보세요.' },
+        ];
+        const profile = profiles[score % profiles.length];
+        const luckyNums = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1).sort((a, b) => a - b);
+
+        el.innerHTML = `
+            <div class="quiz-result-card">
+                <div class="quiz-result-emoji">${profile.emoji}</div>
+                <h3 class="quiz-result-type">${profile.type}</h3>
+                <p class="quiz-result-desc">${profile.desc}</p>
+                <div class="quiz-result-rec">💡 추천: ${profile.rec}</div>
+                <div style="margin-top:15px;">
+                    <p class="text-xs-secondary">당신을 위한 추천 번호</p>
+                    <div class="balls-container">${luckyNums.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+                    <button class="btn btn-primary" onclick="usePersonalityNumbers([${luckyNums}])" style="margin-top:10px;">🎱 이 번호로 분석하기</button>
+                    <button class="btn btn-secondary" onclick="startPersonalityQuiz()" style="margin-top:5px;">🔄 다시 테스트</button>
+                </div>
+            </div>
+        `;
+        trackPersonalityDone();
+        playBeep(600, 0.1);
+    }
+
+    showQuestion();
+}
+
+function usePersonalityNumbers(numbers) {
+    if (!currentWinningNumbers) {
+        if (lottoDb && lottoDb.length > 0) {
+            const latest = lottoDb[lottoDb.length - 1];
+            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+        } else {
+            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
+            return;
+        }
+    }
+    const analysis = analyzeNumbers(numbers);
+    const score = calculateQualityScore(analysis);
+    const filterResult = checkFilters(numbers);
+    const percentileRank = calculatePercentileRank(numbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    renderBalls(numbers, 'predictionBalls');
+    document.getElementById('predictionMeta').textContent = '🧩 성격 테스트 추천 번호';
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
+    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
+    document.getElementById('predictionResult').classList.remove('hidden');
+    document.getElementById('matchingSection').classList.add('hidden');
+    showStatus('success', '🧩 성격 테스트 번호로 분석 완료!');
+}
+
+// ========== 9. 꿈해몽 → 번호 ==========
+const DREAM_KEYWORDS = {
+    '물': [1, 6, 11, 21], '물고기': [2, 12, 22, 32], '돈': [3, 13, 23, 33],
+    '똥': [4, 14, 24, 34], '죽음': [5, 15, 25, 35], '결혼': [7, 17, 27, 37],
+    '아기': [8, 18, 28, 38], '개': [9, 19, 29, 39], '고양이': [10, 20, 30, 40],
+    '뱀': [1, 14, 27, 40], '비': [2, 15, 28, 41], '불': [3, 16, 29, 42],
+    '산': [4, 17, 30, 43], '바다': [5, 18, 31, 44], '하늘': [6, 19, 32, 45],
+    '꽃': [7, 20, 33, 1], '나무': [8, 21, 34, 11], '새': [9, 22, 35, 21],
+    '차': [10, 23, 36, 31], '집': [11, 24, 37, 41], '학교': [12, 25, 38, 2],
+    '시험': [13, 26, 39, 22], '여행': [14, 27, 40, 32], '음식': [15, 28, 41, 42],
+    '이빨': [16, 29, 42, 3], '머리': [17, 30, 43, 13], '신발': [18, 31, 44, 23],
+    '거울': [19, 32, 45, 33], '별': [20, 33, 1, 43], '달': [21, 34, 11, 4],
+    '해': [22, 35, 21, 14], '구름': [23, 36, 31, 24], '무지개': [24, 37, 41, 34],
+    '로또': [25, 38, 2, 45], '당첨': [26, 39, 22, 6], '숫자': [27, 40, 32, 16],
+    '가족': [28, 41, 42, 7], '친구': [29, 42, 3, 17], '연인': [30, 43, 13, 27],
+    '감옥': [31, 44, 23, 8], '병원': [32, 45, 33, 18], '의사': [33, 1, 43, 28],
+    '선생님': [34, 11, 4, 38], '경찰': [35, 21, 14, 9], '군인': [36, 31, 24, 19],
+    '비행기': [37, 41, 34, 29], '배': [38, 2, 44, 39], '기차': [39, 22, 5, 10],
+    '편지': [40, 32, 15, 20], '전화': [41, 42, 25, 30], '사진': [42, 3, 35, 40],
+    '책': [43, 13, 6, 11], '시계': [44, 23, 16, 21], '열쇠': [45, 33, 26, 31],
+    '황금': [5, 25, 45, 15], '보석': [10, 30, 20, 40], '피': [8, 18, 28, 38],
+    '울다': [6, 16, 26, 36], '웃다': [7, 17, 27, 37], '날다': [9, 19, 29, 39],
+    '달리다': [12, 22, 32, 42],
+};
+
+function interpretDream() {
+    const el = document.getElementById('dreamContent');
+    if (!el) return;
+
+    el.innerHTML = `
+        <div class="dream-input-area">
+            <p class="text-secondary mb-15">꿈에서 본 것을 자유롭게 적어주세요. 키워드를 추출해서 행운 번호를 만들어드려요!</p>
+            <textarea id="dreamText" class="dream-textarea" placeholder="예: 큰 물고기가 바다에서 뛰어오르는 꿈을 꿨어요. 그리고 황금빛 해가 떠오르고 있었어요..." rows="4"></textarea>
+            <button class="btn btn-primary" onclick="generateDreamNumbers()" style="width:100%;margin-top:10px;justify-content:center;">💭 꿈 해몽 번호 생성</button>
+        </div>
+        <div id="dreamResult" style="margin-top:15px;"></div>
+    `;
+}
+
+function generateDreamNumbers() {
+    const text = document.getElementById('dreamText').value.trim();
+    if (!text) {
+        showStatus('warning', '⚠️ 꿈 내용을 입력해주세요.');
+        return;
+    }
+
+    const resultEl = document.getElementById('dreamResult');
+    const foundNums = new Set();
+
+    // 키워드 매칭
+    for (const [keyword, nums] of Object.entries(DREAM_KEYWORDS)) {
+        if (text.includes(keyword)) {
+            nums.forEach(n => foundNums.add(n));
+        }
+    }
+
+    // 발음/유사어 기반 추가 번호
+    const chars = text.replace(/\s/g, '');
+    for (let i = 0; i < chars.length; i++) {
+        const code = chars.charCodeAt(i);
+        const num = (code % 45) + 1;
+        foundNums.add(num);
+    }
+
+    // 최소 6개 확보
+    const pool = [...foundNums];
+    while (pool.length < 6) {
+        const n = Math.floor(Math.random() * 45) + 1;
+        if (!pool.includes(n)) pool.push(n);
+    }
+
+    // 랜덤하게 6개 선택
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+    const numbers = shuffled.slice(0, 6).sort((a, b) => a - b);
+
+    // 발견된 키워드
+    const foundKeywords = Object.keys(DREAM_KEYWORDS).filter(k => text.includes(k));
+
+    resultEl.innerHTML = `
+        <div class="dream-result-box">
+            <p class="text-xs-secondary">🔍 발견된 키워드: ${foundKeywords.length > 0 ? foundKeywords.slice(0, 8).map(k => `<span class="dream-keyword-tag">${k}</span>`).join(' ') : '일반 단어 기반 생성'}</p>
+            <div class="balls-container">${numbers.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="useDreamNumbers([${numbers}])">🎱 예측 분석하기</button>
+                <button class="btn btn-secondary" onclick="interpretDream()">💭 다른 꿈으로</button>
+            </div>
+        </div>
+    `;
+    trackDreamUse();
+    playBeep(600, 0.1);
+}
+
+function useDreamNumbers(numbers) {
+    if (!currentWinningNumbers) {
+        if (lottoDb && lottoDb.length > 0) {
+            const latest = lottoDb[lottoDb.length - 1];
+            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+        } else {
+            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
+            return;
+        }
+    }
+    const analysis = analyzeNumbers(numbers);
+    const score = calculateQualityScore(analysis);
+    const filterResult = checkFilters(numbers);
+    const percentileRank = calculatePercentileRank(numbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    renderBalls(numbers, 'predictionBalls');
+    document.getElementById('predictionMeta').textContent = '💭 꿈해몽 추출 번호';
+    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
+    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
+    document.getElementById('predictionResult').classList.remove('hidden');
+    document.getElementById('matchingSection').classList.add('hidden');
+    showStatus('success', '💭 꿈해몽 번호로 분석 완료!');
+}
+
+// ========== 10. 사운드트랙 모드 ==========
+const SOUNDTRACKS = [
+    { title: '로파이 힙합', icon: '🎧', url: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1', desc: '집중해서 번호 고르기 좋은 편안한 비트' },
+    { title: '재즈 카페', icon: '☕', url: 'https://www.youtube.com/embed/Dx5qFachd3A?autoplay=1', desc: '여유로운 주말 아침 로또 명상' },
+    { title: '클래식 피아노', icon: '🎹', url: 'https://www.youtube.com/embed/4Tr0otuiQuU?autoplay=1', desc: '우아한 클래식과 함께하는 행운의 시간' },
+    { title: '자연의 소리', icon: '🌿', url: 'https://www.youtube.com/embed/eKFTSSKCzZk?autoplay=1', desc: '빗소리, 파도 소리와 함께 번호 고르기' },
+];
+
+function openSoundtrack() {
+    const el = document.getElementById('soundtrackContent');
+    if (!el) return;
+
+    el.innerHTML = `
+        <div class="soundtrack-grid">
+            ${SOUNDTRACKS.map((s, i) => `
+                <div class="soundtrack-card" onclick="playSoundtrack(${i})">
+                    <span class="soundtrack-icon">${s.icon}</span>
+                    <span class="soundtrack-title">${s.title}</span>
+                    <span class="soundtrack-desc">${s.desc}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div id="soundtrackPlayer" class="hidden" style="margin-top:15px;">
+            <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;justify-content:center;">⏹️ 음악 중지</button>
+        </div>
+    `;
+}
+
+function playSoundtrack(idx) {
+    const s = SOUNDTRACKS[idx];
+    const player = document.getElementById('soundtrackPlayer');
+    player.classList.remove('hidden');
+    player.innerHTML = `
+        <div style="text-align:center;margin-bottom:10px;color:var(--accent-gold);">${s.icon} 현재 재생: ${s.title}</div>
+        <div class="youtube-embed-container">
+            <iframe src="${s.url}" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;width:100%;height:180px;"></iframe>
+        </div>
+        <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;margin-top:10px;justify-content:center;">⏹️ 음악 중지</button>
+    `;
+    showStatus('success', `🎵 ${s.title} 재생 중...`);
+}
+
+function stopSoundtrack() {
+    const player = document.getElementById('soundtrackPlayer');
+    player.classList.add('hidden');
+    player.innerHTML = '';
+}
+
+// ========== 탭 전환 ==========
+function switchFunTab(tabName) {
+    document.querySelectorAll('.fun-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.fun-tab-content').forEach(c => c.classList.remove('active'));
+
+    const tabEl = document.querySelector(`.fun-tab[data-fun="${tabName}"]`);
+    const contentEl = document.getElementById(`funContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+
+    if (tabEl) tabEl.classList.add('active');
+    if (contentEl) contentEl.classList.add('active');
+
+    // 탭 전환 시 콘텐츠 새로고침
+    switch (tabName) {
+        case 'checkin': renderCheckinUI(); break;
+        case 'lucky': renderDailyLuckyNumber(); break;
+        case 'countdown': updateCountdown(); break;
+        case 'spotlight': renderStatsSpotlight(); break;
+        case 'achievements': renderAchievements(); break;
+        case 'wheel': renderWheel(); break;
+    }
+}
+
+// ========== 초기화 ==========
+function initAllFunFeatures() {
+    initCountdown();
+    // DOM이 로드된 후 각 섹션 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCheckinUI();
+        renderDailyLuckyNumber();
+        renderStatsSpotlight();
+        renderAchievements();
+        renderWheel();
+    }, { once: true });
+}
+
+// 자동 초기화
+initAllFunFeatures();

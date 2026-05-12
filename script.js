@@ -491,6 +491,7 @@ function applyRetroNumbers() {
 
 function runRetrospective() {
     if (!lottoDb || lottoDb.length === 0) { showStatus('warning', '⚠️ DB 데이터가 필요합니다.'); return; }
+    if (typeof trackRetroUse === 'function') trackRetroUse();
     const input = document.getElementById('retroInput').value.trim();
     const nums = input.split(/[,·\s]+/).map(Number).filter(n => n >= 1 && n <= 45);
     if (nums.length !== 6 || new Set(nums).size !== 6) { showStatus('error', '올바른 6개 번호를 입력해주세요.'); return; }

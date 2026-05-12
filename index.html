@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://www.google-analytics.com https://corsproxy.io https://api.allorigins.win https://cdn.jsdelivr.net; media-src 'self'; worker-src 'self' blob:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://www.google-analytics.com https://corsproxy.io https://api.allorigins.win https://cdn.jsdelivr.net; media-src 'self' https://www.youtube.com; frame-src 'self' https://www.youtube.com; worker-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>🎰 로또 645 AI 예측 시스템</title>
     <meta name="description" content="몬테카를로 시뮬레이션 기반 로또 번호 분석 시스템">
@@ -429,6 +429,77 @@
             <p style="color:var(--text-secondary);margin-bottom:15px;">현재 DB 데이터를 엑셀로 다운로드하여 분석에 활용하세요.</p>
             <button class="btn btn-primary" onclick="generateDynamicExcel()" style="display:inline-flex;margin-bottom:10px;">📊 현재 DB로 엑셀 생성</button>
         </div>
+        <div class="card" id="funZoneCard">
+            <div class="card-header"><div class="fun-card-icon pink">🎮</div><h2 class="card-title">🎪 Fun Zone</h2></div>
+            <div class="fun-tabs" id="funTabs">
+                <button class="fun-tab active" data-fun="checkin" onclick="switchFunTab('checkin')">✅ 출석</button>
+                <button class="fun-tab" data-fun="lucky" onclick="switchFunTab('lucky')">🍀 행운번호</button>
+                <button class="fun-tab" data-fun="countdown" onclick="switchFunTab('countdown')">⏱️ 카운트다운</button>
+                <button class="fun-tab" data-fun="photo" onclick="switchFunTab('photo')">📷 사진</button>
+                <button class="fun-tab" data-fun="wheel" onclick="switchFunTab('wheel')">🎡 휠</button>
+                <button class="fun-tab" data-fun="quiz" onclick="switchFunTab('quiz')">🧩 성격</button>
+                <button class="fun-tab" data-fun="dream" onclick="switchFunTab('dream')">💭 꿈</button>
+                <button class="fun-tab" data-fun="spotlight" onclick="switchFunTab('spotlight')">📊 인사이트</button>
+                <button class="fun-tab" data-fun="achievements" onclick="switchFunTab('achievements')">🏆 업적</button>
+                <button class="fun-tab" data-fun="soundtrack" onclick="switchFunTab('soundtrack')">🎵 BGM</button>
+            </div>
+            <!-- 출석 체크 -->
+            <div class="fun-tab-content active" id="funContentCheckin">
+                <div id="checkinContent"><p class="text-secondary text-center">로딩 중...</p></div>
+            </div>
+            <!-- 오늘의 행운 번호 -->
+            <div class="fun-tab-content" id="funContentLucky">
+                <div id="dailyLuckyContent"><p class="text-secondary text-center">🎱 오늘만을 위한 특별한 번호</p></div>
+            </div>
+            <!-- 추첨 카운트다운 -->
+            <div class="fun-tab-content" id="funContentCountdown">
+                <div id="countdownDisplay" style="text-align:center;padding:20px 0;">
+                    <p class="text-secondary">⏳ 계산 중...</p>
+                </div>
+            </div>
+            <!-- 사진 → 번호 -->
+            <div class="fun-tab-content" id="funContentPhoto">
+                <div class="photo-upload-area" onclick="openPhotoToNumbers()" role="button" tabindex="0" aria-label="사진 업로드" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openPhotoToNumbers(); }">
+                    <div class="photo-upload-icon">📷</div>
+                    <p style="color:var(--accent-gold);font-weight:600;">사진으로 로또 번호 만들기</p>
+                    <p class="text-xs-secondary">클릭해서 사진을 업로드하면 색상과 패턴을 분석해 번호를 추출해드려요!</p>
+                </div>
+                <div id="photoContent" style="margin-top:15px;"></div>
+            </div>
+            <!-- 행운의 휠 -->
+            <div class="fun-tab-content" id="funContentWheel">
+                <div id="wheelContent"><p class="text-secondary text-center">🎡 휠 로딩 중...</p></div>
+            </div>
+            <!-- 번호 성격 테스트 -->
+            <div class="fun-tab-content" id="funContentQuiz">
+                <div id="personalityContent">
+                    <p class="text-secondary text-center mb-15">🧩 당신의 로또 플레이 스타일은?</p>
+                    <button class="btn btn-primary" onclick="startPersonalityQuiz()" style="width:100%;justify-content:center;">🧩 테스트 시작하기</button>
+                </div>
+            </div>
+            <!-- 꿈해몽 -->
+            <div class="fun-tab-content" id="funContentDream">
+                <div id="dreamContent">
+                    <p class="text-secondary text-center mb-15">💭 꿈에서 본 것을 알려주세요. 행운 번호로 바꿔드려요!</p>
+                    <button class="btn btn-primary" onclick="interpretDream()" style="width:100%;justify-content:center;">💭 꿈 해몽 시작하기</button>
+                </div>
+            </div>
+            <!-- 통계 인사이트 -->
+            <div class="fun-tab-content" id="funContentSpotlight">
+                <div id="spotlightContent"><p class="text-secondary text-center">📊 데이터 로딩 중...</p></div>
+            </div>
+            <!-- 업적 -->
+            <div class="fun-tab-content" id="funContentAchievements">
+                <div id="achievementsContent"><p class="text-secondary text-center">🏆 업적 로딩 중...</p></div>
+            </div>
+            <!-- 사운드트랙 -->
+            <div class="fun-tab-content" id="funContentSoundtrack">
+                <div id="soundtrackContent">
+                    <p class="text-secondary text-center mb-15">🎵 번호 고르며 듣기 좋은 음악을 골라보세요.</p>
+                    <button class="btn btn-primary" onclick="openSoundtrack()" style="width:100%;justify-content:center;">🎵 사운드트랙 선택하기</button>
+                </div>
+            </div>
+        </div>
         <div class="sponsor-box">
             <div class="sponsor-title">☕ 커피 한잔 후원</div>
             <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
@@ -489,6 +560,7 @@
         </div>
     </div>
     <script src="features.js?v=3"></script>
+    <script src="fun.js?v=1"></script>
     <script src="analysis.js?v=3"></script>
     <script src="stats.js?v=3"></script>
     <script src="simulation.js?v=3"></script>

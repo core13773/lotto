@@ -3,6 +3,7 @@
 function startSimulation() {
     if (isSimulating) return;
     if (!currentWinningNumbers) { alert('먼저 당첨번호를 설정해주세요!'); return; }
+    if (typeof trackPrediction === 'function') trackPrediction();
     if (typeof Worker === 'undefined') { alert('이 브라우저는 시뮬레이션을 지원하지 않습니다.'); return; }
     const maxIterations = parseInt(document.getElementById('iterationSelect').value);
     document.getElementById('startSimBtn').classList.add('hidden');
@@ -414,6 +415,7 @@ function quickFix() {
 
 function generateCustomCombos() {
     if (!dbStats) { showStatus('warning', '⚠️ 통계 DB가 로드되지 않았습니다.'); return; }
+    if (typeof trackPrediction === 'function') trackPrediction();
     const count = parseInt(document.getElementById('customCount').value);
 
     const fixedArr = [...fixedNumbers];
@@ -541,6 +543,7 @@ function runSmartRecommend() {
         showStatus('warning', '⚠️ 먼저 당첨번호를 설정해주세요.');
         return;
     }
+    if (typeof trackPrediction === 'function') trackPrediction();
 
     const recommendations = generateSmartRecommendation(10);
     const list = document.getElementById('smartRecommendList');

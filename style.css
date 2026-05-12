@@ -1127,3 +1127,170 @@
         .card.collapsible > .collapsible-content { display: none; }
         .card.collapsible.open > .collapsible-content { display: block; }
 
+        /* ══════════════════════════════════════════════
+           Fun Features Styles
+           ══════════════════════════════════════════════ */
+
+        /* ── Fun Tabs ── */
+        .fun-tabs { display: flex; gap: 4px; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+        .fun-tab {
+            flex: 1; min-width: 60px; padding: 8px 10px; border: none; border-radius: 10px;
+            background: transparent; color: var(--text-secondary); font-family: inherit;
+            font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .fun-tab.active {
+            background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+            color: white; box-shadow: 0 2px 10px rgba(255,0,110,0.3);
+        }
+        .fun-tab-content { display: none; }
+        .fun-tab-content.active { display: block; }
+
+        /* ── Check-in ── */
+        .checkin-week { display: flex; gap: 4px; justify-content: center; margin-bottom: 15px; }
+        .checkin-day {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 8px 4px; border-radius: 10px; background: rgba(0,0,0,0.2);
+            min-width: 36px; transition: all 0.3s ease;
+        }
+        .checkin-day.checked { background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); }
+        .checkin-day.today { border: 2px solid var(--accent-gold); }
+        .checkin-day-label { font-size: 0.65rem; color: var(--text-secondary); }
+        .checkin-day-icon { font-size: 1rem; }
+        .checkin-day-date { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); }
+        .checkin-stats { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        .checkin-stat { text-align: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 10px; min-width: 80px; }
+        .checkin-stat-val { display: block; font-size: 1rem; color: var(--accent-gold); }
+        .checkin-stat-lbl { display: block; font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; }
+
+        /* ── Daily Lucky Number ── */
+        .daily-lucky-date { text-align: center; color: var(--accent-cyan); font-size: 0.9rem; margin-bottom: 10px; }
+        .daily-lucky-ball-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .daily-ball-kw { font-size: 0.6rem; color: var(--accent-pink); font-weight: 600; }
+
+        /* ── Countdown ── */
+        .countdown-timer { display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .countdown-unit { text-align: center; min-width: 50px; }
+        .countdown-val {
+            display: block; font-size: 2rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            font-family: 'Orbitron', monospace;
+        }
+        .countdown-lbl { display: block; font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; }
+        .countdown-sep { font-size: 2rem; color: var(--accent-cyan); }
+        .countdown-live {
+            text-align: center; font-size: 1.4rem; color: #ef4444;
+            animation: pulse 1s ease-in-out infinite; padding: 15px;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* ── Photo to Numbers ── */
+        .photo-upload-area {
+            border: 2px dashed rgba(255,255,255,0.2); border-radius: 16px;
+            padding: 40px 20px; text-align: center; cursor: pointer;
+            transition: all 0.3s ease; background: rgba(0,0,0,0.15);
+        }
+        .photo-upload-area:hover { border-color: var(--accent-purple); background: rgba(139,92,246,0.1); }
+        .photo-upload-icon { font-size: 3rem; margin-bottom: 10px; }
+
+        /* ── Stats Spotlight ── */
+        .spotlight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        @media (max-width: 480px) { .spotlight-grid { grid-template-columns: 1fr; } }
+        .spotlight-card {
+            background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px;
+            border-left: 4px solid var(--accent-purple); text-align: center;
+        }
+        .spotlight-card.hot { border-left-color: #ef4444; }
+        .spotlight-card.cold { border-left-color: #3b82f6; }
+        .spotlight-card.dormant { border-left-color: var(--accent-purple); }
+        .spotlight-card.sum { border-left-color: #10b981; }
+        .spotlight-title { font-size: 0.8rem; color: var(--accent-cyan); margin-bottom: 8px; }
+        .spotlight-balls { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+        .spotlight-desc { font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px; }
+        .spotlight-big-num { font-size: 2.5rem; font-weight: 900; color: var(--accent-gold); }
+        .spotlight-nums { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 5px; }
+        .spotlight-num { background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* ── Achievements ── */
+        .achievement-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .achievement-bar-bg { flex: 1; height: 10px; background: rgba(0,0,0,0.3); border-radius: 5px; overflow: hidden; }
+        .achievement-bar-fill { height: 100%; background: linear-gradient(90deg, #ffd700, #ff9500); border-radius: 5px; transition: width 0.5s ease; }
+        .achievement-count { font-size: 0.8rem; color: var(--accent-gold); white-space: nowrap; }
+        .achievement-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+        .achievement-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: 12px; background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.03); transition: all 0.3s ease;
+        }
+        .achievement-item.unlocked { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); }
+        .achievement-item.locked { opacity: 0.5; }
+        .achievement-icon { font-size: 1.3rem; }
+        .achievement-info { display: flex; flex-direction: column; }
+        .achievement-title { font-size: 0.8rem; color: var(--text-primary); font-weight: 600; }
+        .achievement-desc { font-size: 0.65rem; color: var(--text-secondary); }
+
+        /* ── Spin Wheel ── */
+        .wheel-container { position: relative; display: flex; justify-content: center; margin: 10px 0; }
+        .wheel-pointer { position: absolute; top: -15px; z-index: 2; font-size: 1.5rem; color: var(--accent-gold); filter: drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
+        .wheel-canvas {
+            width: 180px; height: 180px; border-radius: 50%; position: relative;
+            box-shadow: 0 0 20px rgba(139,92,246,0.3), 0 0 40px rgba(0,0,0,0.3);
+            border: 4px solid var(--accent-gold); display: flex; align-items: center; justify-content: center;
+        }
+        .wheel-seg {
+            position: absolute; font-size: 1.2rem; font-weight: 700;
+            transform-origin: center center;
+        }
+        .wheel-result-show { animation: fadeInUp 0.5s ease-out; }
+        @keyframes fadeInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* ── Personality Quiz ── */
+        .quiz-card { text-align: center; }
+        .quiz-progress { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 15px; }
+        .quiz-question { color: var(--accent-gold); margin-bottom: 20px; font-size: 1.1rem; }
+        .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+        .quiz-option {
+            width: 100%; padding: 14px 20px; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; background: rgba(0,0,0,0.2); color: var(--text-primary);
+            font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; font-family: inherit;
+            text-align: center; min-height: 44px;
+        }
+        .quiz-option:hover { background: rgba(139,92,246,0.2); border-color: var(--accent-purple); transform: scale(1.02); }
+        .quiz-result-card { text-align: center; animation: fadeInUp 0.5s ease-out; }
+        .quiz-result-emoji { font-size: 4rem; margin-bottom: 10px; }
+        .quiz-result-type { color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 10px; }
+        .quiz-result-desc { color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .quiz-result-rec { background: rgba(139,92,246,0.15); padding: 12px; border-radius: 10px; color: var(--accent-cyan); font-size: 0.85rem; }
+
+        /* ── Dream Interpreter ── */
+        .dream-textarea {
+            width: 100%; padding: 15px; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+            background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: inherit;
+            font-size: 0.95rem; resize: vertical; transition: border-color 0.3s ease;
+        }
+        .dream-textarea:focus { outline: none; border-color: var(--accent-purple); box-shadow: 0 0 15px rgba(139,92,246,0.2); }
+        .dream-keyword-tag {
+            display: inline-block; background: rgba(139,92,246,0.2); color: var(--accent-cyan);
+            padding: 2px 10px; border-radius: 15px; font-size: 0.75rem; margin: 2px;
+        }
+        .dream-result-box { text-align: center; animation: fadeInUp 0.5s ease-out; }
+
+        /* ── Soundtrack ── */
+        .soundtrack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        @media (max-width: 400px) { .soundtrack-grid { grid-template-columns: 1fr; } }
+        .soundtrack-card {
+            background: rgba(0,0,0,0.2); border-radius: 12px; padding: 20px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: all 0.3s ease;
+        }
+        .soundtrack-card:hover { background: rgba(139,92,246,0.15); border-color: var(--accent-purple); transform: translateY(-2px); }
+        .soundtrack-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+        .soundtrack-title { font-size: 0.9rem; color: var(--accent-gold); display: block; margin-bottom: 4px; }
+        .soundtrack-desc { font-size: 0.7rem; color: var(--text-secondary); }
+        .youtube-embed-container { position: relative; width: 100%; overflow: hidden; border-radius: 12px; }
+
+        /* ── Fun Card Header ── */
+        .fun-card-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .fun-card-icon.pink { background: linear-gradient(135deg, #ff006e, #ff4081); }
+        .fun-card-icon.gold { background: linear-gradient(135deg, #ffd700, #ff9500); }
+
