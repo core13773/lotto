@@ -249,7 +249,7 @@ function initCountdown() {
     countdownInterval = setInterval(updateCountdown, 1000);
 }
 
-// ========== 4. 사진 → 번호 변환 ==========
+// ========== 4. 사진 → 번호 변환 (그리드 분석 + 시각적 설명) ==========
 function openPhotoToNumbers() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -259,8 +259,12 @@ function openPhotoToNumbers() {
         if (!file) return;
         const img = new Image();
         img.onload = () => {
+            const size = 600;
+            const gridCols = 6, gridRows = 6;
+            const cellW = size / gridCols, cellH = size / gridRows;
+
+            // ── 메인 분석 Canvas ──
             const canvas = document.createElement('canvas');
-            const size = 300;
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
@@ -268,51 +272,115 @@ function openPhotoToNumbers() {
             const imageData = ctx.getImageData(0, 0, size, size);
             const pixels = imageData.data;
 
-            // 사진에서 특징 추출
-            const colorBuckets = Array.from({ length: 5 }, () => []);
-            const sampleSize = 100;
-            const step = Math.floor(pixels.length / 4 / sampleSize);
-
-            for (let i = 0; i < sampleSize; i++) {
-                const idx = i * step * 4;
-                const r = pixels[idx], g = pixels[idx + 1], b = pixels[idx + 2];
-                const brightness = (r + g + b) / 3;
-                const bucketIdx = Math.min(4, Math.floor(brightness / 51));
-                const hue = Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b);
-                const num = Math.floor(((hue + Math.PI) / (2 * Math.PI)) * 45) + 1;
-                if (!colorBuckets[bucketIdx].includes(num)) {
-                    colorBuckets[bucketIdx].push(num);
+            // ── 36개 셀별 평균 색상 계산 ──
+            const cells = [];
+            for (let row = 0; row < gridRows; row++) {
+                for (let col = 0; col < gridCols; col++) {
+                    let r = 0, g = 0, b = 0, count = 0;
+                    const x0 = Math.floor(col * cellW), y0 = Math.floor(row * cellH);
+                    const x1 = Math.floor((col + 1) * cellW), y1 = Math.floor((row + 1) * cellH);
+                    for (let y = y0; y < y1; y++) {
+                        for (let x = x0; x < x1; x++) {
+                            const idx = (y * size + x) * 4;
+                            r += pixels[idx]; g += pixels[idx + 1]; b += pixels[idx + 2];
+                            count++;
+                        }
+                    }
+                    r = Math.round(r / count); g = Math.round(g / count); b = Math.round(b / count);
+                    // 채도 (표준편차 근사)
+                    const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+                    const saturation = maxC === 0 ? 0 : (maxC - minC) / maxC;
+                    const brightness = (r + g + b) / 3 / 255;
+                    // 결정론적 번호 매핑 (RGB 기반 해시)
+                    const hash = (r * 7919 + g * 6271 + b * 5171 + row * 31 + col * 17) % 45;
+                    const num = hash + 1;
+                    // 시각적 중요도 (채도 × 밝기) — 높을수록 "눈에 띄는" 영역
+                    const importance = saturation * 0.7 + brightness * 0.3;
+                    cells.push({ row, col, r, g, b, saturation, brightness, importance, num });
                 }
             }
 
-            // 각 구간에서 1~2개 추출하여 6개 완성
-            const result = new Set();
-            const usedBuckets = new Set();
-            while (result.size < 6) {
-                const bi = Math.floor(Math.random() * 5);
-                if (colorBuckets[bi].length === 0) continue;
-                const n = colorBuckets[bi][Math.floor(Math.random() * colorBuckets[bi].length)];
-                if (n >= 1 && n <= 45) result.add(n);
-                usedBuckets.add(bi);
-                if (result.size >= 6) break;
-            }
-            const numbers = [...result].sort((a, b) => a - b);
+            // ── 시각적 중요도 기준 상위 6개 셀 선택 ──
+            const sorted = [...cells].sort((a, b) => b.importance - a.importance);
+            const top6 = sorted.slice(0, 6);
+            const numbers = top6.map(c => c.num).sort((a, b) => a - b);
+            const selectedSet = new Set(top6.map(c => `${c.row},${c.col}`));
 
-            // 이미지 미리보기 표시
+            // ── 오버레이 Canvas (그리드 + 하이라이트) ──
+            const overlay = document.createElement('canvas');
+            overlay.width = size;
+            overlay.height = size;
+            const ovCtx = overlay.getContext('2d');
+            ovCtx.drawImage(img, 0, 0, size, size);
+
+            // 그리드 라인
+            ovCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ovCtx.lineWidth = 1;
+            for (let i = 0; i <= gridCols; i++) { ovCtx.beginPath(); ovCtx.moveTo(i * cellW, 0); ovCtx.lineTo(i * cellW, size); ovCtx.stroke(); }
+            for (let i = 0; i <= gridRows; i++) { ovCtx.beginPath(); ovCtx.moveTo(0, i * cellH); ovCtx.lineTo(size, i * cellH); ovCtx.stroke(); }
+
+            // 선택된 셀 하이라이트 + 번호
+            top6.forEach((c, i) => {
+                const cx = c.col * cellW, cy = c.row * cellH;
+                ovCtx.fillStyle = 'rgba(255,215,0,0.3)';
+                ovCtx.fillRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
+                ovCtx.strokeStyle = '#ffd700';
+                ovCtx.lineWidth = 3;
+                ovCtx.strokeRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
+
+                // 번호 라벨
+                ovCtx.fillStyle = '#ffd700';
+                ovCtx.font = 'bold 28px "Noto Sans KR", sans-serif';
+                ovCtx.textAlign = 'center';
+                ovCtx.textBaseline = 'middle';
+                ovCtx.shadowColor = 'rgba(0,0,0,0.8)';
+                ovCtx.shadowBlur = 6;
+                ovCtx.fillText(c.num, cx + cellW / 2, cy + cellH / 2);
+                ovCtx.shadowBlur = 0;
+            });
+
+            // ── 결과 렌더링 ──
             const content = document.getElementById('photoContent');
-            const previewUrl = canvas.toDataURL('image/jpeg', 0.5);
+            const previewUrl = overlay.toDataURL('image/jpeg', 0.7);
+            const swatchSize = 44;
+
             content.innerHTML = `
                 <div style="text-align:center;">
-                    <img src="${previewUrl}" alt="분석된 사진" style="max-width:200px;max-height:200px;border-radius:12px;margin-bottom:15px;border:2px solid var(--accent-purple);">
-                    <p class="text-xs-secondary">사진의 색상과 밝기에서 추출된 번호</p>
-                    <div class="balls-container">${numbers.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+                    <div class="photo-result-grid">
+                        <div class="photo-preview-wrap">
+                            <img src="${previewUrl}" alt="그리드 분석 결과" class="photo-preview-img">
+                            <p class="text-xs-secondary" style="margin-top:6px;">6×6 그리드 분석 — <span style="color:#ffd700;">■</span> 선택된 영역</p>
+                        </div>
+                        <div class="photo-analysis-detail">
+                            <div class="photo-section-title">🎨 추출된 색상 → 번호</div>
+                            <div class="photo-color-mappings">
+                                ${top6.map((c, i) => `
+                                    <div class="photo-mapping-row">
+                                        <span class="photo-rank">#${i + 1}</span>
+                                        <span class="photo-swatch" style="background:rgb(${c.r},${c.g},${c.b});${c.brightness < 0.3 ? 'border:2px solid rgba(255,255,255,0.3);' : ''}"></span>
+                                        <span class="photo-cell-info">RGB(${c.r},${c.g},${c.b})</span>
+                                        <span class="photo-cell-arrow">→</span>
+                                        <span class="ball ${getBallClass(c.num)}" style="width:36px;height:36px;line-height:36px;font-size:0.8rem;flex-shrink:0;">${c.num}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <p class="text-xs-secondary" style="margin-top:8px;">
+                                🔬 분석 방식: 사진을 36개 영역으로 나누고 각 영역의 평균색을 RGB 해시로 번호 변환,<br>
+                                가장 <strong style="color:var(--accent-gold);">선명하고 눈에 띄는</strong> 6개 영역을 선택합니다.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="balls-container" style="margin-top:15px;">
+                        ${numbers.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}
+                    </div>
                     <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;">
                         <button class="btn btn-primary" onclick="usePhotoNumbers([${numbers}])">🎱 예측 분석하기</button>
                         <button class="btn btn-secondary" onclick="openPhotoToNumbers()">📷 다른 사진으로</button>
                     </div>
                 </div>
             `;
-            showStatus('success', '📷 사진에서 번호를 추출했어요!');
+            if (typeof trackPhotoUse === 'function') trackPhotoUse();
+            showStatus('success', '📷 36개 영역 분석 완료! 가장 선명한 6곳에서 번호를 추출했어요.');
             playBeep(600, 0.1);
         };
         img.src = URL.createObjectURL(file);
