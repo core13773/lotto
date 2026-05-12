@@ -1541,6 +1541,30 @@
             background: rgba(0,0,0,0.3); border-radius: 14px; padding: 16px; text-align: center; margin-top: 10px;
         }
 
+        /* ── 게임 공통: 번호 공개 애니메이션 ── */
+        .reveal-ball { animation: revealPop 0.5s ease-out backwards; }
+        @keyframes revealPop {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            60% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        .hidden-ball {
+            background: linear-gradient(135deg, #374151, #6b7280) !important;
+            color: rgba(255,255,255,0.5) !important;
+        }
+        .game-reveal-anim { animation: fadeSlideUp 0.4s ease-out; }
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .game-score-card {
+            background: rgba(0,0,0,0.25); border-radius: 12px; padding: 14px; margin-top: 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .game-score-main { font-size: 1.6rem; font-weight: 900; color: var(--accent-gold); }
+        .game-score-grade { font-size: 0.9rem; font-weight: 700; margin-top: 2px; }
+        .game-score-detail { font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px; }
+
         @media (max-width: 480px) {
             .game-tab { font-size: 0.7rem; padding: 8px 4px; }
             .game-canvas { max-width: 100%; height: auto; }

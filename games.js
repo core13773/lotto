@@ -1,8 +1,9 @@
 // games.js - 미니 게임존: 번호 경마, 번호 낚시터, 번호 블록 깨기, 행운 룰렛
+// 모든 게임: 번호는 ?로 숨김 → 완료 시 공개 + 번호 추천
 
 // ========== 공통 ==========
 let gameAnimId = null;
-let gameCollected = []; // 수집된 번호 {1..45}
+let gameCollected = [];
 const GAME_TARGET = 6;
 
 function stopGame() {
@@ -23,20 +24,27 @@ function onGameComplete() {
     const analysis = typeof analyzeNumbers === 'function' ? analyzeNumbers(nums) : null;
     const score = analysis && typeof calculateQualityScore === 'function' ? calculateQualityScore(analysis) : null;
     const basket = document.getElementById('gameBasket');
-    if (basket) {
-        basket.innerHTML = `
-            <div class="game-complete">
-                <h4 style="color:var(--accent-gold);">🎉 조합 완성!</h4>
-                <div class="balls-container" style="padding:10px 0;gap:6px;">
-                    ${nums.map(n => `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''}" style="width:42px;height:42px;line-height:42px;font-size:0.9rem;">${n}</span>`).join('')}
+    if (!basket) return;
+    basket.innerHTML = `
+        <div class="game-complete">
+            <div class="game-reveal-anim">
+                <h4 style="color:var(--accent-gold);margin-bottom:12px;">🎉 번호 공개!</h4>
+                <div class="balls-container" style="padding:10px 0;gap:8px;">
+                    ${nums.map((n, i) => `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''} reveal-ball" style="width:46px;height:46px;line-height:46px;font-size:1rem;animation-delay:${i*0.2}s;">${n}</span>`).join('')}
                 </div>
-                ${score ? `<p style="color:var(--text-secondary);font-size:0.85rem;">품질 점수: ${score.totalScore}점 (${score.grade})</p>` : ''}
-                <button class="btn btn-gold" onclick="resetGameBasket()" style="margin-top:8px;padding:8px 20px;font-size:0.85rem;">🔄 다시하기</button>
+                ${score ? `
+                <div class="game-score-card">
+                    <div class="game-score-main">${score.totalScore}점</div>
+                    <div class="game-score-grade" style="color:${score.totalScore>=75?'var(--grade-excellent)':score.totalScore>=60?'var(--grade-good)':'var(--grade-normal)'}">${score.grade}</div>
+                    <div class="game-score-detail">합계 ${analysis.sum} · AC ${analysis.ac} · ${analysis.oddEvenRatio} · ${analysis.lowHighRatio}</div>
+                </div>` : ''}
             </div>
-        `;
-    }
+            <button class="btn btn-gold" onclick="resetGameBasket();switchGameTab(currentGame)" style="margin-top:10px;padding:8px 20px;font-size:0.85rem;">🔄 다시하기</button>
+        </div>
+    `;
     if (typeof vibrate === 'function') vibrate([50, 30, 50, 30, 100]);
-    if (typeof playBeep === 'function') { playBeep(600, 0.1); setTimeout(() => playBeep(800, 0.15), 150); }
+    if (typeof playBeep === 'function') { playBeep(600, 0.1); setTimeout(() => playBeep(800, 0.15), 150); setTimeout(() => playBeep(1000, 0.2), 300); }
+    if (typeof fireConfetti === 'function' && score && score.totalScore >= 75) fireConfetti();
 }
 
 function resetGameBasket() {
@@ -49,20 +57,30 @@ function updateGameBasket() {
     const basket = document.getElementById('gameBasket');
     if (!basket) return;
     if (gameCollected.length === 0) {
-        basket.innerHTML = '<span style="color:var(--text-secondary);font-size:0.85rem;">번호를 모아보세요! (0/6)</span>';
+        basket.innerHTML = '<span style="color:var(--text-secondary);font-size:0.85rem;">🎱 아직 모은 번호가 없습니다 (0/6)</span>';
         return;
     }
     basket.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;">
-            <span style="color:var(--text-secondary);font-size:0.75rem;">모은 번호 (${gameCollected.length}/${GAME_TARGET}):</span>
-            ${gameCollected.map(n => `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''}" style="width:32px;height:32px;line-height:32px;font-size:0.75rem;">${n}</span>`).join('')}
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;">
+            <span style="color:var(--text-secondary);font-size:0.75rem;">모은 번호:</span>
+            ${gameCollected.map(n => {
+                // 마지막으로 추가된 번호는 공개, 나머지는 ? (단 완성 시 모두 공개)
+                const show = gameCollected.length >= GAME_TARGET ? true : (n === gameCollected[gameCollected.length - 1]);
+                if (show) return `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''}" style="width:30px;height:30px;line-height:30px;font-size:0.7rem;">${n}</span>`;
+                return `<span class="ball hidden-ball" style="width:30px;height:30px;line-height:30px;font-size:0.7rem;">?</span>`;
+            }).join('')}
+            <span style="color:var(--text-secondary);font-size:0.7rem;">(${gameCollected.length}/${GAME_TARGET})</span>
         </div>
     `;
 }
 
 // ========== 게임존 탭 전환 ==========
+let currentGame = 'race';
+
 function switchGameTab(name) {
     stopGame();
+    resetGameBasket();
+    currentGame = name;
     document.querySelectorAll('.game-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.game-content').forEach(c => c.classList.remove('active'));
     const tab = document.querySelector(`.game-tab[data-game="${name}"]`);
@@ -78,7 +96,7 @@ function switchGameTab(name) {
 }
 
 // ===================================================================
-// 1.  번호 경마
+// 1. 🏇 번호 경마 — 12마리 ? 말, 완주 후 6말 번호 공개 + 추천
 // ===================================================================
 let raceState = null;
 
@@ -88,243 +106,282 @@ function initRaceGame() {
     const el = document.getElementById('gameContentRace');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🏇 8마리 번호 말 중 <strong>한 마리</strong>를 골라 응원하세요!</div>
-        <canvas id="raceCanvas" class="game-canvas" width="520" height="380"></canvas>
-        <div class="race-picks" id="racePicks"></div>
+        <div class="game-info-box">🏇 12마리 말 중 <strong>6마리</strong>가 결승선을 통과하면 번호가 공개됩니다!</div>
+        <canvas id="raceCanvas" class="game-canvas" width="520" height="520"></canvas>
         <div id="raceResult" class="hidden"></div>
+        <button class="btn btn-gold" id="raceStartBtn" onclick="startRace()" style="width:100%;margin-top:8px;justify-content:center;">🏁 경주 시작!</button>
     `;
-    const canvas = document.getElementById('raceCanvas');
-    const ctx = canvas.getContext('2d');
+    initRaceCanvas();
+}
 
-    // 말 8마리: 랜덤 번호
+function initRaceCanvas() {
+    const canvas = document.getElementById('raceCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+
+    // 12마리 말 (1~45 중 랜덤)
     const pool = Array.from({length: 45}, (_, i) => i + 1);
     for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    const horses = pool.slice(0, 8).map((num, i) => ({
+    const horses = pool.slice(0, 12).map((num, i) => ({
         num, lane: i,
-        x: 60, y: 55 + i * 40,
-        speed: 0, baseSpeed: 1.2 + Math.random() * 1.8,
-        color: ['#ffd700','#60a5fa','#f87171','#9ca3af','#34d399','#f97316','#a78bfa','#fbbf24'][i],
+        x: 50, y: 42 + i * 38,
+        speed: 0, baseSpeed: 1.0 + Math.random() * 2.2,
+        color: ['#ffd700','#60a5fa','#f87171','#9ca3af','#34d399','#f97316','#a78bfa','#fbbf24','#f472b6','#818cf8','#fb923c','#4ade80'][i],
         finished: false, rank: 0
     }));
 
-    // 선택 버튼
-    const picksDiv = document.getElementById('racePicks');
-    picksDiv.innerHTML = horses.map((h, i) => `
-        <button class="race-pick-btn" data-idx="${i}" style="border-left:4px solid ${h.color};">
-            <span class="ball ${typeof getBallClass === 'function' ? getBallClass(h.num) : ''}" style="width:28px;height:28px;line-height:28px;font-size:0.7rem;">${h.num}</span>
-            <span style="color:var(--text-secondary);font-size:0.75rem;">${i+1}번마</span>
-        </button>
-    `).join('');
+    raceState = { horses, running: false, finished: [], particles: [], startTime: 0 };
 
-    let pickedIdx = -1;
-    picksDiv.querySelectorAll('.race-pick-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (raceState?.running) return;
-            picksDiv.querySelectorAll('.race-pick-btn').forEach(b => b.classList.remove('picked'));
-            btn.classList.add('picked');
-            pickedIdx = parseInt(btn.dataset.idx);
-            document.getElementById('raceStartBtn').disabled = false;
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        // 잔디
+        ctx.fillStyle = '#2d5a1e';
+        ctx.fillRect(0, 0, w, h);
+
+        // 트랙 레인
+        const horses = raceState.horses;
+        for (let i = 0; i < 12; i++) {
+            const y = 34 + i * 38;
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            ctx.fillRect(25, y, w - 40, 30);
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(25, y, w - 40, 30);
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${i+1}`, 23, y + 18);
+        }
+
+        // 결승선
+        const finishX = w - 55;
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(finishX, 30, 3, h - 40);
+        for (let yy = 34; yy < h - 10; yy += 8) {
+            ctx.fillStyle = (Math.floor(yy / 8) % 2 === 0) ? '#fff' : '#333';
+            ctx.fillRect(finishX - 2, yy, 5, 5);
+        }
+
+        // 말 그리기
+        horses.forEach(h => {
+            drawHorseSprite(ctx, h);
         });
-    });
 
-    const startBtn = document.createElement('button');
-    startBtn.id = 'raceStartBtn';
-    startBtn.className = 'btn btn-gold';
-    startBtn.style.cssText = 'width:100%;margin-top:10px;justify-content:center;';
-    startBtn.textContent = '🏁 경주 시작!';
-    startBtn.disabled = true;
-    startBtn.onclick = () => {
-        if (pickedIdx < 0) return;
-        startRace(horses, pickedIdx, canvas, ctx);
-    };
-    picksDiv.after(startBtn);
+        // 파티클
+        raceState.particles = raceState.particles.filter(p => p.life > 0);
+        raceState.particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.life -= 0.03;
+            ctx.fillStyle = `rgba(180,150,100,${p.life})`;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+        });
 
-    // 초기 그리기
-    drawRaceTrack(ctx, canvas.width, canvas.height, horses);
+        // 완주자 표시
+        if (raceState.finished.length > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(w - 70, 10, 65, raceState.finished.length * 22 + 10);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('도착', w - 38, 28);
+            raceState.finished.forEach((h, i) => {
+                ctx.fillStyle = h.color;
+                ctx.font = 'bold 10px sans-serif';
+                ctx.fillText(`${i+1}위`, w - 38, 46 + i * 20);
+            });
+        }
+
+        // 출발 전
+        if (!raceState.running && raceState.finished.length === 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 22px "Noto Sans KR"';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏁 경주 시작! 버튼을 누르세요', w/2, h/2);
+        }
+    }
+    draw();
 }
 
-function drawRaceTrack(ctx, w, h, horses) {
-    ctx.fillStyle = '#3a7d3a';
-    ctx.fillRect(0, 0, w, h);
-    // 트랙 라인
-    for (let i = 0; i < 8; i++) {
-        const y = 45 + i * 40;
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.fillRect(30, y, w - 30, 32);
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(30, y, w - 30, 32);
-        // 레인 번호
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${i+1}`, 28, y + 20);
-    }
-    // 결승선
-    const finishX = w - 60;
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(finishX, 40, 3, h - 50);
-    ctx.fillStyle = '#fff';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    for (let yy = 45; yy < h - 10; yy += 10) {
-        ctx.fillStyle = (Math.floor(yy / 10) % 2 === 0) ? '#fff' : 'rgba(0,0,0,0.5)';
-        ctx.fillRect(finishX - 3, yy, 6, 6);
-    }
-    // 말
-    horses.forEach(h => {
-        drawHorse(ctx, h);
-    });
-}
-
-function drawHorse(ctx, horse) {
-    const {x, y, color, num} = horse;
-    // 말 이모지 대신 도형
+function drawHorseSprite(ctx, h) {
+    const {x, y, color} = h;
     ctx.save();
-    ctx.translate(x, y + 5);
+    ctx.translate(x, y + 3);
     // 몸통
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(6, 0, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6, 0, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
     // 머리
-    ctx.beginPath(); ctx.arc(20, -4, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(18, -3, 5, 0, Math.PI * 2); ctx.fill();
     // 다리
-    ctx.fillStyle = '#333';
-    ctx.fillRect(2, 6, 2, 8);
-    ctx.fillRect(10, 6, 2, 8);
-    // 번호
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(num, 6, 3);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(1, 5, 2, 7); ctx.fillRect(9, 5, 2, 7);
+    // ? 표시 (완주 전)
+    if (!h.finished) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', 6, 2);
+    } else {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.num, 6, 2);
+    }
     ctx.restore();
 }
 
-function startRace(horses, pickedIdx, canvas, ctx) {
+function startRace() {
+    const canvas = document.getElementById('raceCanvas');
+    const btn = document.getElementById('raceStartBtn');
+    if (!canvas || !btn || !raceState || raceState.running) return;
     stopGame();
+
+    const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
-    let startTime = performance.now();
-    const finishX = w - 75;
-    let rankings = [];
-    let finishedCount = 0;
-    let particles = [];
-    const commentary = [];
+    const finishX = w - 70;
 
-    raceState = { running: true };
-
-    function addCommentary(text) {
-        commentary.push(text);
-        if (commentary.length > 4) commentary.shift();
-    }
+    raceState.running = true;
+    raceState.finished = [];
+    raceState.particles = [];
+    raceState.startTime = performance.now();
+    raceState.horses.forEach(h => { h.x = 50; h.finished = false; h.rank = 0; h.speed = 0; });
+    btn.disabled = true;
+    btn.textContent = '🏇 경주 중...';
 
     function spawnParticles(x, y) {
-        for (let i = 0; i < 6; i++) {
-            particles.push({
-                x, y, vx: -Math.random() * 3 - 1, vy: (Math.random() - 0.5) * 3,
+        for (let i = 0; i < 4; i++) {
+            raceState.particles.push({
+                x, y, vx: -Math.random() * 2 - 0.5, vy: (Math.random() - 0.5) * 2,
                 life: 1, size: 1 + Math.random() * 2
             });
         }
     }
 
     function animate(now) {
-        const elapsed = (now - startTime) / 1000;
+        const elapsed = (now - raceState.startTime) / 1000;
         ctx.clearRect(0, 0, w, h);
-        drawRaceTrack(ctx, w, h, horses);
+        ctx.fillStyle = '#2d5a1e';
+        ctx.fillRect(0, 0, w, h);
 
-        horses.forEach(h => {
-            if (h.finished) return;
-            // 변속: 랜덤 가속/감속
-            const burst = Math.sin(elapsed * 3 + h.lane) * 0.6 + Math.random() * 0.8;
-            h.speed = Math.max(0.6, Math.min(3.5, h.baseSpeed + burst));
-            // 막판 스퍼트 (x가 finishX-100 넘으면)
-            if (h.x > finishX - 120) {
-                h.speed += Math.random() * 1.5;
-            }
-            // 지침 효과 (너무 빨리 달리면)
-            if (h.x > finishX - 200 && h.x < finishX - 100 && Math.random() < 0.02) {
-                h.speed *= 0.4; // 급격한 감속 → 긴장감
-                spawnParticles(h.x + 18, h.y + 5);
-                addCommentary(`${h.num}번 급격히 둔화!`);
+        // 트랙
+        for (let i = 0; i < 12; i++) {
+            const y = 34 + i * 38;
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            ctx.fillRect(25, y, w - 40, 30);
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.strokeRect(25, y, w - 40, 30);
+        }
+
+        // 결승선
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(finishX, 30, 3, h - 40);
+        for (let yy = 34; yy < h - 10; yy += 8) {
+            ctx.fillStyle = (Math.floor(yy / 8) % 2 === 0) ? '#fff' : '#333';
+            ctx.fillRect(finishX - 2, yy, 5, 5);
+        }
+
+        // 말 이동 + 그리기
+        raceState.horses.forEach(h => {
+            if (h.finished) { drawHorseSprite(ctx, h); return; }
+
+            const burst = Math.sin(elapsed * 2.7 + h.lane * 0.8) * 0.5 + Math.random() * 0.7;
+            h.speed = Math.max(0.4, Math.min(3.8, h.baseSpeed + burst));
+            // 막판 스퍼트
+            if (h.x > finishX - 130) h.speed += Math.random() * 1.6;
+            // 긴장감: 갑작스런 둔화
+            if (h.x > finishX - 220 && h.x < finishX - 100 && Math.random() < 0.015) {
+                h.speed *= 0.3; spawnParticles(h.x + 15, h.y + 8);
             }
             h.x += h.speed;
-
-            // 먼지 파티클
-            if (Math.random() < 0.4) spawnParticles(h.x + 2, h.y + 12);
+            if (Math.random() < 0.35) spawnParticles(h.x + 1, h.y + 10);
 
             if (h.x >= finishX && !h.finished) {
-                h.finished = true;
-                h.x = finishX;
-                finishedCount++;
-                h.rank = finishedCount;
-                rankings.push(h);
-                if (finishedCount <= 3) {
-                    const place = ['🥇', '🥈', '🥉'][finishedCount - 1];
-                    addCommentary(`${place} ${h.num}번 도착!`);
-                    if (typeof playBeep === 'function') playBeep(400 + finishedCount * 200, 0.12);
-                }
+                h.finished = true; h.x = finishX;
+                h.rank = raceState.finished.length + 1;
+                raceState.finished.push(h);
+                if (typeof playBeep === 'function') playBeep(350 + h.rank * 70, 0.1);
             }
+            drawHorseSprite(ctx, h);
         });
 
         // 파티클
-        particles = particles.filter(p => p.life > 0);
-        particles.forEach(p => {
-            p.x += p.vx; p.y += p.vy; p.life -= 0.04;
+        raceState.particles = raceState.particles.filter(p => p.life > 0);
+        raceState.particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.life -= 0.03;
             ctx.fillStyle = `rgba(180,150,100,${p.life})`;
             ctx.fillRect(p.x, p.y, p.size, p.size);
         });
 
-        // 실황 코멘터리
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(10, h - 65, 250, 55);
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 12px "Noto Sans KR"';
-        ctx.textAlign = 'left';
-        commentary.slice(-3).forEach((txt, i) => {
-            ctx.fillText(txt, 16, h - 50 + i * 16);
-        });
+        // 완주 순위판
+        if (raceState.finished.length > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(w - 75, 8, 72, Math.min(raceState.finished.length, 12) * 22 + 12);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('순위', w - 38, 26);
+            raceState.finished.forEach((h, i) => {
+                ctx.fillStyle = i < 6 ? '#ffd700' : '#888';
+                ctx.font = `bold ${i < 6 ? 11 : 9}px sans-serif`;
+                const label = i < 6 ? `${['🥇','🥈','🥉','4','5','6'][i]} ${h.num}` : `${i+1}위`;
+                ctx.fillText(label, w - 38, 44 + i * 20);
+            });
+        }
 
-        if (finishedCount >= 8) {
+        if (raceState.finished.length >= 12) {
             raceState.running = false;
-            showRaceResult(horses, pickedIdx, rankings);
+            btn.disabled = false;
+            btn.textContent = '🔄 다시 경주';
+            showRaceResult();
             return;
         }
         gameAnimId = requestAnimationFrame(animate);
     }
-
-    addCommentary('🏁 경주 시작!');
     gameAnimId = requestAnimationFrame(animate);
 }
 
-function showRaceResult(horses, pickedIdx, rankings) {
+function showRaceResult() {
+    if (!raceState) return;
+    const top6 = raceState.finished.slice(0, 6);
+    gameCollected = top6.map(h => h.num).sort((a, b) => a - b);
+
     const resultEl = document.getElementById('raceResult');
     if (!resultEl) return;
-    const pickedHorse = horses[pickedIdx];
-    const isWin = pickedHorse.rank === 1;
-    const isPlace = pickedHorse.rank <= 3;
     resultEl.classList.remove('hidden');
+
+    const analysis = typeof analyzeNumbers === 'function' ? analyzeNumbers(gameCollected) : null;
+    const score = analysis && typeof calculateQualityScore === 'function' ? calculateQualityScore(analysis) : null;
+
     resultEl.innerHTML = `
-        <div class="race-result-box" style="border:2px solid ${isWin ? '#ffd700' : 'var(--text-secondary)'};">
-            <h4 style="color:${isWin ? '#ffd700' : isPlace ? '#60a5fa' : 'var(--text-secondary)'};margin-bottom:10px;">
-                ${isWin ? '🎉 우승!' : isPlace ? '👏 입상!' : '😢 아쉽네요'}
-            </h4>
-            <p style="color:var(--text-primary);">응원마: <span class="ball ${typeof getBallClass === 'function' ? getBallClass(pickedHorse.num) : ''}" style="width:36px;height:36px;line-height:36px;">${pickedHorse.num}</span> → <strong>${pickedHorse.rank}위</strong></p>
-            <div style="margin-top:10px;font-size:0.8rem;color:var(--text-secondary);">
-                ${rankings.map(r => `${['🥇','🥈','🥉','4','5','6','7','8'][r.rank-1]} ${r.num}번`).join(' · ')}
+        <div class="race-result-box" style="border:2px solid #ffd700;">
+            <h4 style="color:#ffd700;margin-bottom:12px;">🏇 결승선 통과! TOP 6 공개</h4>
+            <div style="margin-bottom:12px;font-size:0.8rem;color:var(--text-secondary);">
+                ${top6.map((h,i) => `<span style="color:${h.color};">${['🥇','🥈','🥉','4위','5위','6위'][i]} ${h.num}번</span>`).join(' · ')}
             </div>
-            ${isPlace ? `<button class="btn btn-gold" onclick="addCollected(${pickedHorse.num});document.getElementById('raceResult').classList.add('hidden');" style="margin-top:10px;padding:8px 16px;font-size:0.85rem;">🎱 ${pickedHorse.num}번 획득!</button>` : ''}
-            <button class="btn btn-secondary" onclick="initRaceGame()" style="margin-top:6px;padding:6px 16px;font-size:0.8rem;">🔄 다시 경주</button>
+            <div class="balls-container" style="padding:8px 0;gap:8px;">
+                ${gameCollected.map((n,i) => `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''} reveal-ball" style="width:44px;height:44px;line-height:44px;font-size:1rem;animation-delay:${i*0.15}s;">${n}</span>`).join('')}
+            </div>
+            ${score ? `
+            <div class="game-score-card">
+                <div class="game-score-main">${score.totalScore}점</div>
+                <div class="game-score-grade" style="color:${score.totalScore>=75?'var(--grade-excellent)':score.totalScore>=60?'var(--grade-good)':'var(--grade-normal)'}">${score.grade}</div>
+                <div class="game-score-detail">합계 ${analysis.sum} · AC ${analysis.ac} · ${analysis.oddEvenRatio} · ${analysis.lowHighRatio}</div>
+            </div>` : ''}
+            <button class="btn btn-gold" onclick="resetGameBasket();initRaceGame()" style="margin-top:10px;padding:8px 16px;font-size:0.85rem;">🔄 다시 경주</button>
         </div>
     `;
-    if (isPlace) {
-        addCollected(pickedHorse.num);
-        if (typeof fireConfetti === 'function' && isWin) fireConfetti();
-    }
+    updateGameBasket();
+    if (typeof vibrate === 'function') vibrate([50,30,50,30,100]);
+    if (typeof playBeep === 'function') { playBeep(600,0.1); setTimeout(()=>playBeep(800,0.15),150); setTimeout(()=>playBeep(1000,0.2),300); }
+    if (typeof fireConfetti === 'function' && score && score.totalScore >= 70) fireConfetti();
 }
 
 // ===================================================================
-// 2.  번호 낚시터
+// 2. 🎣 번호 낚시터 — 45마리 ? 물고기, 6마리 낚으면 추천
 // ===================================================================
 let fishList = [], fishBubbles = [];
 
@@ -334,45 +391,36 @@ function initFishingGame() {
     const el = document.getElementById('gameContentFishing');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🎣 번호 물고기를 터치해서 낚아보세요! <strong>6마리</strong>를 모으면 완성</div>
-        <canvas id="fishCanvas" class="game-canvas" width="400" height="350"></canvas>
+        <div class="game-info-box">🎣 물고기를 터치해서 낚으세요! <strong>6마리</strong>를 낚으면 번호가 공개됩니다 (총 45마리)</div>
+        <canvas id="fishCanvas" class="game-canvas" width="400" height="380"></canvas>
     `;
     const canvas = document.getElementById('fishCanvas');
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
 
-    // 물고기 생성
+    // 45마리 물고기
     fishList = [];
     fishBubbles = [];
-    const usedNums = new Set(gameCollected);
-    const pool = [];
-    for (let i = 1; i <= 45; i++) if (!usedNums.has(i)) pool.push(i);
-    for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const candidates = pool.slice(0, 12);
-
-    candidates.forEach(num => {
+    for (let num = 1; num <= 45; num++) {
         fishList.push({
             num,
-            x: 40 + Math.random() * (w - 80),
-            y: 40 + Math.random() * (h - 80),
-            vx: (Math.random() - 0.5) * 1.5,
-            vy: (Math.random() - 0.5) * 1.2,
-            size: 14 + Math.random() * 8,
+            x: 25 + Math.random() * (w - 50),
+            y: 25 + Math.random() * (h - 50),
+            vx: (Math.random() - 0.5) * 1.3,
+            vy: (Math.random() - 0.5) * 1.0,
+            size: 10 + Math.random() * 5,
             color: ['#ffd700','#60a5fa','#f87171','#34d399','#f97316','#a78bfa'][Math.floor(Math.random() * 6)],
             angle: Math.random() * Math.PI * 2,
             caught: false
         });
-    });
+    }
 
     canvas.onclick = (e) => {
+        if (gameCollected.length >= GAME_TARGET) return;
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) * (w / rect.width);
         const my = (e.clientY - rect.top) * (h / rect.height);
-        // 가장 가까운 물고기 찾기
-        let bestFish = null, bestDist = 35;
+        let bestFish = null, bestDist = 30;
         fishList.forEach(f => {
             if (f.caught) return;
             const dist = Math.hypot(f.x - mx, f.y - my);
@@ -380,45 +428,21 @@ function initFishingGame() {
         });
         if (bestFish) {
             bestFish.caught = true;
-            // 낚시 효과 파티클
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 12; i++) {
                 fishBubbles.push({
                     x: bestFish.x, y: bestFish.y,
-                    vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 4 - 2,
-                    life: 1, size: 2 + Math.random() * 3
+                    vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 5 - 3,
+                    life: 1, size: 2 + Math.random() * 4
                 });
             }
             addCollected(bestFish.num);
             if (typeof playBeep === 'function') playBeep(500, 0.08);
             if (typeof vibrate === 'function') vibrate(20);
-            // 새 물고기 추가
-            if (gameCollected.length < GAME_TARGET && fishList.filter(f => !f.caught).length < 4) {
-                const remaining = [];
-                for (let i = 1; i <= 45; i++) {
-                    const used = new Set([...gameCollected, ...fishList.map(f => f.num)]);
-                    if (!used.has(i)) remaining.push(i);
-                }
-                if (remaining.length > 0) {
-                    const newNum = remaining[Math.floor(Math.random() * remaining.length)];
-                    fishList.push({
-                        num: newNum,
-                        x: 40 + Math.random() * (w - 80),
-                        y: 40 + Math.random() * (h - 80),
-                        vx: (Math.random() - 0.5) * 1.5,
-                        vy: (Math.random() - 0.5) * 1.2,
-                        size: 14 + Math.random() * 8,
-                        color: ['#ffd700','#60a5fa','#f87171','#34d399','#f97316','#a78bfa'][Math.floor(Math.random() * 6)],
-                        angle: Math.random() * Math.PI * 2,
-                        caught: false
-                    });
-                }
-            }
         }
     };
 
     function animate() {
         ctx.clearRect(0, 0, w, h);
-        // 물 배경
         const waterGrad = ctx.createLinearGradient(0, 0, 0, h);
         waterGrad.addColorStop(0, '#0a3d62');
         waterGrad.addColorStop(1, '#0c5e8a');
@@ -426,66 +450,57 @@ function initFishingGame() {
         ctx.fillRect(0, 0, w, h);
 
         // 빛줄기
-        ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        for (let i = 0; i < 5; i++) {
-            ctx.fillRect(50 + i * 80, 0, 3, h);
-            ctx.fillRect(30 + i * 80, 0, 1, h);
-        }
+        ctx.fillStyle = 'rgba(255,255,255,0.025)';
+        for (let i = 0; i < 6; i++) ctx.fillRect(40 + i * 70, 0, 2, h);
 
         // 물고기
         fishList.forEach(f => {
             if (f.caught) return;
-            f.x += f.vx;
-            f.y += f.vy;
-            f.angle += 0.02;
-            if (f.x < 15 || f.x > w - 15) f.vx *= -1;
-            if (f.y < 15 || f.y > h - 15) f.vy *= -1;
-            // 약간의 궤적 변화
-            f.vy += (Math.random() - 0.5) * 0.1;
+            f.x += f.vx; f.y += f.vy; f.angle += 0.02;
+            if (f.x < 12 || f.x > w - 12) f.vx *= -1;
+            if (f.y < 12 || f.y > h - 12) f.vy *= -1;
+            f.vy += (Math.random() - 0.5) * 0.08;
 
             ctx.save();
             ctx.translate(f.x, f.y);
-            ctx.rotate(f.angle * 0.3);
+            ctx.rotate(f.angle * 0.25);
 
             // 꼬리
             ctx.fillStyle = f.color;
             ctx.beginPath();
             ctx.moveTo(-f.size, 0);
-            ctx.lineTo(-f.size - 8, -6);
-            ctx.lineTo(-f.size - 6, 0);
-            ctx.lineTo(-f.size - 8, 6);
-            ctx.closePath();
-            ctx.fill();
+            ctx.lineTo(-f.size - 7, -5);
+            ctx.lineTo(-f.size - 5, 0);
+            ctx.lineTo(-f.size - 7, 5);
+            ctx.closePath(); ctx.fill();
 
             // 몸통
-            ctx.fillStyle = f.color;
             ctx.beginPath();
-            ctx.ellipse(0, 0, f.size, f.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, f.size, f.size * 0.55, 0, 0, Math.PI * 2);
             ctx.fill();
 
             // 눈
             ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(f.size * 0.4, -2, f.size * 0.25, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(f.size * 0.4, -1.5, f.size * 0.22, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#000';
-            ctx.beginPath(); ctx.arc(f.size * 0.5, -2, f.size * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(f.size * 0.5, -1.5, f.size * 0.1, 0, Math.PI * 2); ctx.fill();
 
-            // 번호
+            // ? 표시
             ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.max(9, f.size * 0.65)}px sans-serif`;
+            ctx.font = `bold ${Math.max(8, f.size*0.6)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(f.num, 0, 0);
+            ctx.fillText('?', 0, 0);
 
             ctx.restore();
 
-            // 간헐적 거품
-            if (Math.random() < 0.02) {
+            if (Math.random() < 0.03) {
                 fishBubbles.push({
-                    x: f.x + (Math.random() - 0.5) * 10,
-                    y: f.y - 8,
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: -0.3 - Math.random() * 0.6,
-                    life: 1, size: 1 + Math.random() * 3
+                    x: f.x + (Math.random()-0.5)*8,
+                    y: f.y - 6,
+                    vx: (Math.random()-0.5)*0.3,
+                    vy: -0.2 - Math.random()*0.5,
+                    life: 1, size: 1 + Math.random()*3
                 });
             }
         });
@@ -493,77 +508,86 @@ function initFishingGame() {
         // 거품
         fishBubbles = fishBubbles.filter(b => b.life > 0);
         fishBubbles.forEach(b => {
-            b.x += b.vx; b.y += b.vy;
-            b.life -= 0.015;
-            ctx.strokeStyle = `rgba(255,255,255,${b.life * 0.5})`;
+            b.x += b.vx; b.y += b.vy; b.life -= 0.012;
+            ctx.strokeStyle = `rgba(255,255,255,${b.life*0.5})`;
             ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.stroke();
         });
 
         if (gameCollected.length >= GAME_TARGET) {
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
             ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 20px "Noto Sans KR"';
+            ctx.font = 'bold 22px "Noto Sans KR"';
             ctx.textAlign = 'center';
-            ctx.fillText('🎉 조합 완성!', w/2, h/2);
+            ctx.fillText('🎉 6마리 낚시 완료!', w/2, h/2 - 15);
+            ctx.fillText('아래에서 번호를 확인하세요', w/2, h/2 + 20);
             return;
         }
+        // 카운터
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(w - 95, h - 35, 88, 28);
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 13px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText(`🐟 ${Math.min(gameCollected.length, GAME_TARGET)}/${GAME_TARGET}`, w - 50, h - 14);
+
         gameAnimId = requestAnimationFrame(animate);
     }
     gameAnimId = requestAnimationFrame(animate);
 }
 
 // ===================================================================
-// 3.  번호 블록 깨기
+// 3. 🧱 번호 블록 깨기 — 45개 ? 블록, 랜덤 배치, 클리어 축하
 // ===================================================================
 let breakoutState = null;
+let breakoutCleared = false;
 
 function initBreakoutGame() {
     stopGame();
     resetGameBasket();
+    breakoutCleared = false;
     const el = document.getElementById('gameContentBreakout');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🧱 블록을 깨서 번호를 모으세요! 패들이 하단에서 움직입니다.</div>
-        <canvas id="breakoutCanvas" class="game-canvas" width="400" height="420"></canvas>
+        <div class="game-info-box">🧱 모든 블록을 깨면 번호가 공개됩니다! (마우스/터치로 패들 조작)</div>
+        <canvas id="breakoutCanvas" class="game-canvas" width="400" height="440"></canvas>
     `;
     const canvas = document.getElementById('breakoutCanvas');
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
 
-    // 패들
-    const paddle = { x: w / 2 - 40, y: h - 30, w: 80, h: 12 };
+    const paddle = { x: w/2 - 42, y: h - 28, w: 84, h: 12 };
+    const ball = { x: w/2, y: h - 55, vx: 2.8, vy: -3.3, r: 6 };
 
-    // 공
-    const ball = { x: w / 2, y: h - 50, vx: 2.5, vy: -3, r: 6 };
-
-    // 블록 9×5 = 45개
+    // 45개 번호 랜덤 배치
+    const nums = Array.from({length: 45}, (_, i) => i + 1);
+    for (let i = nums.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
     const blocks = [];
-    const blockW = (w - 40) / 9;
-    const blockH = 22;
+    const blockW = (w - 36) / 9;
+    const blockH = 20;
     for (let i = 0; i < 45; i++) {
         const row = Math.floor(i / 9);
         const col = i % 9;
-        const num = i + 1;
         blocks.push({
-            num,
-            x: 15 + col * blockW + 2,
-            y: 40 + row * blockH + 2,
-            w: blockW - 4,
-            h: blockH - 4,
+            num: nums[i],
+            x: 14 + col * blockW + 1,
+            y: 38 + row * blockH + 1,
+            w: blockW - 2, h: blockH - 2,
             alive: true,
-            color: ['#ffd700','#60a5fa','#f87171','#9ca3af','#34d399'][Math.floor(num / 10)]
+            color: ['#ffd700','#60a5fa','#f87171','#9ca3af','#34d399'][Math.floor(nums[i] / 10)]
         });
     }
 
-    breakoutState = { paddle, ball, blocks, score: 0 };
+    breakoutState = { paddle, ball, blocks, aliveCount: 45 };
 
-    // 마우스/터치로 패들 이동
     function movePaddle(clientX) {
         const rect = canvas.getBoundingClientRect();
         const mx = (clientX - rect.left) * (w / rect.width);
-        paddle.x = Math.max(0, Math.min(w - paddle.w, mx - paddle.w / 2));
+        paddle.x = Math.max(0, Math.min(w - paddle.w, mx - paddle.w/2));
     }
     canvas.addEventListener('mousemove', e => movePaddle(e.clientX));
     canvas.addEventListener('touchmove', e => { e.preventDefault(); movePaddle(e.touches[0].clientX); }, {passive: false});
@@ -575,45 +599,50 @@ function initBreakoutGame() {
 
         // 블록
         blocks.forEach(b => {
-            if (!b.alive) return;
+            if (!b.alive) {
+                // 깨진 블록 자리에 반짝임
+                if (Math.random() < 0.3) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                }
+                return;
+            }
             ctx.fillStyle = b.color;
             ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, 3);
+            // ?
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 10px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(b.num, b.x + b.w / 2, b.y + b.h / 2);
+            ctx.fillText('?', b.x + b.w/2, b.y + b.h/2);
         });
 
         // 패들
-        ctx.fillStyle = '#00f5ff';
-        ctx.beginPath();
-        ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        const paddleGrad = ctx.createLinearGradient(0, paddle.y, 0, paddle.y + paddle.h);
+        paddleGrad.addColorStop(0, '#00f5ff'); paddleGrad.addColorStop(1, '#0088cc');
+        ctx.fillStyle = paddleGrad;
+        ctx.beginPath(); ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillRect(paddle.x + 4, paddle.y + 2, paddle.w - 8, 3);
 
         // 공
-        ball.x += ball.vx;
-        ball.y += ball.vy;
-
-        // 벽 충돌
+        ball.x += ball.vx; ball.y += ball.vy;
         if (ball.x - ball.r < 0 || ball.x + ball.r > w) ball.vx *= -1;
         if (ball.y - ball.r < 0) ball.vy *= -1;
         if (ball.y + ball.r > h) {
-            // 공 놓침 - 새 공
-            ball.x = w / 2; ball.y = h - 50;
-            ball.vx = 2.5 * (Math.random() > 0.5 ? 1 : -1);
-            ball.vy = -3;
+            ball.x = w/2; ball.y = h - 55;
+            ball.vx = 2.8 * (Math.random() > 0.5 ? 1 : -1);
+            ball.vy = -3.3;
         }
 
         // 패들 충돌
         if (ball.y + ball.r >= paddle.y && ball.y - ball.r < paddle.y + paddle.h &&
             ball.x > paddle.x && ball.x < paddle.x + paddle.w) {
             ball.vy = -Math.abs(ball.vy);
-            const hitPos = (ball.x - paddle.x) / paddle.w;
-            ball.vx = (hitPos - 0.5) * 5;
-            if (typeof vibrate === 'function') vibrate(10);
+            ball.vx = ((ball.x - paddle.x) / paddle.w - 0.5) * 5.5;
+            if (typeof vibrate === 'function') vibrate(8);
         }
 
         // 블록 충돌
@@ -622,41 +651,118 @@ function initBreakoutGame() {
             if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w &&
                 ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
                 b.alive = false;
+                breakoutState.aliveCount--;
                 ball.vy *= -1;
-                breakoutState.score++;
-                addCollected(b.num);
-                if (typeof playBeep === 'function') playBeep(300 + b.num * 15, 0.06);
+                if (typeof playBeep === 'function') playBeep(300 + (45 - breakoutState.aliveCount) * 8, 0.05);
+                if (typeof vibrate === 'function') vibrate(12);
             }
         });
 
         // 공 그리기
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(ball.x - 2, ball.y - 2, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(ball.x - 2, ball.y - 2, 2, 0, Math.PI*2); ctx.fill();
 
-        // 점수
+        // 카운터
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(w - 90, h - 32, 82, 25);
         ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 14px "Noto Sans KR"';
-        ctx.textAlign = 'left';
-        ctx.fillText(`깬 블록: ${breakoutState.score}`, 10, h - 10);
+        ctx.font = 'bold 12px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText(`🧱 ${breakoutState.aliveCount}/45`, w - 48, h - 14);
 
-        if (gameCollected.length >= GAME_TARGET) {
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, w, h);
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 20px "Noto Sans KR"';
-            ctx.textAlign = 'center';
-            ctx.fillText('🎉 6개 수집 완료!', w/2, h/2);
+        // 전부 클리어!
+        if (breakoutState.aliveCount === 0 && !breakoutCleared) {
+            breakoutCleared = true;
+            // 축하 애니메이션
+            showBreakoutClear(blocks, w, h);
             return;
         }
+
+        if (breakoutCleared) return;
         gameAnimId = requestAnimationFrame(animate);
     }
     gameAnimId = requestAnimationFrame(animate);
 }
 
+function showBreakoutClear(blocks, w, h) {
+    // 모든 블록 번호 수집 → 추천 번호 6개 선택
+    const allNums = blocks.map(b => b.num);
+    // 점수 기반 정렬 (DB 통계 활용)
+    let ranked = allNums;
+    if (typeof computeNumberScores === 'function') {
+        const scores = computeNumberScores();
+        if (scores) {
+            ranked = allNums.sort((a, b) => (scores[a]?.recScore || 99) - (scores[b]?.recScore || 99));
+        }
+    }
+    gameCollected = ranked.slice(0, GAME_TARGET).sort((a, b) => a - b);
+
+    const canvas = document.getElementById('breakoutCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animT = 0;
+
+    function clearAnim() {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#0a0a2e';
+        ctx.fillRect(0, 0, w, h);
+
+        // 반짝이는 축하 효과
+        for (let i = 0; i < 30; i++) {
+            const px = (Math.sin(animT * 0.05 + i * 0.7) * 0.5 + 0.5) * w;
+            const py = (Math.cos(animT * 0.04 + i * 0.9) * 0.5 + 0.5) * h;
+            const hue = (animT * 2 + i * 8) % 360;
+            ctx.fillStyle = `hsla(${hue}, 80%, 60%, ${0.3 + Math.sin(animT*0.1+i)*0.3})`;
+            ctx.beginPath(); ctx.arc(px, py, 4 + Math.random()*3, 0, Math.PI*2); ctx.fill();
+        }
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        const scale = 1 + Math.sin(animT * 0.08) * 0.1;
+        ctx.save();
+        ctx.translate(w/2, h/2 - 40);
+        ctx.scale(scale, scale);
+        ctx.fillText('🎉 ALL CLEAR!', 0, 0);
+        ctx.restore();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px "Noto Sans KR"';
+        ctx.fillText('추천 번호를 확인하세요!', w/2, h/2 + 20);
+
+        // 6개 번호 공개
+        gameCollected.forEach((n, i) => {
+            const bx = w/2 - 110 + i * 40;
+            const by = h/2 + 50;
+            const cls = typeof getBallClass === 'function' ? getBallClass(n) : 'gray';
+            const colors = { yellow: '#ffd700', blue: '#60a5fa', red: '#f87171', gray: '#9ca3af', green: '#34d399' };
+            ctx.fillStyle = colors[cls] || '#9ca3af';
+            ctx.beginPath(); ctx.arc(bx + 16, by + 16, 16, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(n, bx + 16, by + 16);
+        });
+
+        animT++;
+        if (animT < 120) {
+            gameAnimId = requestAnimationFrame(clearAnim);
+        } else {
+            updateGameBasket();
+            onGameComplete();
+        }
+    }
+    gameAnimId = requestAnimationFrame(clearAnim);
+}
+
 // ===================================================================
-// 4.  행운 룰렛
+// 4. 🎡 행운 룰렛 — ? 슬롯, 스핀 후 번호 공개
 // ===================================================================
 let rouletteState = null;
 
@@ -666,12 +772,20 @@ function initRouletteGame() {
     const el = document.getElementById('gameContentRoulette');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🎡 룰렛을 돌려 번호를 뽑으세요! <strong>6개</strong>를 모으면 조합 완성</div>
-        <canvas id="rouletteCanvas" class="game-canvas" width="400" height="400"></canvas>
-        <button class="btn btn-gold" id="rouletteSpinBtn" onclick="spinRoulette()" style="width:100%;margin-top:10px;justify-content:center;">🎡 룰렛 돌리기</button>
+        <div class="game-info-box">🎡 룰렛을 돌려 번호를 뽑으세요! <strong>6개</strong>를 모으면 완성</div>
+        <canvas id="rouletteCanvas" class="game-canvas" width="400" height="420"></canvas>
     `;
-    rouletteState = { spinning: false, angle: 0, targetAngle: 0, speed: 0, selectedNum: null };
+    rouletteState = { spinning: false, angle: 0, targetAngle: 0, speed: 0, targetNum: null, revealedNums: [] };
     drawRoulette();
+
+    // 버튼 추가
+    const canvas = document.getElementById('rouletteCanvas');
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+    btnContainer.innerHTML = `
+        <button class="btn btn-gold" id="rouletteSpinBtn" onclick="spinRoulette()" style="flex:1;justify-content:center;">🎡 룰렛 돌리기</button>
+    `;
+    canvas.after(btnContainer);
 }
 
 function drawRoulette() {
@@ -679,15 +793,19 @@ function drawRoulette() {
     if (!canvas || !rouletteState) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
-    const cx = w / 2, cy = h / 2;
-    const outerR = Math.min(w, h) / 2 - 25;
-    const innerR = outerR * 0.55;
+    const cx = w/2, cy = h/2 + 10;
+    const outerR = Math.min(w, h)/2 - 30;
+    const innerR = outerR * 0.5;
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#0a0a2e';
     ctx.fillRect(0, 0, w, h);
 
-    // 45개 슬라이스
+    // 외부 장식 링
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(cx, cy, outerR + 8, 0, Math.PI*2); ctx.stroke();
+
     const { angle } = rouletteState;
     const sliceAngle = (Math.PI * 2) / 45;
 
@@ -696,29 +814,29 @@ function drawRoulette() {
         const endAngle = startAngle + sliceAngle;
         const num = i + 1;
         const cls = typeof getBallClass === 'function' ? getBallClass(num) : 'gray';
-        const colors = { yellow: '#ffd700', blue: '#3b82f6', red: '#ef4444', gray: '#6b7280', green: '#10b981' };
+        const colors = { yellow: '#e6b800', blue: '#2563eb', red: '#dc2626', gray: '#4b5563', green: '#059669' };
 
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, outerR, startAngle, endAngle);
         ctx.closePath();
-        ctx.fillStyle = colors[cls] || '#6b7280';
+        ctx.fillStyle = colors[cls] || '#4b5563';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 0.5;
         ctx.stroke();
 
-        // 번호
+        // ? 표시
         const midAngle = startAngle + sliceAngle / 2;
-        const textR = outerR * 0.78;
+        const textR = outerR * 0.72;
         ctx.save();
         ctx.translate(cx + Math.cos(midAngle) * textR, cy + Math.sin(midAngle) * textR);
-        ctx.rotate(midAngle + Math.PI / 2);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 9px sans-serif';
+        ctx.rotate(midAngle + Math.PI/2);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(num, 0, 0);
+        ctx.fillText('?', 0, 0);
         ctx.restore();
     }
 
@@ -726,70 +844,112 @@ function drawRoulette() {
     const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerR);
     centerGrad.addColorStop(0, '#1a1a3a');
     centerGrad.addColorStop(1, '#0a0a1a');
-    ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
-    ctx.fillStyle = centerGrad;
-    ctx.fill();
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI*2);
+    ctx.fillStyle = centerGrad; ctx.fill();
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.stroke();
 
     // 포인터 (상단)
     ctx.fillStyle = '#ff006e';
     ctx.beginPath();
-    ctx.moveTo(cx, cy - outerR - 5);
-    ctx.lineTo(cx - 10, cy - outerR + 10);
-    ctx.lineTo(cx + 10, cy - outerR + 10);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(cx, cy - outerR - 6);
+    ctx.lineTo(cx - 12, cy - outerR + 12);
+    ctx.lineTo(cx + 12, cy - outerR + 12);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
 
-    // 포인터 번호 표시
-    if (rouletteState.selectedNum !== null) {
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 28px "Noto Sans KR"';
+    // 중앙 번호
+    if (rouletteState.targetNum !== null && !rouletteState.spinning) {
+        const cls = typeof getBallClass === 'function' ? getBallClass(rouletteState.targetNum) : 'gray';
+        const ballColors = { yellow: '#ffd700', blue: '#60a5fa', red: '#f87171', gray: '#9ca3af', green: '#34d399' };
+        ctx.fillStyle = ballColors[cls] || '#9ca3af';
+        ctx.beginPath(); ctx.arc(cx, cy, innerR * 0.65, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 24px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(rouletteState.selectedNum, cx, cy + 8);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(rouletteState.targetNum, cx, cy);
+    } else if (rouletteState.spinning) {
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // 회전 중 애니메이션
+        const dots = ['.', '..', '...'][Math.floor(Date.now() / 300) % 3];
+        ctx.fillText(dots, cx, cy);
+    } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', cx, cy);
+    }
+
+    // 게이지 표시줄
+    if (!rouletteState.spinning && rouletteState.targetNum === null) {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(w/2 - 60, h - 35, 120, 22);
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 13px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎯 START', w/2, h - 20);
     }
 }
 
 function spinRoulette() {
     if (!rouletteState || rouletteState.spinning) return;
-    rouletteState.spinning = true;
-    document.getElementById('rouletteSpinBtn').disabled = true;
-    document.getElementById('rouletteSpinBtn').textContent = '🎡 돌리는 중...';
-    rouletteState.selectedNum = null;
+    if (gameCollected.length >= GAME_TARGET) return;
 
-    const sliceAngle = (Math.PI * 2) / 45;
-    // 랜덤 타겟 번호 (아직 수집 안 된 것 우선)
+    rouletteState.spinning = true;
+    rouletteState.targetNum = null;
+    const btn = document.getElementById('rouletteSpinBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '🎡 돌리는 중...'; }
+
+    // 랜덤 타겟 (미수집 번호 우선)
     const available = [];
     for (let i = 1; i <= 45; i++) {
         if (!gameCollected.includes(i)) available.push(i);
     }
     if (available.length === 0) return;
     const targetNum = available[Math.floor(Math.random() * available.length)];
-    // 타겟 각도: 포인터가 상단(0°)에 있으므로, targetNum 슬라이스의 중앙이 상단에 오려면
+
+    const sliceAngle = (Math.PI * 2) / 45;
     const targetSliceCenter = (targetNum - 1) * sliceAngle + sliceAngle / 2;
-    rouletteState.targetAngle = rouletteState.angle + Math.PI * 2 * 8 + (Math.PI * 2 - targetSliceCenter);
-    rouletteState.speed = 0.3;
+    // 여러 바퀴 회전 + 타겟 위치까지
+    const spins = 6 + Math.floor(Math.random() * 5); // 6~10바퀴
+    rouletteState.targetAngle = rouletteState.angle + Math.PI * 2 * spins + (Math.PI * 2 - ((rouletteState.angle + targetSliceCenter) % (Math.PI * 2)));
+    // 타겟이 포인터에 오게: 포인터는 상단(angle=0 기준). 슬라이스 중앙이 상단에 오려면 angle + targetSliceCenter ≡ 0 (mod 2π)
+    const currentMod = ((rouletteState.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const needed = (Math.PI * 2 - ((currentMod + targetSliceCenter) % (Math.PI * 2))) % (Math.PI * 2);
+    rouletteState.targetAngle = rouletteState.angle + Math.PI * 2 * spins + needed;
+    rouletteState.speed = 0.25;
     rouletteState.targetNum = targetNum;
 
     function animate() {
         const delta = rouletteState.targetAngle - rouletteState.angle;
-        if (Math.abs(delta) < 0.0005) {
+        const absDelta = Math.abs(delta);
+
+        if (absDelta < 0.0008) {
             rouletteState.angle = rouletteState.targetAngle;
             rouletteState.spinning = false;
-            rouletteState.selectedNum = rouletteState.targetNum;
             drawRoulette();
             addCollected(rouletteState.targetNum);
             if (typeof playBeep === 'function') playBeep(1000, 0.3);
             if (typeof vibrate === 'function') vibrate(80);
-            document.getElementById('rouletteSpinBtn').disabled = gameCollected.length >= GAME_TARGET;
-            document.getElementById('rouletteSpinBtn').textContent = gameCollected.length >= GAME_TARGET ? '🎉 완성!' : '🎡 룰렛 돌리기';
+            const btn = document.getElementById('rouletteSpinBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = gameCollected.length >= GAME_TARGET ? '🎉 완성!' : '🎡 룰렛 돌리기';
+            }
             return;
         }
-        // 감속: 마지막에 더 천천히
-        const remaining = Math.abs(delta);
-        rouletteState.speed = Math.max(0.002, remaining * 0.06);
+
+        // 감속 곡선: 빠르게 → 천천히
+        const progress = absDelta / (Math.PI * 2 * spins);
+        rouletteState.speed = 0.02 + progress * 0.28;
         rouletteState.angle += Math.sign(delta) * rouletteState.speed;
+        // 각도 정규화
+        rouletteState.angle = rouletteState.angle % (Math.PI * 2 * 100);
+
         drawRoulette();
         gameAnimId = requestAnimationFrame(animate);
     }
