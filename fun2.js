@@ -22,7 +22,7 @@ function initDrawMachine() {
     if (!el) return;
     el.innerHTML = `
         <div class="draw-machine">
-            <canvas id="drawCanvas" width="520" height="320" class="draw-canvas"></canvas>
+            <canvas id="drawCanvas" width="520" height="440" class="draw-canvas"></canvas>
             <div class="draw-result" id="drawResult"></div>
             <button class="btn btn-gold" onclick="startDraw()" id="drawBtn" style="width:100%;justify-content:center;">🎱 추첨 시작!</button>
         </div>
@@ -37,32 +37,24 @@ function renderDrawBalls() {
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // 배경
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.roundRect(10, 10, w - 20, h - 20, 20); ctx.fill();
 
-    // 공 그리기
-    const balls = [];
+    // 상단: 45개 공 (9×5 그리드)
     for (let i = 1; i <= 45; i++) {
         const row = Math.floor((i - 1) / 9);
         const col = (i - 1) % 9;
-        balls.push({
-            num: i,
-            x: 30 + col * 52, y: 30 + row * 50,
-            r: 18, cls: getBallClass(i)
-        });
-    }
-    balls.forEach(b => {
-        // 공
-        const grad = ctx.createRadialGradient(b.x - 4, b.y - 4, 2, b.x, b.y, b.r);
+        const x = 30 + col * 52, y = 25 + row * 50;
+        const cls = getBallClass(i);
         const colors = { yellow: ['#ffd700', '#b8860b'], blue: ['#60a5fa', '#1d4ed8'], red: ['#f87171', '#991b1b'], gray: ['#9ca3af', '#374151'], green: ['#34d399', '#065f46'] };
-        const [c1, c2] = colors[b.cls] || colors.gray;
+        const [c1, c2] = colors[cls] || colors.gray;
+        const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, 18);
         grad.addColorStop(0, c1); grad.addColorStop(1, c2);
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
         ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(b.num, b.x, b.y);
-    });
+        ctx.fillText(i, x, y);
+    }
 }
 
 function startDraw() {
@@ -92,8 +84,8 @@ function startDraw() {
 
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
-    const cx = w / 2, cy = h / 2;
-    const machineR = 110;
+    const cx = 380, cy = 100;    // 기계 중심 (우측 상단)
+    const machineR = 90;
 
     let t = 0;
     const drawn = [];
@@ -101,35 +93,38 @@ function startDraw() {
 
     function animate() {
         ctx.clearRect(0, 0, w, h);
-        // 배경 + 기계
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath(); ctx.roundRect(10, 10, w - 20, h - 20, 20); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-        ctx.lineWidth = 2;
+
+        // 추첨기 원
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(cx, cy, machineR, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = 'rgba(0,0,0,0.15)';
         ctx.beginPath(); ctx.arc(cx, cy, machineR, 0, Math.PI * 2); ctx.fill();
 
-        // 나가는 통로
-        const tubeX = cx + machineR - 20, tubeY = cy + machineR + 10;
+        // 나가는 통로 (우측 아래로)
+        const tubeX = cx + machineR - 15, tubeY = cy + machineR - 5;
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        ctx.fillRect(tubeX - 15, tubeY - 5, 30, 80);
+        ctx.fillRect(tubeX - 15, tubeY, 30, 60);
+        // 통로 화살표
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('▼', tubeX, tubeY + 50);
 
         // 혼합 중인 공들
         const remaining = selected.filter(s => !drawnSet.has(s.num));
-        const mixCount = remaining.length;
+        const mixCount = remaining.length || 1;
         remaining.forEach((ball, i) => {
             const angle = (t * (0.5 + i * 0.3) + i * (Math.PI * 2 / mixCount)) % (Math.PI * 2);
-            const r = machineR * 0.55 + Math.sin(t * 1.3 + i) * 20;
+            const r = machineR * 0.55 + Math.sin(t * 1.3 + i) * 18;
             ball.x = cx + Math.cos(angle) * r;
             ball.y = cy + Math.sin(angle) * r;
             drawBallAt(ctx, ball.x, ball.y, ball);
         });
 
-        // 뽑힌 공들 (통로 아래)
+        // 뽑힌 공들 (2열, 4+3 배열)
         drawn.forEach((ball, i) => {
-            const bx = tubeX;
-            const by = tubeY + 30 + i * 35;
+            const bx = i < 4 ? tubeX - 20 : tubeX + 30;
+            const by = tubeY + 75 + (i < 4 ? i : i - 4) * 38;
             drawBallAt(ctx, bx, by, ball, true);
         });
 
@@ -146,7 +141,7 @@ function startDraw() {
         }
 
         t++;
-        if (drawn.length >= 7 && t > 60 + 7 * 50 + 30) {
+        if (drawn.length >= 7 && t > 50 + 7 * 40 + 30) {
             // 완료
             cancelAnimationFrame(drawAnimId);
             const numsSorted = [...mainNums.map(b => b.num)].sort((a, b) => a - b);
