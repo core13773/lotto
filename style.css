@@ -1293,7 +1293,7 @@
         .photo-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: start; }
         @media (max-width: 600px) { .photo-result-grid { grid-template-columns: 1fr; } }
         .photo-preview-wrap { text-align: center; }
-        .photo-preview-img { width: 100%; max-width: 300px; border-radius: 12px; border: 2px solid var(--accent-purple); }
+        .photo-preview-img { width: 100%; max-width: 400px; border-radius: 12px; border: 2px solid var(--accent-purple); }
         .photo-analysis-detail { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; }
         .photo-section-title { color: var(--accent-gold); font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; }
         .photo-color-mappings { display: flex; flex-direction: column; gap: 6px; }

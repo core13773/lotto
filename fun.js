@@ -249,7 +249,7 @@ function initCountdown() {
     countdownInterval = setInterval(updateCountdown, 1000);
 }
 
-// ========== 4. 사진 → 번호 변환 (그리드 분석 + 시각적 설명) ==========
+// ========== 4. 사진 → 번호 변환 (9×5=45 그리드, 번호당 1셀) ==========
 function openPhotoToNumbers() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -259,20 +259,24 @@ function openPhotoToNumbers() {
         if (!file) return;
         const img = new Image();
         img.onload = () => {
-            const size = 600;
-            const gridCols = 6, gridRows = 6;
+            const gridCols = 9, gridRows = 5; // 9×5 = 45 = 로또 번호 개수
+            const size = 630; // 9의 배수로 떨어지게
             const cellW = size / gridCols, cellH = size / gridRows;
 
-            // ── 메인 분석 Canvas ──
+            // ── 분석 Canvas ──
             const canvas = document.createElement('canvas');
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, size, size);
+            // 사진을 canvas 크기에 맞춰 그림 (비율 유지, 중앙 크롭)
+            const scale = Math.max(size / img.width, size / img.height);
+            const sw = img.width * scale, sh = img.height * scale;
+            const sx = (size - sw) / 2, sy = (size - sh) / 2;
+            ctx.drawImage(img, sx, sy, sw, sh);
             const imageData = ctx.getImageData(0, 0, size, size);
             const pixels = imageData.data;
 
-            // ── 36개 셀별 평균 색상 계산 ──
+            // ── 45개 셀 분석 (각 셀 = 해당 번호의 "서식지") ──
             const cells = [];
             for (let row = 0; row < gridRows; row++) {
                 for (let col = 0; col < gridCols; col++) {
@@ -287,54 +291,60 @@ function openPhotoToNumbers() {
                         }
                     }
                     r = Math.round(r / count); g = Math.round(g / count); b = Math.round(b / count);
-                    // 채도 (표준편차 근사)
                     const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
                     const saturation = maxC === 0 ? 0 : (maxC - minC) / maxC;
                     const brightness = (r + g + b) / 3 / 255;
-                    // 결정론적 번호 매핑 (RGB 기반 해시)
-                    const hash = (r * 7919 + g * 6271 + b * 5171 + row * 31 + col * 17) % 45;
-                    const num = hash + 1;
-                    // 시각적 중요도 (채도 × 밝기) — 높을수록 "눈에 띄는" 영역
+                    // 번호 = 그리드 위치 (1~45 순차)
+                    const num = row * gridCols + col + 1;
+                    // 시각적 중요도: 이 영역이 얼마나 "눈에 띄는가" (채도 70% + 밝기 30%)
                     const importance = saturation * 0.7 + brightness * 0.3;
                     cells.push({ row, col, r, g, b, saturation, brightness, importance, num });
                 }
             }
 
-            // ── 시각적 중요도 기준 상위 6개 셀 선택 ──
+            // ── 시각적 중요도 상위 6개 셀 선택 ──
             const sorted = [...cells].sort((a, b) => b.importance - a.importance);
             const top6 = sorted.slice(0, 6);
             const numbers = top6.map(c => c.num).sort((a, b) => a - b);
             const selectedSet = new Set(top6.map(c => `${c.row},${c.col}`));
 
-            // ── 오버레이 Canvas (그리드 + 하이라이트) ──
+            // ── 오버레이 Canvas ──
             const overlay = document.createElement('canvas');
             overlay.width = size;
             overlay.height = size;
             const ovCtx = overlay.getContext('2d');
-            ovCtx.drawImage(img, 0, 0, size, size);
+            ovCtx.drawImage(img, sx, sy, sw, sh);
 
-            // 그리드 라인
-            ovCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-            ovCtx.lineWidth = 1;
-            for (let i = 0; i <= gridCols; i++) { ovCtx.beginPath(); ovCtx.moveTo(i * cellW, 0); ovCtx.lineTo(i * cellW, size); ovCtx.stroke(); }
-            for (let i = 0; i <= gridRows; i++) { ovCtx.beginPath(); ovCtx.moveTo(0, i * cellH); ovCtx.lineTo(size, i * cellH); ovCtx.stroke(); }
+            // 모든 셀에 옅은 번호 + 격자
+            cells.forEach(c => {
+                const cx = c.col * cellW, cy = c.row * cellH;
+                const isSelected = selectedSet.has(`${c.row},${c.col}`);
+                ovCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ovCtx.lineWidth = 0.5;
+                ovCtx.strokeRect(cx, cy, cellW, cellH);
+                if (!isSelected) {
+                    ovCtx.fillStyle = 'rgba(255,255,255,0.18)';
+                    ovCtx.font = '10px "Noto Sans KR", sans-serif';
+                    ovCtx.textAlign = 'center';
+                    ovCtx.textBaseline = 'middle';
+                    ovCtx.fillText(c.num, cx + cellW / 2, cy + cellH / 2);
+                }
+            });
 
-            // 선택된 셀 하이라이트 + 번호
+            // 선택된 셀 강조
             top6.forEach((c, i) => {
                 const cx = c.col * cellW, cy = c.row * cellH;
-                ovCtx.fillStyle = 'rgba(255,215,0,0.3)';
+                ovCtx.fillStyle = 'rgba(255,215,0,0.35)';
                 ovCtx.fillRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
                 ovCtx.strokeStyle = '#ffd700';
                 ovCtx.lineWidth = 3;
                 ovCtx.strokeRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
-
-                // 번호 라벨
                 ovCtx.fillStyle = '#ffd700';
-                ovCtx.font = 'bold 28px "Noto Sans KR", sans-serif';
+                ovCtx.font = 'bold 22px "Noto Sans KR", sans-serif';
                 ovCtx.textAlign = 'center';
                 ovCtx.textBaseline = 'middle';
-                ovCtx.shadowColor = 'rgba(0,0,0,0.8)';
-                ovCtx.shadowBlur = 6;
+                ovCtx.shadowColor = 'rgba(0,0,0,0.9)';
+                ovCtx.shadowBlur = 8;
                 ovCtx.fillText(c.num, cx + cellW / 2, cy + cellH / 2);
                 ovCtx.shadowBlur = 0;
             });
@@ -342,31 +352,31 @@ function openPhotoToNumbers() {
             // ── 결과 렌더링 ──
             const content = document.getElementById('photoContent');
             const previewUrl = overlay.toDataURL('image/jpeg', 0.7);
-            const swatchSize = 44;
 
             content.innerHTML = `
                 <div style="text-align:center;">
                     <div class="photo-result-grid">
                         <div class="photo-preview-wrap">
-                            <img src="${previewUrl}" alt="그리드 분석 결과" class="photo-preview-img">
-                            <p class="text-xs-secondary" style="margin-top:6px;">6×6 그리드 분석 — <span style="color:#ffd700;">■</span> 선택된 영역</p>
+                            <img src="${previewUrl}" alt="9×5 그리드 분석 결과" class="photo-preview-img">
+                            <p class="text-xs-secondary" style="margin-top:6px;">9×5 = 45 영역 분석 — <span style="color:#ffd700;">■</span> 선명한 6곳 선택</p>
                         </div>
                         <div class="photo-analysis-detail">
-                            <div class="photo-section-title">🎨 추출된 색상 → 번호</div>
+                            <div class="photo-section-title">🎨 가장 선명한 6개 영역</div>
                             <div class="photo-color-mappings">
                                 ${top6.map((c, i) => `
                                     <div class="photo-mapping-row">
                                         <span class="photo-rank">#${i + 1}</span>
                                         <span class="photo-swatch" style="background:rgb(${c.r},${c.g},${c.b});${c.brightness < 0.3 ? 'border:2px solid rgba(255,255,255,0.3);' : ''}"></span>
-                                        <span class="photo-cell-info">RGB(${c.r},${c.g},${c.b})</span>
-                                        <span class="photo-cell-arrow">→</span>
+                                        <span class="photo-cell-info">영역 ${c.num}번 <span style="color:var(--text-secondary);">RGB(${c.r},${c.g},${c.b})</span></span>
                                         <span class="ball ${getBallClass(c.num)}" style="width:36px;height:36px;line-height:36px;font-size:0.8rem;flex-shrink:0;">${c.num}</span>
                                     </div>
                                 `).join('')}
                             </div>
-                            <p class="text-xs-secondary" style="margin-top:8px;">
-                                🔬 분석 방식: 사진을 36개 영역으로 나누고 각 영역의 평균색을 RGB 해시로 번호 변환,<br>
-                                가장 <strong style="color:var(--accent-gold);">선명하고 눈에 띄는</strong> 6개 영역을 선택합니다.
+                            <p class="text-xs-secondary" style="margin-top:10px;line-height:1.5;">
+                                🔬 <strong>원리</strong>: 사진을 <strong style="color:var(--accent-cyan);">9×5=45개 영역</strong>으로 나누면<br>
+                                각 영역이 로또 번호 1~45에 하나씩 대응됩니다.<br>
+                                그중 채도와 밝기가 가장 높은<br>
+                                <strong style="color:var(--accent-gold);">"눈에 띄는" 6곳</strong>을 선택합니다.
                             </p>
                         </div>
                     </div>
@@ -380,7 +390,7 @@ function openPhotoToNumbers() {
                 </div>
             `;
             if (typeof trackPhotoUse === 'function') trackPhotoUse();
-            showStatus('success', '📷 36개 영역 분석 완료! 가장 선명한 6곳에서 번호를 추출했어요.');
+            showStatus('success', `📷 45개 영역 분석 완료! ${numbers.join(', ')} 선택됨`);
             playBeep(600, 0.1);
         };
         img.src = URL.createObjectURL(file);
