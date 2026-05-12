@@ -500,6 +500,42 @@
                 </div>
             </div>
         </div>
+        <div class="card" id="funZone2Card">
+            <div class="card-header"><div class="fun2-card-icon green">🎮</div><h2 class="card-title">🎪 Fun Zone 2</h2></div>
+            <div class="fun2-tabs" id="fun2Tabs">
+                <button class="fun2-tab active" data-fun2="draw" onclick="switchFun2Tab('draw')">🎱 가상추첨</button>
+                <button class="fun2-tab" data-fun2="quiz" onclick="switchFun2Tab('quiz')">🧠 상식퀴즈</button>
+                <button class="fun2-tab" data-fun2="shopping" onclick="switchFun2Tab('shopping')">🛒 당첨금쇼핑</button>
+                <button class="fun2-tab" data-fun2="compatibility" onclick="switchFun2Tab('compatibility')">💕 번호궁합</button>
+                <button class="fun2-tab" data-fun2="calendar" onclick="switchFun2Tab('calendar')">📅 운세달력</button>
+                <button class="fun2-tab" data-fun2="history" onclick="switchFun2Tab('history')">📝 내번호</button>
+                <button class="fun2-tab" data-fun2="sharecard" onclick="switchFun2Tab('sharecard')">🖼️ 공유카드</button>
+            </div>
+            <div class="fun2-tab-content active" id="fun2ContentDraw">
+                <div id="drawMachineContent"><p class="text-secondary text-center">🎱 탭을 클릭하면 가상 추첨기가 시작됩니다.</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentQuiz">
+                <div id="quiz2Content">
+                    <p class="text-secondary text-center mb-15">🧠 로또에 대해 얼마나 알고 있나요?</p>
+                    <button class="btn btn-primary" onclick="startLottoQuiz()" style="width:100%;justify-content:center;">🧠 퀴즈 시작!</button>
+                </div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentShopping">
+                <div id="shoppingContent"><p class="text-secondary text-center">🛒 로딩 중...</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentCompatibility">
+                <div id="compatibilityContent"><p class="text-secondary text-center">💕 로딩 중...</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentCalendar">
+                <div id="calendarContent"><p class="text-secondary text-center">📅 로딩 중...</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentHistory">
+                <div id="historyContent"><p class="text-secondary text-center">📝 로딩 중...</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentSharecard">
+                <div id="sharecardContent"><p class="text-secondary text-center">🖼️ 로딩 중...</p></div>
+            </div>
+        </div>
         <div class="sponsor-box">
             <div class="sponsor-title">☕ 커피 한잔 후원</div>
             <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
@@ -561,6 +597,7 @@
     </div>
     <script src="features.js?v=3"></script>
     <script src="fun.js?v=1"></script>
+    <script src="fun2.js?v=1"></script>
     <script src="analysis.js?v=3"></script>
     <script src="stats.js?v=3"></script>
     <script src="simulation.js?v=3"></script>
