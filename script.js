@@ -78,6 +78,12 @@ function cycleTheme() {
 function updateThemeBtn(theme) {
     const btn = document.getElementById('themeBtn');
     if (btn) btn.textContent = THEME_ICONS[theme] || '🌑';
+    // theme-color 메타 태그 업데이트 (모바일 브라우저 UI 색상)
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+        const colors = { dark: '#0a0a1a', light: '#f0f2f5', ocean: '#0a1628', forest: '#0a1a0f', sunset: '#1a0f0a' };
+        meta.content = colors[theme] || '#0a0a1a';
+    }
 }
 
 function loadTheme() {
@@ -150,6 +156,8 @@ function toggleFontMenu(e) {
         buildFontPopupItems(popup);
     }
     const isOpen = popup.classList.toggle('open');
+    const fontBtn = document.getElementById('fontBtn');
+    if (fontBtn) fontBtn.setAttribute('aria-expanded', String(isOpen));
     if (isOpen) {
         buildFontPopupItems(popup);
         document.addEventListener('click', closeFontMenu);
@@ -163,10 +171,11 @@ function toggleFontMenu(e) {
 function fontMenuKeyHandler(e) {
     if (e.key === 'Escape') {
         const popup = document.getElementById('fontPopup');
+        const btn = document.getElementById('fontBtn');
         if (popup) popup.classList.remove('open');
+        if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
         document.removeEventListener('click', closeFontMenu);
         document.removeEventListener('keydown', fontMenuKeyHandler);
-        document.getElementById('fontBtn').focus();
     }
 }
 
@@ -175,7 +184,9 @@ function closeFontMenu(e) {
     const btn = document.getElementById('fontBtn');
     if (popup && !popup.contains(e.target) && e.target !== btn) {
         popup.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', closeFontMenu);
+        document.removeEventListener('keydown', fontMenuKeyHandler);
         btn.focus();
     }
 }
@@ -192,10 +203,12 @@ function buildFontPopupItems(popup) {
 function selectFont(fontName) {
     changeFont(fontName);
     const popup = document.getElementById('fontPopup');
+    const btn = document.getElementById('fontBtn');
     if (popup) popup.classList.remove('open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
     document.removeEventListener('click', closeFontMenu);
     document.removeEventListener('keydown', fontMenuKeyHandler);
-    document.getElementById('fontBtn').focus();
+    if (btn) btn.focus();
     showToast(`🔤 ${FONT_LABELS[fontName] || fontName}`);
 }
 
@@ -206,6 +219,10 @@ function loadFontSetting() {
 
 function showToast(message) {
     const container = document.getElementById('toastContainer');
+    // 최대 3개로 제한, 초과 시 오래된 것부터 제거
+    while (container.children.length >= 3) {
+        container.firstChild.remove();
+    }
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = message;
@@ -569,7 +586,7 @@ function applyManualNumbers() {
     document.getElementById('manualInputSection').classList.remove('open');
 }
 
-const isPrime = n => { if (n < 2) return false; for (let i = 2; i <= Math.sqrt(n); i++) if (n % i === 0) return false; return true; };
+const isPrime = n => { if (n < 2) return false; const limit = Math.sqrt(n); for (let i = 2; i <= limit; i++) if (n % i === 0) return false; return true; };
 
 function analyzeNumbers(nums) {
     const sorted = [...nums].sort((a, b) => a - b);
@@ -2342,6 +2359,7 @@ function drawFrequencyChart() {
     const canvas = ctx.canvas;
     const w = canvas.ctxW, h = canvas.ctxH;
     ctx.clearRect(0, 0, w, h);
+    const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#a0a0c0';
 
     const pad = { top: 20, right: 15, bottom: 35, left: 35 };
     const chartW = w - pad.left - pad.right;
@@ -2372,7 +2390,7 @@ function drawFrequencyChart() {
     }
 
     // 라벨
-    ctx.fillStyle = 'var(--text-secondary)';
+    ctx.fillStyle = textSecondary;
     ctx.font = '9px "Noto Sans KR"';
     ctx.textAlign = 'center';
     for (let n = 1; n <= 45; n += 5) {
@@ -2875,14 +2893,16 @@ function loadUxSettings() {
 
 function toggleSettings() {
     const overlay = document.getElementById('settingsOverlay');
+    const settingsBtn = document.getElementById('settingsBtn');
     const isOpen = overlay.classList.toggle('open');
+    if (settingsBtn) settingsBtn.setAttribute('aria-expanded', String(isOpen));
     if (isOpen) {
         overlay.addEventListener('keydown', settingsKeyHandler);
         const first = overlay.querySelector('input, select, button');
         if (first) first.focus();
     } else {
         overlay.removeEventListener('keydown', settingsKeyHandler);
-        document.querySelector('.settings-btn[aria-label="설정"]')?.focus();
+        settingsBtn?.focus();
     }
 }
 

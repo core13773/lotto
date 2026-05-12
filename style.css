@@ -325,7 +325,6 @@
         .prize-table { width: 100%; border-collapse: collapse; }
         .prize-table th, .prize-table td { padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .prize-table th { color: var(--text-secondary); font-size: 0.8rem; }
-        .prize-table td 
         .prize-rank { color: var(--accent-gold); }
         .prize-condition { color: var(--text-secondary); font-size: 0.85rem; }
         .prize-prob { color: var(--accent-cyan); }

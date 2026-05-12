@@ -29,9 +29,9 @@
         <header>
             <div class="header-controls">
                 <button class="settings-btn" onclick="shareSite()" aria-label="사이트 공유" title="사이트 공유">📤</button>
-                <button class="settings-btn" onclick="toggleFontMenu(event)" aria-label="글꼴 변경" title="글꼴 변경" id="fontBtn">🔤</button>
+                <button class="settings-btn" onclick="toggleFontMenu(event)" aria-label="글꼴 변경" title="글꼴 변경" id="fontBtn" aria-expanded="false">🔤</button>
                 <button class="settings-btn" onclick="toggleNotifications()" aria-label="추첨 알림" title="추첨 알림" id="notifyBtn">🔔</button>
-                <button class="settings-btn" onclick="toggleSettings()" aria-label="설정" title="설정">⚙️</button>
+                <button class="settings-btn" onclick="toggleSettings()" aria-label="설정" title="설정" id="settingsBtn" aria-expanded="false">⚙️</button>
                 <button class="theme-toggle" onclick="cycleTheme()" aria-label="테마 전환" title="테마 전환" id="themeBtn">🌑</button>
             </div>
             <h1 class="title">🎰 로또 645 AI 예측 시스템</h1>
@@ -454,7 +454,7 @@
     <script src="script.js?v=2"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js?v=3');
         }
     </script>
 </body>
