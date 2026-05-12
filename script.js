@@ -60,35 +60,71 @@ function findRoundInDb(roundNo) {
 }
 
 // ========== 테마 전환 ==========
-function toggleTheme() {
-    const html = document.documentElement;
-    const current = html.getAttribute('data-theme');
-    const next = current === 'light' ? 'dark' : 'light';
-    html.setAttribute('data-theme', next);
-    try { localStorage.setItem('lotto-theme', next); } catch (e) {}
+// ========== 테마 변경 (다중 스타일) ==========
+const THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset'];
+const THEME_ICONS = { dark: '🌑', light: '☀️', ocean: '🌊', forest: '🌿', sunset: '🌅' };
+const THEME_LABELS = { dark: '다크', light: '라이트', ocean: '오션', forest: '포레스트', sunset: '선셋' };
 
-    const btn = document.querySelector('.theme-toggle');
-    if (btn) btn.textContent = next === 'light' ? '☀️' : '🌓';
+function cycleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const idx = THEMES.indexOf(current);
+    const next = THEMES[(idx + 1) % THEMES.length];
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('lotto-theme', next); } catch (e) {}
+    updateThemeBtn(next);
+    showToast(`${THEME_ICONS[next]} ${THEME_LABELS[next]} 테마`);
+}
+
+function updateThemeBtn(theme) {
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.textContent = THEME_ICONS[theme] || '🌑';
 }
 
 function loadTheme() {
     let saved;
     try { saved = localStorage.getItem('lotto-theme'); } catch (e) { saved = null; }
-    if (!saved) {
+    if (!saved || !THEMES.includes(saved)) {
         saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     document.documentElement.setAttribute('data-theme', saved);
-    const btn = document.querySelector('.theme-toggle');
-    if (btn) btn.textContent = saved === 'light' ? '☀️' : '🌓';
+    updateThemeBtn(saved);
 }
 
 // ========== 글꼴 변경 ==========
 const FONT_OPTIONS = {
     'Noto Sans KR': "'Noto Sans KR', sans-serif",
+    'Noto Serif KR': "'Noto Serif KR', serif",
     'Nanum Gothic': "'Nanum Gothic', sans-serif",
     'Nanum Myeongjo': "'Nanum Myeongjo', serif",
+    'IBM Plex Sans KR': "'IBM Plex Sans KR', sans-serif",
+    'Gothic A1': "'Gothic A1', sans-serif",
+    'Dongle': "'Dongle', sans-serif",
+    'Sunflower': "'Sunflower', sans-serif",
     'Do Hyeon': "'Do Hyeon', sans-serif",
-    'Jua': "'Jua', sans-serif"
+    'Jua': "'Jua', sans-serif",
+    'Nanum Pen Script': "'Nanum Pen Script', cursive",
+    'Hi Melody': "'Hi Melody', cursive",
+    'Yeon Sung': "'Yeon Sung', cursive"
+};
+const FONT_ORDER = [
+    'Noto Sans KR', 'Noto Serif KR', 'Nanum Gothic', 'Nanum Myeongjo',
+    'IBM Plex Sans KR', 'Gothic A1', 'Dongle', 'Sunflower',
+    'Do Hyeon', 'Jua', 'Nanum Pen Script', 'Hi Melody', 'Yeon Sung'
+];
+const FONT_LABELS = {
+    'Noto Sans KR': 'Noto Sans KR (기본 산세리프)',
+    'Noto Serif KR': 'Noto Serif KR (세리프)',
+    'Nanum Gothic': '나눔고딕',
+    'Nanum Myeongjo': '나눔명조',
+    'IBM Plex Sans KR': 'IBM Plex Sans KR (모던)',
+    'Gothic A1': '고딕 A1 (깔끔)',
+    'Dongle': '동글 (캐주얼)',
+    'Sunflower': '해바라기 (우아함)',
+    'Do Hyeon': '도현 (강렬)',
+    'Jua': '주아 (부드러움)',
+    'Nanum Pen Script': '나눔손글씨',
+    'Hi Melody': 'Hi Melody (러블리)',
+    'Yeon Sung': '연성 (전통)'
 };
 
 function changeFont(fontName) {
@@ -97,13 +133,32 @@ function changeFont(fontName) {
     try { localStorage.setItem('lotto-font', fontName); } catch (e) {}
 }
 
+function getCurrentFontName() {
+    let name;
+    try { name = localStorage.getItem('lotto-font'); } catch (e) { name = null; }
+    return name && FONT_OPTIONS[name] ? name : 'Noto Sans KR';
+}
+
+function cycleFont() {
+    const current = getCurrentFontName();
+    const idx = FONT_ORDER.indexOf(current);
+    const next = FONT_ORDER[(idx + 1) % FONT_ORDER.length];
+    changeFont(next);
+    showToast(`🔤 ${FONT_LABELS[next] || next}`);
+}
+
 function loadFontSetting() {
-    let fontName;
-    try { fontName = localStorage.getItem('lotto-font'); } catch (e) { fontName = null; }
-    if (!fontName || !FONT_OPTIONS[fontName]) fontName = 'Noto Sans KR';
+    const fontName = getCurrentFontName();
     document.body.style.fontFamily = FONT_OPTIONS[fontName];
-    const sel = document.getElementById('fontSelector');
-    if (sel) sel.value = fontName;
+}
+
+function showToast(message) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
 
 // ========== 예측 결과 저장/불러오기 ==========
