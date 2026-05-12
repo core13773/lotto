@@ -542,6 +542,8 @@ function initFishingGame() {
 // ===================================================================
 let breakoutState = null;
 let breakoutCleared = false;
+let breakoutMouseHandler = null;
+let breakoutTouchHandler = null;
 
 function initBreakoutGame() {
     stopGame();
@@ -589,8 +591,13 @@ function initBreakoutGame() {
         const mx = (clientX - rect.left) * (w / rect.width);
         paddle.x = Math.max(0, Math.min(w - paddle.w, mx - paddle.w/2));
     }
-    canvas.addEventListener('mousemove', e => movePaddle(e.clientX));
-    canvas.addEventListener('touchmove', e => { e.preventDefault(); movePaddle(e.touches[0].clientX); }, {passive: false});
+    // 이전 리스너 제거 후 재등록 (중복 방지)
+    if (breakoutMouseHandler) canvas.removeEventListener('mousemove', breakoutMouseHandler);
+    if (breakoutTouchHandler) canvas.removeEventListener('touchmove', breakoutTouchHandler);
+    breakoutMouseHandler = e => movePaddle(e.clientX);
+    breakoutTouchHandler = e => { e.preventDefault(); movePaddle(e.touches[0].clientX); };
+    canvas.addEventListener('mousemove', breakoutMouseHandler);
+    canvas.addEventListener('touchmove', breakoutTouchHandler, {passive: false});
 
     function animate() {
         ctx.clearRect(0, 0, w, h);
@@ -778,14 +785,21 @@ function initRouletteGame() {
     rouletteState = { spinning: false, angle: 0, targetAngle: 0, speed: 0, targetNum: null, revealedNums: [] };
     drawRoulette();
 
-    // 버튼 추가
-    const canvas = document.getElementById('rouletteCanvas');
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
-    btnContainer.innerHTML = `
-        <button class="btn btn-gold" id="rouletteSpinBtn" onclick="spinRoulette()" style="flex:1;justify-content:center;">🎡 룰렛 돌리기</button>
-    `;
-    canvas.after(btnContainer);
+    // 버튼 추가 (중복 생성 방지)
+    let btnContainer = document.getElementById('rouletteBtnContainer');
+    if (!btnContainer) {
+        const canvas = document.getElementById('rouletteCanvas');
+        btnContainer = document.createElement('div');
+        btnContainer.id = 'rouletteBtnContainer';
+        btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+        btnContainer.innerHTML = `
+            <button class="btn btn-gold" id="rouletteSpinBtn" onclick="spinRoulette()" style="flex:1;justify-content:center;">🎡 룰렛 돌리기</button>
+        `;
+        canvas.after(btnContainer);
+    } else {
+        const btn = document.getElementById('rouletteSpinBtn');
+        if (btn) { btn.disabled = false; btn.textContent = gameCollected.length >= GAME_TARGET ? '🎉 완성!' : '🎡 룰렛 돌리기'; }
+    }
 }
 
 function drawRoulette() {
