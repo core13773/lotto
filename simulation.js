@@ -10,6 +10,7 @@ function startSimulation() {
     document.getElementById('stopSimBtn').classList.remove('hidden');
     document.getElementById('simProgress').classList.remove('hidden');
     document.getElementById('predictionResult').classList.add('hidden');
+    document.getElementById('simRunningBanner').classList.remove('hidden');
     predictions = []; isSimulating = true;
     window.addEventListener('beforeunload', preventRefresh);
     window.addEventListener('pagehide', cleanupSimulation);
@@ -35,12 +36,14 @@ function stopSimulation() {
     window.removeEventListener('pagehide', cleanupSimulation);
     document.getElementById('startSimBtn').classList.remove('hidden');
     document.getElementById('stopSimBtn').classList.add('hidden');
+    document.getElementById('simRunningBanner').classList.add('hidden');
     showStatus('warning', '⏹️ 시뮬레이션이 중지되었습니다.');
 }
 
 function cleanupSimulation() {
     if (simulationWorker) { simulationWorker.terminate(); simulationWorker = null; }
     isSimulating = false;
+    document.getElementById('simRunningBanner').classList.add('hidden');
 }
 
 function updateProgress(data) {
@@ -69,6 +72,7 @@ function handleComplete(data) {
     isSimulating = false;
     window.removeEventListener('beforeunload', preventRefresh);
     window.removeEventListener('pagehide', cleanupSimulation);
+    document.getElementById('simRunningBanner').classList.add('hidden');
     document.getElementById('startSimBtn').classList.remove('hidden');
     document.getElementById('stopSimBtn').classList.add('hidden');
     document.getElementById('progressBar').style.width = '100%';
@@ -129,11 +133,26 @@ function updateAdvancedAnalysis(prefix, crossResult, top3, recent5, percentileRa
     container.classList.remove('hidden');
 }
 
+const PRED_PAGE_SIZE = 5;
+let predVisibleCount = 0;
+
 function updatePredictionList() {
     document.getElementById('predictionCount').textContent = predictions.length;
+    predVisibleCount = PRED_PAGE_SIZE;
+    renderPredictionPage();
+}
+
+function renderPredictionPage() {
     const list = document.getElementById('predictionList');
-    list.innerHTML = '';
-    predictions.forEach((pred, index) => {
+    // 최초 로드 시에만 초기화
+    if (predVisibleCount <= PRED_PAGE_SIZE) list.innerHTML = '';
+
+    const startIdx = Math.max(0, predVisibleCount - PRED_PAGE_SIZE);
+    const pageItems = predictions.slice(startIdx, predVisibleCount);
+    pageItems.forEach((pred, relIdx) => {
+        const index = startIdx + relIdx;
+        const existing = document.getElementById('predCard' + index);
+        if (existing) return; // 이미 렌더링된 항목은 건너뜀
         const item = document.createElement('div');
         item.className = 'prediction-item-expanded';
         const ballsHtml = pred.prediction.map(n => `<span class="ball ${getBallClass(n)}" style="width:40px;height:40px;line-height:40px;font-size:0.9rem;">${n}</span>`).join('');
@@ -151,7 +170,7 @@ function updatePredictionList() {
         else { gradeInfo = '-'; gradeClass = ''; }
 
         item.innerHTML = `
-            <div class="pred-card">
+            <div class="pred-card" id="predCard${index}">
                 <div class="pred-card-header" data-index="${index}">
                     <div class="pred-card-title">
                         <span class="prediction-number">#${pred.matchNum}</span>
@@ -221,6 +240,38 @@ function updatePredictionList() {
         `;
         list.appendChild(item);
     });
+
+    // "더보기" 버튼
+    const existingBtn = document.getElementById('loadMoreBtn');
+    if (existingBtn) existingBtn.remove();
+
+    if (predVisibleCount < predictions.length) {
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'loadMoreBtn';
+        loadMoreBtn.className = 'btn btn-secondary';
+        loadMoreBtn.style.cssText = 'width:100%;margin-top:12px;justify-content:center;';
+        loadMoreBtn.textContent = `📋 더보기 (${predVisibleCount}/${predictions.length})`;
+        loadMoreBtn.onclick = () => {
+            predVisibleCount = Math.min(predictions.length, predVisibleCount + PRED_PAGE_SIZE);
+            renderPredictionPage();
+        };
+        list.appendChild(loadMoreBtn);
+    }
+
+    // "전체 접기" 버튼
+    if (predictions.length > PRED_PAGE_SIZE && !document.getElementById('collapseAllBtn')) {
+        const collapseBtn = document.createElement('button');
+        collapseBtn.id = 'collapseAllBtn';
+        collapseBtn.className = 'btn btn-secondary';
+        collapseBtn.style.cssText = 'width:100%;margin-top:6px;justify-content:center;font-size:0.85rem;';
+        collapseBtn.textContent = '🔼 목록 접기';
+        collapseBtn.onclick = () => {
+            predVisibleCount = PRED_PAGE_SIZE;
+            renderPredictionPage();
+            collapseBtn.remove();
+        };
+        list.appendChild(collapseBtn);
+    }
 }
 
 function togglePredictionDetail(index) {

@@ -14,8 +14,10 @@ if (!AbortSignal.timeout) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const latestRound = calculateLatestRound();
-    document.getElementById('roundInput').value = latestRound;
-    document.getElementById('roundInput').max = latestRound;
+    const roundInput = document.getElementById('roundInput');
+    roundInput.value = latestRound;
+    roundInput.max = latestRound;
+    roundInput.addEventListener('focus', () => roundInput.select());
     createNumberGrid();
     setupPredictionToggleEvents();
     loadTheme();
@@ -35,8 +37,13 @@ async function loadLatestJson() {
                 lottoDb = data;
                 cachedNumberScores = null;
                 const latest = data[data.length - 1];
-                document.getElementById('roundInput').value = latest.round;
-                document.getElementById('roundInput').max = latest.round;
+                const inputEl = document.getElementById('roundInput');
+                const initialRound = calculateLatestRound();
+                // 사용자가 직접 입력한 경우 덮어쓰지 않음
+                if (!inputEl.value || parseInt(inputEl.value) === initialRound) {
+                    inputEl.value = latest.round;
+                }
+                inputEl.max = latest.round;
                 setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB (최신)');
                 showStatus('success', `✅ ${data.length}개 회차 DB 로드 완료! 제 ${latest.round}회 자동 적용`);
                 return;
@@ -48,7 +55,10 @@ async function loadLatestJson() {
             }
         }
     } catch (e) {
-        document.getElementById('statsNotReady').textContent = '⚠️ latest.json을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
+        const msg = '⚠️ latest.json을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
+        document.getElementById('statsNotReady').textContent = msg;
+        showStatus('warning', msg + ' 수동 입력 모드로 전환됩니다.');
+        document.getElementById('manualInputSection').classList.add('open');
     }
 }
 
@@ -275,7 +285,7 @@ async function fetchWinningNumbers() {
     const roundNo = parseInt(document.getElementById('roundInput').value);
     if (!roundNo || roundNo < 1) { showStatus('error', '올바른 회차를 입력해주세요.'); return; }
     isFetching = true;
-    const btn = document.querySelector('#currentWinning ~ .input-group .btn-primary') || document.querySelector('.btn-primary');
+    const btn = document.querySelector('#fetchBtn');
     try {
         if (!btn) return;
         btn.disabled = true;
@@ -568,6 +578,8 @@ handleMatch = function(data) {
 document.addEventListener('DOMContentLoaded', () => {
     loadUxSettings();
     initRetroGrid();
+    initScrollTopBtn();
+    initOnboarding();
     try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
     if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
     updateNotifyBtn();

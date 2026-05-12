@@ -406,7 +406,7 @@
         .detail-title { font-weight: 700; color: var(--accent-cyan); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         
         .score-breakdown-detail { display: flex; flex-direction: column; gap: 10px; }
-        .score-bar-item 
+        .score-bar-item { margin-bottom: 6px; }
         .score-bar-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; }
         .score-bar-bg { height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; }
         .score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
@@ -435,7 +435,7 @@
         .dual-ratio { font-size: 1.5rem; color: var(--accent-gold); margin-bottom: 10px; }
         .dual-detail { font-size: 0.85rem; line-height: 1.6; }
         
-        .section-visual 
+        .section-visual { margin-bottom: 10px; }
         .section-bar-detail { display: flex; gap: 4px; margin-bottom: 10px; }
         .section-seg {
             flex: 1; padding: 10px 5px; border-radius: 8px; text-align: center;
@@ -1442,4 +1442,65 @@
         /* ── Share Card ── */
         .fun2-card-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
         .fun2-card-icon.green { background: linear-gradient(135deg, #10b981, #34d399); }
+
+        /* ── Onboarding Overlay ── */
+        .onboarding-overlay {
+            position: fixed; inset: 0; z-index: 4000;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+            display: none; justify-content: center; align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .onboarding-overlay.open { display: flex; }
+        .onboarding-card {
+            background: var(--bg-card); border-radius: 20px; padding: 30px;
+            max-width: 460px; width: 90%; max-height: 85vh; overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .onboarding-header { text-align: center; margin-bottom: 20px; }
+        .onboarding-logo { font-size: 3rem; display: block; margin-bottom: 8px; }
+        .onboarding-header h2 { color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 8px; }
+        .onboarding-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+        .onboarding-step {
+            display: flex; gap: 12px; align-items: flex-start;
+            background: rgba(0,0,0,0.2); padding: 14px; border-radius: 12px;
+            border-left: 3px solid var(--accent-purple);
+        }
+        .onboarding-step-icon {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+        }
+
+        /* ── Simulation Running Banner ── */
+        .sim-running-banner {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+            background: linear-gradient(135deg, rgba(255,0,110,0.95), rgba(139,92,246,0.95));
+            color: #fff; text-align: center; padding: 10px 16px; font-size: 0.9rem;
+            font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px;
+            backdrop-filter: blur(10px); box-shadow: 0 2px 16px rgba(255,0,110,0.3);
+            animation: bannerSlideDown 0.3s ease-out;
+        }
+        @keyframes bannerSlideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        .sim-banner-spinner {
+            width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff; border-radius: 50%;
+            animation: bannerSpin 0.8s linear infinite;
+        }
+        @keyframes bannerSpin { to { transform: rotate(360deg); } }
+
+        /* ── Scroll to Top ── */
+        .scroll-top-btn {
+            position: fixed; bottom: 24px; right: 24px; z-index: 900;
+            width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
+            background: var(--bg-card); color: var(--accent-gold); font-size: 1.2rem;
+            cursor: pointer; opacity: 0; transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        .scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .scroll-top-btn:hover { border-color: var(--accent-gold); transform: translateY(-2px); }
 

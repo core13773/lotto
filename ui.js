@@ -472,3 +472,39 @@ function scheduleNotification() {
         }, delay);
     }
 }
+
+// ========== 첫 방문 온보딩 ==========
+function initOnboarding() {
+    try {
+        if (localStorage.getItem('lotto-onboarding-seen') === 'true') return;
+    } catch (e) { return; }
+    const overlay = document.getElementById('onboardingOverlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    overlay.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Escape') { closeOnboarding(); overlay.removeEventListener('keydown', handler); }
+    });
+}
+
+function closeOnboarding() {
+    const overlay = document.getElementById('onboardingOverlay');
+    if (overlay) overlay.classList.remove('open');
+    try { localStorage.setItem('lotto-onboarding-seen', 'true'); } catch (e) {}
+    playBeep(800, 0.08);
+}
+
+// ========== 스크롤-투-탑 버튼 ==========
+function initScrollTopBtn() {
+    const btn = document.getElementById('scrollTopBtn');
+    if (!btn) return;
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                btn.classList.toggle('visible', window.scrollY > 400);
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }, { passive: true });
+}

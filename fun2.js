@@ -1,6 +1,12 @@
 // fun2.js - Fun Zone 2: 가상추첨, 상식퀴즈, 당첨금쇼핑, 번호궁합, 운세달력, 내번호기록, 공유카드
 // ========== 탭 전환 ==========
 function switchFun2Tab(tabName) {
+    // 이전 탭 정리
+    if (typeof stopSoundtrack === 'function') stopSoundtrack();
+    if (drawAnimId) { cancelAnimationFrame(drawAnimId); drawAnimId = null; }
+    const drawBtn = document.getElementById('drawBtn');
+    if (drawBtn) { drawBtn.disabled = false; drawBtn.textContent = '🎱 추첨 시작!'; }
+
     document.querySelectorAll('.fun2-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.fun2-tab-content').forEach(c => c.classList.remove('active'));
     const tabEl = document.querySelector(`.fun2-tab[data-fun2="${tabName}"]`);

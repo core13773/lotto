@@ -1,6 +1,8 @@
 // features.js - QR 스캔, 판매점 찾기, 세금 계산기, 동적 엑셀, i18n, 보너스번호 그리드
 // ========== QR 코드 스캐너 ==========
-let qrStream = null;
+let qrStream = null, qrScanTimer = null;
+
+function qrKeyHandler(e) { if (e.key === 'Escape') { closeQRScanner(); e.preventDefault(); } }
 
 async function openQRScanner() {
     const overlay = document.getElementById('qrOverlay');
@@ -12,6 +14,7 @@ async function openQRScanner() {
     }
 
     overlay.style.display = 'flex';
+    document.addEventListener('keydown', qrKeyHandler);
     document.getElementById('qrResult').textContent = '카메라를 QR코드에 비춰주세요';
 
     try {
@@ -20,6 +23,7 @@ async function openQRScanner() {
         video.srcObject = qrStream;
 
         const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+        const SCAN_INTERVAL = 250; // 초당 4회 스캔 (배터리 절약)
         const scanLoop = async () => {
             if (!qrStream) return;
             try {
@@ -38,7 +42,7 @@ async function openQRScanner() {
                     }
                 }
             } catch (e) {}
-            if (qrStream) requestAnimationFrame(scanLoop);
+            if (qrStream) qrScanTimer = setTimeout(scanLoop, SCAN_INTERVAL);
         };
         scanLoop();
     } catch (e) {
@@ -48,6 +52,8 @@ async function openQRScanner() {
 }
 
 function closeQRScanner() {
+    document.removeEventListener('keydown', qrKeyHandler);
+    if (qrScanTimer) { clearTimeout(qrScanTimer); qrScanTimer = null; }
     if (qrStream) {
         qrStream.getTracks().forEach(t => t.stop());
         qrStream = null;
