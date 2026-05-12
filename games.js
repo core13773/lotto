@@ -638,7 +638,13 @@ function initBreakoutGame() {
         ball.x += ball.vx; ball.y += ball.vy;
         if (ball.x - ball.r < 0 || ball.x + ball.r > w) ball.vx *= -1;
         if (ball.y - ball.r < 0) ball.vy *= -1;
-        if (ball.y + ball.r > h) {
+        if (ball.y + ball.r > h + 15) {
+            // 공이 바닥을 완전히 벗어남 → 미스 처리
+            if (!breakoutState._missFlash) {
+                breakoutState._missFlash = { alpha: 0.9, x: ball.x, y: h - 10 };
+                breakoutState._missCount = (breakoutState._missCount || 0) + 1;
+                if (typeof vibrate === 'function') vibrate([30, 20, 50]);
+            }
             ball.x = w/2; ball.y = h - 55;
             ball.vx = 2.8 * (Math.random() > 0.5 ? 1 : -1);
             ball.vy = -3.3;
@@ -671,13 +677,23 @@ function initBreakoutGame() {
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.beginPath(); ctx.arc(ball.x - 2, ball.y - 2, 2, 0, Math.PI*2); ctx.fill();
 
-        // 카운터
+        // 미스 플래시
+        if (breakoutState._missFlash && breakoutState._missFlash.alpha > 0) {
+            const mf = breakoutState._missFlash;
+            ctx.fillStyle = `rgba(255,50,50,${mf.alpha})`;
+            ctx.font = 'bold 18px "Noto Sans KR"';
+            ctx.textAlign = 'center';
+            ctx.fillText('💥 MISS!', mf.x, mf.y);
+            mf.alpha -= 0.03;
+        }
+
+        // 카운터 (블록 + 미스)
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(w - 90, h - 32, 82, 25);
+        ctx.fillRect(w - 95, h - 32, 90, 25);
         ctx.fillStyle = '#ffd700';
         ctx.font = 'bold 12px "Noto Sans KR"';
         ctx.textAlign = 'center';
-        ctx.fillText(`🧱 ${breakoutState.aliveCount}/45`, w - 48, h - 14);
+        ctx.fillText(`🧱${breakoutState.aliveCount}/45 ❌${breakoutState._missCount||0}`, w - 48, h - 14);
 
         // 전부 클리어!
         if (breakoutState.aliveCount === 0 && !breakoutCleared) {
@@ -928,10 +944,8 @@ function spinRoulette() {
 
     const sliceAngle = (Math.PI * 2) / 45;
     const targetSliceCenter = (targetNum - 1) * sliceAngle + sliceAngle / 2;
-    // 여러 바퀴 회전 + 타겟 위치까지
+    // 타겟 슬라이스 중앙이 포인터(상단)에 오도록 목표 각도 계산
     const spins = 6 + Math.floor(Math.random() * 5); // 6~10바퀴
-    rouletteState.targetAngle = rouletteState.angle + Math.PI * 2 * spins + (Math.PI * 2 - ((rouletteState.angle + targetSliceCenter) % (Math.PI * 2)));
-    // 타겟이 포인터에 오게: 포인터는 상단(angle=0 기준). 슬라이스 중앙이 상단에 오려면 angle + targetSliceCenter ≡ 0 (mod 2π)
     const currentMod = ((rouletteState.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const needed = (Math.PI * 2 - ((currentMod + targetSliceCenter) % (Math.PI * 2))) % (Math.PI * 2);
     rouletteState.targetAngle = rouletteState.angle + Math.PI * 2 * spins + needed;
@@ -961,8 +975,6 @@ function spinRoulette() {
         const progress = absDelta / (Math.PI * 2 * spins);
         rouletteState.speed = 0.02 + progress * 0.28;
         rouletteState.angle += Math.sign(delta) * rouletteState.speed;
-        // 각도 정규화
-        rouletteState.angle = rouletteState.angle % (Math.PI * 2 * 100);
 
         drawRoulette();
         gameAnimId = requestAnimationFrame(animate);
