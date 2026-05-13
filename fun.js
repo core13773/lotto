@@ -98,7 +98,71 @@ function renderCheckinUI() {
     `;
 }
 
-// ========== 2. 오늘의 행운 번호 ==========
+// ========== 데일리 미션 ==========
+function getDailyMissions() {
+    const today = getToday();
+    const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
+    function rng(s) { let x = Math.sin(s * 9301 + 49297) * 49297; return x - Math.floor(x); }
+
+    const missions = [
+        { type: 'sum', title: '합계 도전', icon: '➕', desc: `합계가 ${110 + Math.floor(rng(seed)*30)}~${130 + Math.floor(rng(seed+1)*30)} 사이인 번호 6개 찾기`, reward: 2 },
+        { type: 'odd_even', title: '홀짝 밸런스', icon: '⚖️', desc: `홀수 ${2+Math.floor(rng(seed+2)*3)}개 + 짝수 나머지로 조합 만들기`, reward: 2 },
+        { type: 'color', title: '색깔 도전', icon: '🎨', desc: `${['노랑(1~10)','파랑(11~20)','빨강(21~30)','회색(31~40)','초록(41~45)'][Math.floor(rng(seed+3)*5)]} 구간 번호를 3개 이상 포함`, reward: 3 },
+        { type: 'no_consec', title: '연속번호 금지', icon: '🚫', desc: '연속된 번호가 하나도 없는 조합 만들기', reward: 2 },
+        { type: 'high_low', title: '고저 믹스', icon: '📊', desc: `저번호(1~22) ${2+Math.floor(rng(seed+4)*3)}개 + 고번호(23~45) 나머지로 구성`, reward: 2 },
+        { type: 'game', title: '게임 도전', icon: '🎮', desc: '미니 게임존에서 번호 3개 모으기', reward: 3 },
+        { type: 'sim', title: '시뮬레이션 도전', icon: '🖥️', desc: '시뮬레이션 1회 실행하기', reward: 2 },
+    ];
+
+    // 오늘의 미션 2개 선택
+    const m1 = missions[Math.floor(rng(seed + 5) * missions.length)];
+    let m2 = missions[Math.floor(rng(seed + 6) * missions.length)];
+    while (m2.type === m1.type) m2 = missions[Math.floor(rng(seed + 7) * missions.length)];
+
+    return [m1, m2];
+}
+
+function getMissionData() {
+    try { return JSON.parse(localStorage.getItem('lotto-daily-missions') || '{"date":"","done":[]}'); } catch (e) { return { date: '', done: [] }; }
+}
+
+function completeMission(idx) {
+    const data = getMissionData();
+    if (data.done.includes(idx)) return;
+    data.done.push(idx);
+    try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {}
+    const missions = getDailyMissions();
+    const m = missions[idx];
+    const checkin = getCheckinData();
+    checkin.coins += m.reward;
+    saveCheckinData(checkin);
+    trackMissionDone();
+    showStatus('success', `✅ 미션 완료! +${m.reward}코인 (보유: ${checkin.coins}🪙)`);
+    playBeep(800, 0.12); vibrate(50);
+    renderDailyMissions();
+}
+
+function renderDailyMissions() {
+    const el = document.getElementById('dailyMissionsContent');
+    if (!el) return;
+    const today = getToday();
+    const data = getMissionData();
+    if (data.date !== today) { data.date = today; data.done = []; try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {} }
+    const missions = getDailyMissions();
+    el.innerHTML = missions.map((m, i) => {
+        const done = data.done.includes(i);
+        return `<div class="daily-mission-item ${done ? 'done' : ''}" onclick="${done ? '' : `completeMission(${i})`}">
+            <span class="daily-mission-icon">${m.icon}</span>
+            <div class="daily-mission-info">
+                <span class="daily-mission-title">${m.title}</span>
+                <span class="daily-mission-desc">${m.desc}</span>
+            </div>
+            <span class="daily-mission-reward">${done ? '✅' : '+' + m.reward + '🪙'}</span>
+        </div>`;
+    }).join('');
+}
+
+// ========== 2. 오늘의 행운 번호 (개선) ==========
 function getDailyLuckyNumber() {
     const today = getToday();
     const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
@@ -139,10 +203,22 @@ function renderDailyLuckyNumber() {
         </div>`;
     }).join('');
 
+    // 품질 점수 계산
+    let scoreHtml = '';
+    if (typeof analyzeNumbers === 'function' && typeof calculateQualityScore === 'function') {
+        const analysis = analyzeNumbers(nums);
+        const score = calculateQualityScore(analysis);
+        scoreHtml = `<div class="game-score-card" style="margin-top:10px;">
+            <div style="font-size:1.2rem;color:var(--accent-gold);">🌟 ${score.totalScore}점 (${score.grade})</div>
+            <div class="game-score-detail">합계 ${analysis.sum} · AC ${analysis.ac} · ${analysis.oddEvenRatio}</div>
+        </div>`;
+    }
+
     el.innerHTML = `
         <div class="daily-lucky-date">📅 ${today}</div>
         <div class="balls-container" style="flex-wrap:wrap;gap:8px;">${ballsHtml}</div>
         <p class="text-xs-secondary text-center">오늘의 행운 키워드와 함께하는 번호입니다.</p>
+        ${scoreHtml}
         <button class="btn btn-primary" onclick="useDailyLuckyNumbers()" style="width:100%;margin-top:10px;justify-content:center;">🎱 이 번호로 예측 분석하기</button>
     `;
 }
@@ -229,6 +305,19 @@ function updateCountdown() {
     }
 
     const pad = n => String(n).padStart(2, '0');
+    let previewHtml = '';
+    // 추첨 1시간 이내 → 미리보기 번호 생성
+    if (remaining <= 3600000 && remaining > 0 && typeof getDailyLuckyNumber === 'function') {
+        const previewNums = getDailyLuckyNumber();
+        previewHtml = `
+            <div class="countdown-preview" style="margin-top:15px;background:rgba(255,215,0,0.08);border-radius:12px;padding:14px;border:1px solid rgba(255,215,0,0.2);">
+                <p style="color:var(--accent-gold);font-size:0.85rem;margin-bottom:8px;">🔮 추첨 전 미리보기 번호</p>
+                <div class="balls-container" style="padding:6px 0;gap:6px;">
+                    ${previewNums.map(n => `<span class="ball ${getBallClass(n)}" style="width:36px;height:36px;line-height:36px;font-size:0.8rem;">${n}</span>`).join('')}
+                </div>
+                <p style="color:var(--text-secondary);font-size:0.7rem;margin-top:6px;">오늘의 행운 번호입니다. 참고만 하세요!</p>
+            </div>`;
+    }
     el.innerHTML = `
         <div class="countdown-timer">
             <div class="countdown-unit"><span class="countdown-val">${cd.d}</span><span class="countdown-lbl">일</span></div>
@@ -239,6 +328,7 @@ function updateCountdown() {
             <div class="countdown-sep">:</div>
             <div class="countdown-unit"><span class="countdown-val">${pad(cd.s)}</span><span class="countdown-lbl">초</span></div>
         </div>
+        ${previewHtml}
         <p class="text-xs-secondary text-center mt-10">매주 토요일 오후 8:45 MBC 추첨</p>
     `;
 }
@@ -501,6 +591,15 @@ const ACHIEVEMENTS = {
     wheel_spin_10: { icon: '🎡', title: '휠 마스터', desc: '행운의 휠을 10회 돌렸어요' },
     dream_used: { icon: '💭', title: '꿈 해몽가', desc: '꿈으로 번호를 만들어봤어요' },
     personality_done: { icon: '🧩', title: '자기 발견', desc: '번호 성격 테스트를 완료했어요' },
+    simulation_10: { icon: '🖥️', title: '시뮬레이터 마스터', desc: '시뮬레이션 10회 실행' },
+    simulation_big: { icon: '💻', title: '슈퍼컴퓨터', desc: '1억회 이상 시뮬레이션 실행' },
+    match_3plus: { icon: '🎯', title: '저격수', desc: '예측 번호 3개 이상 일치' },
+    game_10: { icon: '🎮', title: '게임왕', desc: '미니게임 10회 플레이' },
+    game_50: { icon: '🕹️', title: '게임 중독자', desc: '미니게임 50회 플레이' },
+    daily_mission_5: { icon: '📋', title: '미션 클리어러', desc: '데일리 미션 5회 달성' },
+    collection_20: { icon: '📚', title: '번호 수집가', desc: '번호 도감 20개 수집' },
+    collection_45: { icon: '🏆', title: '도감 완성', desc: '번호 도감 45개 전부 수집' },
+    stats_all_tabs: { icon: '📊', title: '데이터 분석가', desc: '통계 대시보드 모든 탭 열람' },
 };
 
 function getAchievements() {
@@ -561,11 +660,52 @@ function trackDreamUse() { unlockAchievement('dream_used'); }
 function trackPersonalityDone() { unlockAchievement('personality_done'); }
 
 function getStats() {
-    try { return JSON.parse(localStorage.getItem('lotto-stats') || '{"predictions":0,"themes_used":[],"fonts_used":[]}'); } catch (e) { return { predictions: 0, themes_used: [], fonts_used: [] }; }
+    try { return JSON.parse(localStorage.getItem('lotto-stats') || '{"predictions":0,"themes_used":[],"fonts_used":[],"games_played":0,"sim_count":0,"missions_done":0,"tabs_viewed":[],"match3_count":0}'); } catch (e) { return { predictions: 0, themes_used: [], fonts_used: [], games_played: 0, sim_count: 0, missions_done: 0, tabs_viewed: [], match3_count: 0 }; }
 }
 
 function saveStats(stats) {
     try { localStorage.setItem('lotto-stats', JSON.stringify(stats)); } catch (e) {}
+}
+
+function trackGamePlay() {
+    const stats = getStats();
+    stats.games_played = (stats.games_played || 0) + 1;
+    saveStats(stats);
+    if (stats.games_played >= 10) unlockAchievement('game_10');
+    if (stats.games_played >= 50) unlockAchievement('game_50');
+}
+
+function trackSimRun(iterations) {
+    const stats = getStats();
+    stats.sim_count = (stats.sim_count || 0) + 1;
+    saveStats(stats);
+    if (stats.sim_count >= 10) unlockAchievement('simulation_10');
+    if (iterations >= 100000000) unlockAchievement('simulation_big');
+}
+
+function trackMatchCount(count) {
+    if (count < 3) return;
+    const stats = getStats();
+    stats.match3_count = (stats.match3_count || 0) + 1;
+    saveStats(stats);
+    if (stats.match3_count >= 1) unlockAchievement('match_3plus');
+}
+
+function trackStatsTabView(tab) {
+    const stats = getStats();
+    if (!stats.tabs_viewed) stats.tabs_viewed = [];
+    if (!stats.tabs_viewed.includes(tab)) {
+        stats.tabs_viewed.push(tab);
+        saveStats(stats);
+        if (stats.tabs_viewed.length >= 6) unlockAchievement('stats_all_tabs');
+    }
+}
+
+function trackMissionDone() {
+    const stats = getStats();
+    stats.missions_done = (stats.missions_done || 0) + 1;
+    saveStats(stats);
+    if (stats.missions_done >= 5) unlockAchievement('daily_mission_5');
 }
 
 function getUsedThemes() {
