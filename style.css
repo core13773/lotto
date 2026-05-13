@@ -497,6 +497,9 @@
             .input-field { padding: 12px 14px; font-size: 0.95rem; min-height: 44px; }
             .collapsible-header { padding: 14px 16px; min-height: 44px; }
             .collapsible-content { padding: 0 12px 14px; }
+            /* 통계 대시보드: overflow hidden 해제로 가로스크롤 허용 */
+            .collapsible.open { overflow-x: auto; }
+            .collapsible-content { overflow-x: visible; }
             .sim-controls { flex-direction: column; gap: 10px; }
             .sim-input { width: 100%; padding: 12px 14px; }
             .stats-row { gap: 8px; }
@@ -509,8 +512,21 @@
             .number-grid { gap: 3px; margin: 10px 0; }
             .exclude-grid { gap: 3px; }
             .frequency-heatmap { gap: 3px; }
-            .pair-matrix { gap: 2px; }
+            .pair-matrix { gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .pair-item { padding: 6px 10px; gap: 4px; }
+
+            /* 모바일 통계 대시보드 */
+            .stats-tabs { gap: 3px; padding: 3px; }
+            .stats-tab, .ai-mode-tab { padding: 8px 6px; font-size: 0.7rem; flex: 1 1 auto; }
+            .barcode-grid { font-size: 0.5rem; -webkit-overflow-scrolling: touch; }
+            .barcode-seg { letter-spacing: -1px; }
+            .barcode-num { font-size: 0.65rem; min-width: 16px; }
+            .gap-heatmap { gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .gap-cell { padding: 5px 2px; }
+            .distribution-grid { grid-template-columns: 1fr; gap: 10px; }
+            .dist-label { min-width: 60px; font-size: 0.7rem; }
+            .dist-count { font-size: 0.7rem; }
+            .chart-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             
             /* 모바일 예측 카드 스타일 */
             .pred-card-header { padding: 12px 15px; flex-direction: column; align-items: flex-start; }
@@ -567,11 +583,12 @@
         }
 
         /* ── 통계 대시보드 탭 ── */
-        .stats-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; }
+        .stats-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
         .stats-tab, .ai-mode-tab {
-            flex: 1; padding: 10px 14px; border: none; border-radius: 10px;
+            flex: 1 1 auto; padding: 10px 14px; border: none; border-radius: 10px;
             background: transparent; color: var(--text-secondary); font-family: inherit;
             font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.3s ease;
+            white-space: nowrap; min-width: fit-content;
         }
         .stats-tab.active, .ai-mode-tab.active {
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
