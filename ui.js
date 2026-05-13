@@ -320,6 +320,20 @@ async function copyEmail() {
     showStatus('success', '📋 이메일이 복사되었습니다: core13773@gmail.com');
 }
 
+async function copyAccount() {
+    const success = await copyToClipboard('110-496-114465');
+    const el = document.getElementById('sponsorAccount');
+    if (success) {
+        showToast('📋 계좌번호가 복사되었습니다! 신한은행 110-496-114465');
+        if (el) {
+            const orig = el.innerHTML;
+            el.innerHTML = '✅ 복사 완료! 신한은행 110-496-114465';
+            el.style.color = '#34d399';
+            setTimeout(() => { el.innerHTML = orig; el.style.color = ''; }, 2000);
+        }
+    }
+}
+
 // ========== 카카오톡 공유 ==========
 async function shareToKakao(text) {
     // Web Share API 우선 시도 (모바일에서 카카오톡 선택 가능)
