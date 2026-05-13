@@ -488,7 +488,7 @@
 
         @media (max-width: 480px) {
             .container { padding: 4px; }
-            .header-controls { position: static; justify-content: flex-end; margin-bottom: 10px; }
+            .header-controls { position: static; justify-content: flex-end; margin-bottom: 10px; flex-wrap: wrap; }
             .settings-btn, .theme-toggle { width: 44px; height: 44px; font-size: 1rem; }
             .card { padding: 10px; }
             .ball { width: 40px; height: 40px; font-size: 0.9rem; }

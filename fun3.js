@@ -149,45 +149,30 @@ function renderCollection() {
 
 // ========== HTML 추가: 데일리 미션 UI ==========
 (function() {
-    const checkinContent = document.getElementById('checkinContent');
-    if (checkinContent && !document.getElementById('dailyMissionsContent')) {
-        // renderCheckinUI가 호출될 때 하단에 미션 추가
-        const origRenderCheckin = renderCheckinUI;
+    const injectMissions = () => {
+        const el = document.getElementById('checkinContent');
+        if (!el || document.getElementById('dailyMissionsSection')) return;
+        const div = document.createElement('div');
+        div.id = 'dailyMissionsSection';
+        div.style.cssText = 'margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);';
+        div.innerHTML = `
+            <h4 style="color:var(--accent-cyan);margin-bottom:8px;font-size:0.9rem;">📋 오늘의 미션</h4>
+            <div id="dailyMissionsContent"></div>`;
+        el.appendChild(div);
+        if (typeof renderDailyMissions === 'function') renderDailyMissions();
+    };
+
+    // renderCheckinUI가 이미 호출된 후라면 즉시 주입
+    if (document.querySelector('#checkinContent .checkin-week')) {
+        setTimeout(injectMissions, 100);
+    }
+
+    // 이후 호출 시에도 주입하도록 래핑
+    if (typeof renderCheckinUI === 'function') {
+        const orig = renderCheckinUI;
         renderCheckinUI = function() {
-            origRenderCheckin.apply(this, arguments);
-            setTimeout(() => {
-                const el = document.getElementById('checkinContent');
-                if (el && !document.getElementById('dailyMissionsSection')) {
-                    const div = document.createElement('div');
-                    div.id = 'dailyMissionsSection';
-                    div.style.cssText = 'margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);';
-                    div.innerHTML = `
-                        <h4 style="color:var(--accent-cyan);margin-bottom:8px;font-size:0.9rem;">📋 오늘의 미션</h4>
-                        <div id="dailyMissionsContent"></div>`;
-                    el.appendChild(div);
-                    renderDailyMissions();
-                }
-            }, 200);
+            orig.apply(this, arguments);
+            setTimeout(injectMissions, 200);
         };
-        // 즉시 실행
-        if (document.querySelector('#checkinContent .checkin-week')) {
-            const orig = renderCheckinUI;
-            renderCheckinUI = function() {
-                orig.apply(this, arguments);
-                setTimeout(() => {
-                    const el = document.getElementById('checkinContent');
-                    if (el && !document.getElementById('dailyMissionsSection')) {
-                        const div = document.createElement('div');
-                        div.id = 'dailyMissionsSection';
-                        div.style.cssText = 'margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);';
-                        div.innerHTML = `
-                            <h4 style="color:var(--accent-cyan);margin-bottom:8px;font-size:0.9rem;">📋 오늘의 미션</h4>
-                            <div id="dailyMissionsContent"></div>`;
-                        el.appendChild(div);
-                        renderDailyMissions();
-                    }
-                }, 200);
-            };
-        }
     }
 })();
