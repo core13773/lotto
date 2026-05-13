@@ -334,6 +334,24 @@ async function copyAccount() {
     }
 }
 
+function openTossPay() {
+    const isAndroid = /android/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+        // Android: intent:// 방식이 더 안정적
+        window.location.href = 'intent://send?amount=1500&bank=신한은행&account=110496114465#Intent;scheme=supertoss;package=viva.republica.toss;S.browser_fallback_url=https%3A%2F%2Ftoss.im%2Fdownload;end;';
+    } else {
+        // iOS: custom scheme 직접 호출
+        window.location.href = 'supertoss://send?amount=1500&bank=신한은행&account=110496114465';
+    }
+
+    // 토스 앱이 없거나 실패할 경우 계좌번호 복사
+    setTimeout(() => {
+        copyAccount();
+        showStatus('info', '💙 토스앱이 없으면 복사된 계좌번호로 송금해주세요');
+    }, 3000);
+}
+
 // ========== 카카오톡 공유 ==========
 async function shareToKakao(text) {
     // Web Share API 우선 시도 (모바일에서 카카오톡 선택 가능)
