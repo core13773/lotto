@@ -1,5 +1,5 @@
-const CACHE = 'lotto645-v7';
-const FILES = ['./', './index.html', './privacy.html', './style.css?v=2', './analysis.js?v=3', './stats.js?v=3', './simulation.js?v=3', './ui.js?v=3', './features.js?v=3', './fun.js?v=1', './fun2.js?v=1', './fun3.js?v=1', './games.js?v=1', './script.js?v=3', './worker.js', './manifest.json', './icon-192.png', './icon-512.png', './latest.json'];
+const CACHE = 'lotto645-v8';
+const FILES = ['./', './index.html', './privacy.html', './robots.txt', './sitemap.xml', './style.css?v=2', './analysis.js?v=3', './stats.js?v=3', './simulation.js?v=3', './ui.js?v=3', './features.js?v=3', './fun.js?v=1', './fun2.js?v=1', './fun3.js?v=1', './games.js?v=1', './script.js?v=3', './worker.js', './manifest.json', './icon-192.png', './icon-512.png', './latest.json'];
 
 self.addEventListener('install', e => {
     self.skipWaiting();
