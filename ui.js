@@ -543,3 +543,69 @@ function initScrollTopBtn() {
         }
     }, { passive: true });
 }
+
+// ========== data-action 이벤트 위임 ==========
+document.addEventListener('click', function(e) {
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+    var arg = el.getAttribute('data-arg');
+    switch (action) {
+        case 'closeOnboarding': closeOnboarding(); break;
+        case 'scrollToTop': window.scrollTo({top:0,behavior:'smooth'}); break;
+        case 'closeQRScannerIfTarget': if (e.target === el) closeQRScanner(); break;
+        case 'closeQRScanner': closeQRScanner(); break;
+        case 'shareSite': shareSite(); break;
+        case 'openQRScanner': openQRScanner(); break;
+        case 'openStoreFinder': openStoreFinder(); break;
+        case 'toggleFontMenu': toggleFontMenu(e); break;
+        case 'toggleNotifications': toggleNotifications(); break;
+        case 'toggleSettings': toggleSettings(); break;
+        case 'toggleSettingsIfTarget': if (e.target === el) toggleSettings(); break;
+        case 'cycleTheme': cycleTheme(); break;
+        case 'fetchWinningNumbers': fetchWinningNumbers(); break;
+        case 'applyManualNumbers': applyManualNumbers(); break;
+        case 'startSimulation': startSimulation(); break;
+        case 'stopSimulation': stopSimulation(); break;
+        case 'runSmartRecommend': runSmartRecommend(); break;
+        case 'clearExcludes': clearExcludes(); break;
+        case 'quickExclude': quickExclude(); break;
+        case 'clearFixed': clearFixed(); break;
+        case 'quickFix': quickFix(); break;
+        case 'generateCustomCombos': generateCustomCombos(); break;
+        case 'exportPrediction': exportPrediction(); break;
+        case 'sharePrediction': sharePrediction(); break;
+        case 'savePrediction': savePrediction(); break;
+        case 'compareRounds': compareRounds(); break;
+        case 'runRetrospective': runRetrospective(); break;
+        case 'applyRetroNumbers': applyRetroNumbers(); break;
+        case 'calculateTax': calculateTax(); break;
+        case 'clearSavedPredictions': clearSavedPredictions(); break;
+        case 'generateDynamicExcel': generateDynamicExcel(); break;
+        case 'copyAccount': copyAccount(); break;
+        case 'openTossPay': openTossPay(); break;
+        case 'copyEmail': copyEmail(); break;
+        case 'openPhotoToNumbers': openPhotoToNumbers(); break;
+        case 'startPersonalityQuiz': startPersonalityQuiz(); break;
+        case 'interpretDream': interpretDream(); break;
+        case 'openSoundtrack': openSoundtrack(); break;
+        case 'startLottoQuiz': startLottoQuiz(); break;
+        case 'toggleCollapsible': if (arg) toggleCollapsible(arg); break;
+        case 'switchAiMode': if (arg) switchAiMode(arg); break;
+        case 'switchStatsTab': if (arg) switchStatsTab(arg); break;
+        case 'switchFunTab': if (arg) switchFunTab(arg); break;
+        case 'switchFun2Tab': if (arg) switchFun2Tab(arg); break;
+        case 'switchGameTab': if (arg) switchGameTab(arg); break;
+    }
+});
+
+// ========== 키보드 접근성: data-action 요소 Enter/Space ==========
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    // 버튼/인풋 등 기본 인터랙티브 요소는 브라우저 기본 동작 사용
+    if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    el.click();
+});

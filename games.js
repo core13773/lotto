@@ -16,6 +16,7 @@ function addCollected(num) {
     gameCollected.sort((a, b) => a - b);
     updateGameBasket();
     if (gameCollected.length >= GAME_TARGET) onGameComplete();
+    if (typeof _hook === 'function') _hook('addCollected', num);
 }
 
 function onGameComplete() {

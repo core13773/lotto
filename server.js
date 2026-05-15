@@ -4,6 +4,10 @@ const https = require('https');
 const PORT = process.env.PORT || 3456;
 const CACHE = new Map(); // { round: { data, timestamp } }
 const CACHE_TTL = 60 * 60 * 1000; // 1시간
+const CACHE_MAX = 100; // 최대 캐시 항목 수
+const RATE_LIMIT = new Map(); // { ip: { count, reset } }
+const RATE_WINDOW = 10 * 1000; // 10초
+const RATE_MAX = 10; // 10초당 최대 10회
 
 function fetchHtml(url, redirectCount = 0) {
     if (redirectCount > 5) return Promise.reject(new Error('Too many redirects'));
@@ -92,7 +96,14 @@ async function fetchLottoNumbers(round) {
         return { error: `${round}회차 당첨번호를 찾을 수 없습니다.` };
     }
 
-    // 캐시 저장
+    // 캐시 저장 (최대 크기 초과 시 가장 오래된 항목 삭제)
+    if (CACHE.size >= CACHE_MAX) {
+        var oldest = null;
+        CACHE.forEach(function(v, k) {
+            if (!oldest || v.timestamp < oldest.timestamp) oldest = { key: k, timestamp: v.timestamp };
+        });
+        if (oldest) CACHE.delete(oldest.key);
+    }
     CACHE.set(round, { data: result, timestamp: Date.now() });
     return result;
 }
@@ -100,6 +111,21 @@ async function fetchLottoNumbers(round) {
 const startTime = Date.now();
 
 const server = http.createServer(async (req, res) => {
+    // Rate limiting
+    var ip = req.socket.remoteAddress || 'unknown';
+    var now = Date.now();
+    var rl = RATE_LIMIT.get(ip);
+    if (!rl || now > rl.reset) {
+        rl = { count: 0, reset: now + RATE_WINDOW };
+        RATE_LIMIT.set(ip, rl);
+    }
+    rl.count++;
+    if (rl.count > RATE_MAX) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }));
+        return;
+    }
+
     // CORS 헤더
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -144,3 +170,11 @@ server.listen(PORT, () => {
     console.log(`🎰 로또 645 프록시 서버 실행 중: http://localhost:${PORT}`);
     console.log(`   API: http://localhost:${PORT}/api/lotto?round=1100`);
 });
+
+// 5분마다 만료된 rate limit 항목 정리
+setInterval(function() {
+    var now = Date.now();
+    RATE_LIMIT.forEach(function(v, k) {
+        if (now > v.reset) RATE_LIMIT.delete(k);
+    });
+}, 5 * 60 * 1000);

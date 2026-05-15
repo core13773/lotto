@@ -4,6 +4,10 @@ function startSimulation() {
     if (isSimulating) return;
     if (!currentWinningNumbers) { alert('먼저 당첨번호를 설정해주세요!'); return; }
     if (typeof trackPrediction === 'function') trackPrediction();
+    if (typeof _hook === 'function') {
+        var iters = parseInt(document.getElementById('iterationSelect')?.value || '0');
+        _hook('startSimulation', iters);
+    }
     if (typeof Worker === 'undefined') { alert('이 브라우저는 시뮬레이션을 지원하지 않습니다.'); return; }
     const maxIterations = parseInt(document.getElementById('iterationSelect').value);
     document.getElementById('startSimBtn').classList.add('hidden');
@@ -66,6 +70,7 @@ function handleMatch(data) {
     predictions.push({ matchNum: matchCount, attempt: attempts, time: elapsed, prediction });
     if (matchCount === 1) showPredictionResult(prediction, attempts, elapsed);
     updatePredictionList();
+    if (typeof _hook === 'function') _hook('handleMatch', data);
 }
 
 function handleComplete(data) {
@@ -83,6 +88,7 @@ function handleComplete(data) {
 }
 
 function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
+    if (typeof _hook === 'function') _hook('showPredictionResult', prediction);
     renderBalls(prediction, 'predictionBalls');
     document.getElementById('predictionMeta').textContent = isRandom ? `랜덤 생성 | ${formatNumber(attempts)}회 분석 (패턴 미발견)` : `제 ${currentRound}회 기준 | ${formatNumber(attempts)}회에서 발견 (${elapsed.toFixed(1)}초)`;
 

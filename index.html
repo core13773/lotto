@@ -79,35 +79,35 @@
                     <div><strong>Fun Zone</strong><p class="text-xs-secondary">출석 체크, 가상 추첨, 상식 퀴즈 등 재미있는 기능을 즐겨보세요!</p></div>
                 </div>
             </div>
-            <button class="btn btn-gold" onclick="closeOnboarding()" style="width:100%;justify-content:center;">🎱 시작하기</button>
+            <button class="btn btn-gold" data-action="closeOnboarding" style="width:100%;justify-content:center;">🎱 시작하기</button>
             <p class="text-xs-secondary text-center mt-15">⚠️ 로또는 독립 확률 게임입니다. 이 도구는 통계적 참고용이며 당첨을 보장하지 않습니다.</p>
         </div>
     </div>
-    <button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="맨 위로" title="맨 위로">⬆</button>
+    <button class="scroll-top-btn" id="scrollTopBtn" data-action="scrollToTop" aria-label="맨 위로" title="맨 위로">⬆</button>
     <div class="sim-running-banner hidden" id="simRunningBanner" role="alert" aria-live="polite">
         <span class="sim-banner-spinner"></span>
         <span>시뮬레이션 실행 중... 페이지를 벗어나면 결과가 손실됩니다</span>
     </div>
     <div class="toast-container" id="toastContainer"></div>
     <div class="confetti-container" id="confettiContainer"></div>
-    <div class="qr-overlay" id="qrOverlay" role="dialog" aria-modal="true" aria-label="QR 코드 스캔" onclick="if(event.target===this)closeQRScanner()">
+    <div class="qr-overlay" id="qrOverlay" role="dialog" aria-modal="true" aria-label="QR 코드 스캔" data-action="closeQRScannerIfTarget">
         <div class="qr-panel">
             <h3 style="color:var(--accent-gold);margin-bottom:15px;">📷 QR 코드 스캔</h3>
             <video id="qrVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px;background:#000;"></video>
             <div id="qrResult" style="margin-top:10px;color:var(--text-secondary);text-align:center;">카메라를 QR코드에 비춰주세요</div>
-            <button class="btn btn-secondary" onclick="closeQRScanner()" style="width:100%;margin-top:15px;">닫기</button>
+            <button class="btn btn-secondary" data-action="closeQRScanner" style="width:100%;margin-top:15px;">닫기</button>
         </div>
     </div>
     <div class="container">
         <header>
             <div class="header-controls">
-                <button class="settings-btn" onclick="shareSite()" aria-label="사이트 공유" title="사이트 공유">📤</button>
-                <button class="settings-btn" onclick="openQRScanner()" aria-label="QR 스캔" title="QR 스캔" id="qrBtn">📷</button>
-                <button class="settings-btn" onclick="openStoreFinder()" aria-label="판매점 찾기" title="판매점 찾기" id="storeBtn">📍</button>
-                <button class="settings-btn" onclick="toggleFontMenu(event)" aria-label="글꼴 변경" title="글꼴 변경" id="fontBtn" aria-expanded="false">🔤</button>
-                <button class="settings-btn" onclick="toggleNotifications()" aria-label="추첨 알림" title="추첨 알림" id="notifyBtn">🔔</button>
-                <button class="settings-btn" onclick="toggleSettings()" aria-label="설정" title="설정" id="settingsBtn" aria-expanded="false">⚙️</button>
-                <button class="theme-toggle" onclick="cycleTheme()" aria-label="테마 전환" title="테마 전환" id="themeBtn">🌑</button>
+                <button class="settings-btn" data-action="shareSite" aria-label="사이트 공유" title="사이트 공유">📤</button>
+                <button class="settings-btn" data-action="openQRScanner" aria-label="QR 스캔" title="QR 스캔" id="qrBtn">📷</button>
+                <button class="settings-btn" data-action="openStoreFinder" aria-label="판매점 찾기" title="판매점 찾기" id="storeBtn">📍</button>
+                <button class="settings-btn" data-action="toggleFontMenu" aria-label="글꼴 변경" title="글꼴 변경" id="fontBtn" aria-expanded="false">🔤</button>
+                <button class="settings-btn" data-action="toggleNotifications" aria-label="추첨 알림" title="추첨 알림" id="notifyBtn">🔔</button>
+                <button class="settings-btn" data-action="toggleSettings" aria-label="설정" title="설정" id="settingsBtn" aria-expanded="false">⚙️</button>
+                <button class="theme-toggle" data-action="cycleTheme" aria-label="테마 전환" title="테마 전환" id="themeBtn">🌑</button>
             </div>
             <h1 class="title">🎰 로또 645 AI 예측 시스템</h1>
         </header>
@@ -116,19 +116,19 @@
             <div class="input-group">
                 <label for="roundInput" class="sr-only">회차 입력</label>
                 <input type="number" id="roundInput" class="input-field" placeholder="회차 입력" min="1">
-                <button class="btn btn-primary" id="fetchBtn" onclick="fetchWinningNumbers()">🔍 조회</button>
+                <button class="btn btn-primary" id="fetchBtn" data-action="fetchWinningNumbers">🔍 조회</button>
             </div>
             <div id="fetchStatus" class="hidden"></div>
             <div class="collapsible" id="manualInputSection">
-                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="manualInputContent" onclick="toggleCollapsible('manualInputSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('manualInputSection'); }"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="manualInputContent" data-action="toggleCollapsible" data-arg="manualInputSection"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
                 <div class="collapsible-content">
                     <p class="text-secondary mb-15">6개의 번호를 선택하세요</p>
                     <div class="number-grid" id="numberGrid"></div>
                     <div class="text-center mt-15 mb-15"><span id="selectedCount">선택: 0개 / 6개</span></div>
                     <div class="balls-container" id="selectedBalls"></div>
-                    <button class="btn btn-gold" onclick="applyManualNumbers()" id="applyBtn" disabled>✅ 적용</button>
+                    <button class="btn btn-gold" data-action="applyManualNumbers" id="applyBtn" disabled>✅ 적용</button>
                     <div class="collapsible" id="bonusNumberSection" style="margin-top:12px;">
-                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('bonusNumberSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('bonusNumberSection'); }"><span>⭐ 보너스 번호 선택 (선택사항)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="bonusNumberSection"><span>⭐ 보너스 번호 선택 (선택사항)</span><span class="collapsible-icon">▼</span></div>
                         <div class="collapsible-content">
                             <p class="text-secondary mb-15" style="font-size:0.85rem;">보너스 번호를 선택하면 2등 판정이 가능합니다.</p>
                             <div class="number-grid" id="bonusNumberGrid"></div>
@@ -152,7 +152,7 @@
                     <div id="winningGradeResult" class="hidden" style="margin-top:8px;text-align:center;"></div>
                 </div>
                 <div class="collapsible open" id="winningAnalysis">
-                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('winningAnalysis')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('winningAnalysis'); }"><span>📊 당첨번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" data-action="toggleCollapsible" data-arg="winningAnalysis"><span>📊 당첨번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content" id="winningAnalysisContent"></div>
                 </div>
             </div>
@@ -163,9 +163,9 @@
             <div id="aiReady" class="hidden">
                 <div class="status info">🎯 제 <span id="targetRound">-</span>회 기준 패턴 분석</div>
                 <div class="ai-mode-tabs">
-                    <button class="ai-mode-tab active" data-mode="simulation" onclick="switchAiMode('simulation')">🎲 몬테카를로</button>
-                    <button class="ai-mode-tab" data-mode="smart" onclick="switchAiMode('smart')">🧠 스마트 추천</button>
-                    <button class="ai-mode-tab" data-mode="custom" onclick="switchAiMode('custom')">✋ 수동 조합</button>
+                    <button class="ai-mode-tab active" data-mode="simulation" data-action="switchAiMode" data-arg="simulation">🎲 몬테카를로</button>
+                    <button class="ai-mode-tab" data-mode="smart" data-action="switchAiMode" data-arg="smart">🧠 스마트 추천</button>
+                    <button class="ai-mode-tab" data-mode="custom" data-action="switchAiMode" data-arg="custom">✋ 수동 조합</button>
                 </div>
                 <div class="ai-mode-content active" id="aiModeSimulation">
                 <div class="interpretation-box" style="margin-bottom:20px;">
@@ -199,8 +199,8 @@
                         </div>
                     </span>
                 </div>
-                <button class="btn btn-primary" onclick="startSimulation()" id="startSimBtn" style="width:100%;">🚀 AI 분석 시작</button>
-                <button class="btn btn-secondary hidden" onclick="stopSimulation()" id="stopSimBtn" style="width:100%;">⏹️ 중지</button>
+                <button class="btn btn-primary" data-action="startSimulation" id="startSimBtn" style="width:100%;">🚀 AI 분석 시작</button>
+                <button class="btn btn-secondary hidden" data-action="stopSimulation" id="stopSimBtn" style="width:100%;">⏹️ 중지</button>
             </div>
             <div id="simProgress" class="hidden">
                 <div class="progress-container"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
@@ -255,7 +255,7 @@
                         </div>
                     </div>
                     <div style="text-align:center;margin:15px 0;">
-                        <button class="btn btn-primary" onclick="runSmartRecommend()" id="runSmartBtn">🧠 스마트 추천 실행</button>
+                        <button class="btn btn-primary" data-action="runSmartRecommend" id="runSmartBtn">🧠 스마트 추천 실행</button>
                     </div>
                     <div id="smartResult" class="hidden">
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">추천 조합 TOP 10</h4>
@@ -264,24 +264,24 @@
                 </div>
                 <div class="ai-mode-content" id="aiModeCustom">
                     <div class="collapsible open" id="excludeSection">
-                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('excludeSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('excludeSection'); }"><span>🚫 제외할 번호 선택 (최대 20개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" data-action="toggleCollapsible" data-arg="excludeSection"><span>🚫 제외할 번호 선택 (최대 20개)</span><span class="collapsible-icon">▼</span></div>
                         <div class="collapsible-content">
                             <div class="exclude-grid" id="excludeGrid"></div>
                             <div style="text-align:center;margin-top:10px;">
                                 <span id="excludeCount" style="color:var(--text-secondary);">선택: 0개</span>
-                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" onclick="clearExcludes()">전체 해제</button>
-                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" onclick="quickExclude()">⚡ 제외 추천</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" data-action="clearExcludes">전체 해제</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" data-action="quickExclude">⚡ 제외 추천</button>
                             </div>
                         </div>
                     </div>
                     <div class="collapsible open" id="fixedSection" style="margin-top:10px;">
-                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('fixedSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('fixedSection'); }"><span>✅ 꼭 포함할 번호 선택 (최대 5개)</span><span class="collapsible-icon">▼</span></div>
+                        <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" data-action="toggleCollapsible" data-arg="fixedSection"><span>✅ 꼭 포함할 번호 선택 (최대 5개)</span><span class="collapsible-icon">▼</span></div>
                         <div class="collapsible-content">
                             <div class="fixed-grid" id="fixedGrid"></div>
                             <div style="text-align:center;margin-top:10px;">
                                 <span id="fixedCount" style="color:var(--text-secondary);">선택: 0개</span>
-                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" onclick="clearFixed()">전체 해제</button>
-                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" onclick="quickFix()">⚡ 고정 추천</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:10px;" data-action="clearFixed">전체 해제</button>
+                                <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;margin-left:5px;" data-action="quickFix">⚡ 고정 추천</button>
                             </div>
                         </div>
                     </div>
@@ -293,7 +293,7 @@
                             <option value="20">20개</option>
                             <option value="50">50개</option>
                         </select>
-                        <button class="btn btn-primary" onclick="generateCustomCombos()" id="generateCustomBtn" style="margin-left:10px;">🎱 조합 생성</button>
+                        <button class="btn btn-primary" data-action="generateCustomCombos" id="generateCustomBtn" style="margin-left:10px;">🎱 조합 생성</button>
                     </div>
                     <div id="customResult" class="hidden">
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">생성된 조합</h4>
@@ -306,9 +306,9 @@
                 <div class="balls-container discovery-animation" id="predictionBalls"></div>
                 <p id="predictionMeta" style="text-align:center;color:var(--text-secondary);font-size:0.9rem;"></p>
                 <div style="text-align:center;margin:10px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-                    <button class="btn btn-secondary" onclick="exportPrediction()">📋 복사</button>
-                    <button class="btn btn-secondary" onclick="sharePrediction()">📤 공유</button>
-                    <button class="btn btn-secondary" onclick="savePrediction()">💾 저장</button>
+                    <button class="btn btn-secondary" data-action="exportPrediction">📋 복사</button>
+                    <button class="btn btn-secondary" data-action="sharePrediction">📤 공유</button>
+                    <button class="btn btn-secondary" data-action="savePrediction">💾 저장</button>
                 </div>
                 <div class="score-card" id="predictionScoreCard">
                     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:5px;">📊 예측번호 품질 점수</div>
@@ -339,27 +339,27 @@
                     </table>
                 </div>
                 <div class="collapsible open" id="predictionAnalysis">
-                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('predictionAnalysis')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('predictionAnalysis'); }"><span>📊 예측번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" data-action="toggleCollapsible" data-arg="predictionAnalysis"><span>📊 예측번호 상세 분석</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content" id="predictionAnalysisContent"></div>
                 </div>
                 <div class="collapsible" id="allPredictions">
-                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('allPredictions')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('allPredictions'); }"><span>📋 발견된 모든 예측 번호 (<span id="predictionCount">0</span>개)</span><span class="collapsible-icon">▼</span></div>
+                    <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="allPredictions"><span>📋 발견된 모든 예측 번호 (<span id="predictionCount">0</span>개)</span><span class="collapsible-icon">▼</span></div>
                     <div class="collapsible-content"><div class="prediction-list" id="predictionList"></div></div>
                 </div>
             </div>
         </div>
         <div class="card collapsible" id="statsDashboard">
-            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="statsDashboardContent" onclick="toggleCollapsible('statsDashboard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('statsDashboard'); }" style="cursor:pointer;width:100%;"><div class="card-icon gold" style="flex-shrink:0;">📊</div><h2 class="card-title">전체 통계 분석</h2><span class="collapsible-icon" style="margin-left:auto;">▼</span></div>
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="statsDashboardContent" data-action="toggleCollapsible" data-arg="statsDashboard" style="cursor:pointer;width:100%;"><div class="card-icon gold" style="flex-shrink:0;">📊</div><h2 class="card-title">전체 통계 분석</h2><span class="collapsible-icon" style="margin-left:auto;">▼</span></div>
             <div class="collapsible-content">
             <div id="statsNotReady" class="status warning">⚠️ DB 데이터를 불러오는 중입니다...</div>
             <div id="statsReady" class="hidden">
                 <div class="stats-tabs">
-                    <button class="stats-tab active" data-tab="frequency" onclick="switchStatsTab('frequency')">번호 빈도</button>
-                    <button class="stats-tab" data-tab="hotcold" onclick="switchStatsTab('hotcold')">핫/콜드</button>
-                    <button class="stats-tab" data-tab="charts" onclick="switchStatsTab('charts')">📈 차트</button>
-                    <button class="stats-tab" data-tab="pairs" onclick="switchStatsTab('pairs')">🔗 번호쌍</button>
-                    <button class="stats-tab" data-tab="barcode" onclick="switchStatsTab('barcode')">📋 바코드</button>
-                    <button class="stats-tab" data-tab="distribution" onclick="switchStatsTab('distribution')">📊 분포표</button>
+                    <button class="stats-tab active" data-tab="frequency" data-action="switchStatsTab" data-arg="frequency">번호 빈도</button>
+                    <button class="stats-tab" data-tab="hotcold" data-action="switchStatsTab" data-arg="hotcold">핫/콜드</button>
+                    <button class="stats-tab" data-tab="charts" data-action="switchStatsTab" data-arg="charts">📈 차트</button>
+                    <button class="stats-tab" data-tab="pairs" data-action="switchStatsTab" data-arg="pairs">🔗 번호쌍</button>
+                    <button class="stats-tab" data-tab="barcode" data-action="switchStatsTab" data-arg="barcode">📋 바코드</button>
+                    <button class="stats-tab" data-tab="distribution" data-action="switchStatsTab" data-arg="distribution">📊 분포표</button>
                 </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">
@@ -441,12 +441,12 @@
             <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
         </div>
         <div class="card collapsible" id="compareCard">
-            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('compareCard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('compareCard'); }" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">📊</div><h2 class="card-title">회차 비교 분석</h2><span class="collapsible-icon">▼</span></div>
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="compareCard" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">📊</div><h2 class="card-title">회차 비교 분석</h2><span class="collapsible-icon">▼</span></div>
             <div class="collapsible-content">
             <div class="input-group">
                 <label for="compareRoundInput" class="sr-only">비교할 회차 입력</label>
                 <input type="number" id="compareRoundInput" class="input-field" placeholder="비교할 회차 입력" min="1">
-                <button class="btn btn-primary" onclick="compareRounds()">📊 비교</button>
+                <button class="btn btn-primary" data-action="compareRounds">📊 비교</button>
             </div>
             <div id="comparisonResult" class="hidden">
                 <div id="comparisonContent"></div>
@@ -454,21 +454,21 @@
             </div>
         </div>
         <div class="card collapsible" id="retroCard">
-            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="toggleCollapsible('retroCard')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('retroCard'); }" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2><span class="collapsible-icon">▼</span></div>
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="retroCard" style="cursor:pointer;width:100%;"><div class="card-icon cyan" style="flex-shrink:0;">⏪</div><h2 class="card-title">당첨 회고 (What-If)</h2><span class="collapsible-icon">▼</span></div>
             <div class="collapsible-content">
             <p style="color:var(--text-secondary);margin-bottom:15px;">내 번호로 지난 1년 동안 샀다면 몇 번 당첨됐을까요?</p>
             <div class="input-group">
                 <label for="retroInput" class="sr-only">6개 번호 입력</label>
                 <input type="text" id="retroInput" class="input-field" placeholder="6개 번호 입력 (예: 1,13,21,27,34,42)">
-                <button class="btn btn-primary" onclick="runRetrospective()">⏪ 회고 실행</button>
+                <button class="btn btn-primary" data-action="runRetrospective">⏪ 회고 실행</button>
             </div>
             <div class="collapsible open" id="retroSection" style="margin-top:15px;">
-                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleCollapsible('retroSection')" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleCollapsible('retroSection'); }"><span>✋ 번호 선택</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true" data-action="toggleCollapsible" data-arg="retroSection"><span>✋ 번호 선택</span><span class="collapsible-icon">▼</span></div>
                 <div class="collapsible-content">
                     <div class="number-grid" id="retroNumberGrid"></div>
                     <div id="retroSelectedBalls" style="text-align:center;margin:10px 0;"></div>
                     <div style="text-align:center;"><span id="retroSelectedCount">선택: 0개 / 6개</span></div>
-                    <button class="btn btn-gold" onclick="applyRetroNumbers()" id="retroApplyBtn" disabled style="width:100%;margin-top:10px;">✅ 번호 적용</button>
+                    <button class="btn btn-gold" data-action="applyRetroNumbers" id="retroApplyBtn" disabled style="width:100%;margin-top:10px;">✅ 번호 적용</button>
                 </div>
             </div>
             <div id="retroResult" class="hidden">
@@ -482,7 +482,7 @@
             <div class="input-group">
                 <label for="prizeInput" class="sr-only">당첨금 입력</label>
                 <input type="number" id="prizeInput" class="input-field" placeholder="당첨금 입력 (원)" min="1000" step="1000">
-                <button class="btn btn-primary" onclick="calculateTax()">💰 계산</button>
+                <button class="btn btn-primary" data-action="calculateTax">💰 계산</button>
             </div>
             <div id="taxResult" class="hidden" style="margin-top:15px;background:rgba(0,0,0,0.2);padding:20px;border-radius:12px;text-align:center;">
                 <div id="taxBreakdown"></div>
@@ -494,26 +494,26 @@
             <div id="savedPredictionsList" style="max-height:600px;overflow-y:auto;">
                 <p style="color:var(--text-secondary);text-align:center;">저장된 결과가 없습니다.</p>
             </div>
-            <button class="btn btn-secondary" onclick="clearSavedPredictions()" id="clearSavedBtn" style="width:100%;margin-top:15px;display:none;">🗑️ 모두 삭제</button>
+            <button class="btn btn-secondary" data-action="clearSavedPredictions" id="clearSavedBtn" style="width:100%;margin-top:15px;display:none;">🗑️ 모두 삭제</button>
         </div>
         <div class="card" style="text-align:center;">
             <div class="card-header" style="justify-content:center;"><div class="card-icon cyan">📊</div><h2 class="card-title">엑셀 사용자용</h2></div>
             <p style="color:var(--text-secondary);margin-bottom:15px;">현재 DB 데이터를 엑셀로 다운로드하여 분석에 활용하세요.</p>
-            <button class="btn btn-primary" onclick="generateDynamicExcel()" style="display:inline-flex;margin-bottom:10px;">📊 현재 DB로 엑셀 생성</button>
+            <button class="btn btn-primary" data-action="generateDynamicExcel" style="display:inline-flex;margin-bottom:10px;">📊 현재 DB로 엑셀 생성</button>
         </div>
         <div class="card" id="funZoneCard">
             <div class="card-header"><div class="fun-card-icon pink">🎮</div><h2 class="card-title">🎪 Fun Zone</h2></div>
             <div class="fun-tabs" id="funTabs">
-                <button class="fun-tab active" data-fun="checkin" onclick="switchFunTab('checkin')">✅ 출석</button>
-                <button class="fun-tab" data-fun="lucky" onclick="switchFunTab('lucky')">🍀 행운번호</button>
-                <button class="fun-tab" data-fun="countdown" onclick="switchFunTab('countdown')">⏱️ 카운트다운</button>
-                <button class="fun-tab" data-fun="photo" onclick="switchFunTab('photo')">📷 사진</button>
-                <button class="fun-tab" data-fun="wheel" onclick="switchFunTab('wheel')">🎡 휠</button>
-                <button class="fun-tab" data-fun="quiz" onclick="switchFunTab('quiz')">🧩 성격</button>
-                <button class="fun-tab" data-fun="dream" onclick="switchFunTab('dream')">💭 꿈</button>
-                <button class="fun-tab" data-fun="spotlight" onclick="switchFunTab('spotlight')">📊 인사이트</button>
-                <button class="fun-tab" data-fun="achievements" onclick="switchFunTab('achievements')">🏆 업적</button>
-                <button class="fun-tab" data-fun="soundtrack" onclick="switchFunTab('soundtrack')">🎵 BGM</button>
+                <button class="fun-tab active" data-fun="checkin" data-action="switchFunTab" data-arg="checkin">✅ 출석</button>
+                <button class="fun-tab" data-fun="lucky" data-action="switchFunTab" data-arg="lucky">🍀 행운번호</button>
+                <button class="fun-tab" data-fun="countdown" data-action="switchFunTab" data-arg="countdown">⏱️ 카운트다운</button>
+                <button class="fun-tab" data-fun="photo" data-action="switchFunTab" data-arg="photo">📷 사진</button>
+                <button class="fun-tab" data-fun="wheel" data-action="switchFunTab" data-arg="wheel">🎡 휠</button>
+                <button class="fun-tab" data-fun="quiz" data-action="switchFunTab" data-arg="quiz">🧩 성격</button>
+                <button class="fun-tab" data-fun="dream" data-action="switchFunTab" data-arg="dream">💭 꿈</button>
+                <button class="fun-tab" data-fun="spotlight" data-action="switchFunTab" data-arg="spotlight">📊 인사이트</button>
+                <button class="fun-tab" data-fun="achievements" data-action="switchFunTab" data-arg="achievements">🏆 업적</button>
+                <button class="fun-tab" data-fun="soundtrack" data-action="switchFunTab" data-arg="soundtrack">🎵 BGM</button>
             </div>
             <!-- 출석 체크 -->
             <div class="fun-tab-content active" id="funContentCheckin">
@@ -531,7 +531,7 @@
             </div>
             <!-- 사진 → 번호 -->
             <div class="fun-tab-content" id="funContentPhoto">
-                <div class="photo-upload-area" onclick="openPhotoToNumbers()" role="button" tabindex="0" aria-label="사진 업로드" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openPhotoToNumbers(); }">
+                <div class="photo-upload-area" data-action="openPhotoToNumbers" role="button" tabindex="0" aria-label="사진 업로드">
                     <div class="photo-upload-icon">📷</div>
                     <p style="color:var(--accent-gold);font-weight:600;">사진으로 로또 번호 만들기</p>
                     <p class="text-xs-secondary">클릭해서 사진을 업로드하면 색상과 패턴을 분석해 번호를 추출해드려요!</p>
@@ -546,14 +546,14 @@
             <div class="fun-tab-content" id="funContentQuiz">
                 <div id="personalityContent">
                     <p class="text-secondary text-center mb-15">🧩 당신의 로또 플레이 스타일은?</p>
-                    <button class="btn btn-primary" onclick="startPersonalityQuiz()" style="width:100%;justify-content:center;">🧩 테스트 시작하기</button>
+                    <button class="btn btn-primary" data-action="startPersonalityQuiz" style="width:100%;justify-content:center;">🧩 테스트 시작하기</button>
                 </div>
             </div>
             <!-- 꿈해몽 -->
             <div class="fun-tab-content" id="funContentDream">
                 <div id="dreamContent">
                     <p class="text-secondary text-center mb-15">💭 꿈에서 본 것을 알려주세요. 행운 번호로 바꿔드려요!</p>
-                    <button class="btn btn-primary" onclick="interpretDream()" style="width:100%;justify-content:center;">💭 꿈 해몽 시작하기</button>
+                    <button class="btn btn-primary" data-action="interpretDream" style="width:100%;justify-content:center;">💭 꿈 해몽 시작하기</button>
                 </div>
             </div>
             <!-- 통계 인사이트 -->
@@ -568,20 +568,20 @@
             <div class="fun-tab-content" id="funContentSoundtrack">
                 <div id="soundtrackContent">
                     <p class="text-secondary text-center mb-15">🎵 번호 고르며 듣기 좋은 음악을 골라보세요.</p>
-                    <button class="btn btn-primary" onclick="openSoundtrack()" style="width:100%;justify-content:center;">🎵 사운드트랙 선택하기</button>
+                    <button class="btn btn-primary" data-action="openSoundtrack" style="width:100%;justify-content:center;">🎵 사운드트랙 선택하기</button>
                 </div>
             </div>
         </div>
         <div class="card" id="funZone2Card">
             <div class="card-header"><div class="fun2-card-icon green">🎮</div><h2 class="card-title">🎪 Fun Zone 2</h2></div>
             <div class="fun2-tabs" id="fun2Tabs">
-                <button class="fun2-tab active" data-fun2="draw" onclick="switchFun2Tab('draw')">🎱 가상추첨</button>
-                <button class="fun2-tab" data-fun2="quiz" onclick="switchFun2Tab('quiz')">🧠 상식퀴즈</button>
-                <button class="fun2-tab" data-fun2="shopping" onclick="switchFun2Tab('shopping')">🛒 당첨금쇼핑</button>
-                <button class="fun2-tab" data-fun2="compatibility" onclick="switchFun2Tab('compatibility')">💕 번호궁합</button>
-                <button class="fun2-tab" data-fun2="calendar" onclick="switchFun2Tab('calendar')">📅 운세달력</button>
-                <button class="fun2-tab" data-fun2="history" onclick="switchFun2Tab('history')">📝 내번호</button>
-                <button class="fun2-tab" data-fun2="sharecard" onclick="switchFun2Tab('sharecard')">🖼️ 공유카드</button>
+                <button class="fun2-tab active" data-fun2="draw" data-action="switchFun2Tab" data-arg="draw">🎱 가상추첨</button>
+                <button class="fun2-tab" data-fun2="quiz" data-action="switchFun2Tab" data-arg="quiz">🧠 상식퀴즈</button>
+                <button class="fun2-tab" data-fun2="shopping" data-action="switchFun2Tab" data-arg="shopping">🛒 당첨금쇼핑</button>
+                <button class="fun2-tab" data-fun2="compatibility" data-action="switchFun2Tab" data-arg="compatibility">💕 번호궁합</button>
+                <button class="fun2-tab" data-fun2="calendar" data-action="switchFun2Tab" data-arg="calendar">📅 운세달력</button>
+                <button class="fun2-tab" data-fun2="history" data-action="switchFun2Tab" data-arg="history">📝 내번호</button>
+                <button class="fun2-tab" data-fun2="sharecard" data-action="switchFun2Tab" data-arg="sharecard">🖼️ 공유카드</button>
             </div>
             <div class="fun2-tab-content active" id="fun2ContentDraw">
                 <div id="drawMachineContent"><p class="text-secondary text-center">🎱 탭을 클릭하면 가상 추첨기가 시작됩니다.</p></div>
@@ -589,7 +589,7 @@
             <div class="fun2-tab-content" id="fun2ContentQuiz">
                 <div id="quiz2Content">
                     <p class="text-secondary text-center mb-15">🧠 로또에 대해 얼마나 알고 있나요?</p>
-                    <button class="btn btn-primary" onclick="startLottoQuiz()" style="width:100%;justify-content:center;">🧠 퀴즈 시작!</button>
+                    <button class="btn btn-primary" data-action="startLottoQuiz" style="width:100%;justify-content:center;">🧠 퀴즈 시작!</button>
                 </div>
             </div>
             <div class="fun2-tab-content" id="fun2ContentShopping">
@@ -611,10 +611,10 @@
         <div class="card" id="gameZoneCard">
             <div class="card-header"><div class="fun2-card-icon green" style="background:linear-gradient(135deg,#f97316,#ef4444);">🎮</div><h2 class="card-title">🎮 미니 게임존</h2></div>
             <div class="game-tabs" id="gameTabs">
-                <button class="game-tab active" data-game="race" onclick="switchGameTab('race')">🏇 경마</button>
-                <button class="game-tab" data-game="fishing" onclick="switchGameTab('fishing')">🎣 낚시</button>
-                <button class="game-tab" data-game="memory" onclick="switchGameTab('memory')">🃏 메모리</button>
-                <button class="game-tab" data-game="slot" onclick="switchGameTab('slot')">🎰 슬롯</button>
+                <button class="game-tab active" data-game="race" data-action="switchGameTab" data-arg="race">🏇 경마</button>
+                <button class="game-tab" data-game="fishing" data-action="switchGameTab" data-arg="fishing">🎣 낚시</button>
+                <button class="game-tab" data-game="memory" data-action="switchGameTab" data-arg="memory">🃏 메모리</button>
+                <button class="game-tab" data-game="slot" data-action="switchGameTab" data-arg="slot">🎰 슬롯</button>
             </div>
             <div class="game-basket" id="gameBasket"><span style="color:var(--text-secondary);font-size:0.85rem;">번호를 모아보세요! (0/6)</span></div>
             <div class="game-content active" id="gameContentRace"><p class="text-secondary text-center">🏇 게임 로딩 중...</p></div>
@@ -633,7 +633,7 @@
         <div class="sponsor-box">
             <div class="sponsor-title">☕ 커피 한잔 후원</div>
             <p style="color:var(--text-secondary);margin-bottom:15px;font-size:0.9rem;">개발자에게 커피 한잔 후원 부탁드립니다.</p>
-            <button class="btn btn-gold" onclick="openTossPay()" style="margin-top:8px;font-size:1rem;padding:16px 32px;">💙 토스로 1,500원 후원</button>
+            <button class="btn btn-gold" data-action="openTossPay" style="margin-top:8px;font-size:1rem;padding:16px 32px;">💙 토스로 1,500원 후원</button>
             <p style="color:var(--text-secondary);font-size:0.75rem;margin-top:10px;">※ 모바일에서는 토스앱이 실행되며, PC에서는 계좌번호가 복사됩니다</p>
         </div>
         <div class="feedback-box">
@@ -643,7 +643,7 @@
             </p>
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                 <a href="https://github.com/core13773/lotto/issues/new" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;">🐛 GitHub 이슈 등록</a>
-                <button class="btn btn-secondary" onclick="copyEmail()">📧 이메일 복사</button>
+                <button class="btn btn-secondary" data-action="copyEmail">📧 이메일 복사</button>
             </div>
             <p style="color:var(--text-secondary);font-size:0.75rem;margin-top:12px;">
                 GitHub 계정이 없으시면 이메일로 보내주세요.
@@ -652,7 +652,7 @@
                 <a href="privacy.html" style="color:var(--text-secondary);font-size:0.75rem;text-decoration:none;">📜 개인정보 처리방침</a>
             </div>
             <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1);">
-                <button class="btn btn-gold" onclick="shareSite()" style="width:100%;justify-content:center;">📤 123lotto.co.kr 공유하기</button>
+                <button class="btn btn-gold" data-action="shareSite" style="width:100%;justify-content:center;">📤 123lotto.co.kr 공유하기</button>
             </div>
         </div>
     </div>
@@ -664,7 +664,7 @@
              data-full-width-responsive="true"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
-    <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="설정" onclick="if(event.target===this)toggleSettings()">
+    <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="설정" data-action="toggleSettingsIfTarget">
         <div class="settings-panel">
             <h3>⚙️ 설정</h3>
             <div class="settings-row">
@@ -697,7 +697,7 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <button class="btn btn-secondary" onclick="toggleSettings()" style="width:100%;margin-top:20px;">닫기</button>
+            <button class="btn btn-secondary" data-action="toggleSettings" style="width:100%;margin-top:20px;">닫기</button>
         </div>
     </div>
     <script src="features.js?v=3"></script>

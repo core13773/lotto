@@ -1,4 +1,5 @@
 // fun3.js - 번호 수집 도감 + 게임/시뮬레이션 연동
+// 모든 연동은 _hook(name, args) 기반으로 동작합니다.
 
 // ========== 번호 도감 ==========
 function getCollection() {
@@ -10,7 +11,6 @@ function addToCollection(num) {
     if (coll.includes(num)) return false;
     coll.push(num);
     try { localStorage.setItem('lotto-collection', JSON.stringify(coll)); } catch (e) {}
-    // 업적 체크
     if (typeof unlockAchievement === 'function') {
         if (coll.length >= 20) unlockAchievement('collection_20');
         if (coll.length >= 45) unlockAchievement('collection_45');
@@ -44,135 +44,98 @@ function renderCollection() {
     `;
 }
 
-// ========== 게임/시뮬레이션 연동 ==========
-// games.js의 addCollected를 감싸서 도감에도 추가
-(function() {
-    if (typeof addCollected === 'undefined') return;
-    const origAddCollected = addCollected;
-    addCollected = function(num) {
-        if (addToCollection(num)) {
-            // 새 번호 수집 시 토스트
-            if (typeof showToast === 'function') {
-                showToast(`📚 도감에 ${num}번 등록! (${getCollection().length}/45)`);
+// ========== 훅 핸들러: 크로스커팅 연동 ==========
+function _hook(name, data) {
+    switch (name) {
+        case 'addCollected':
+            // 게임에서 번호 수집 시 도감에도 등록
+            if (addToCollection(data)) {
+                if (typeof showToast === 'function') {
+                    showToast(`📚 도감에 ${data}번 등록! (${getCollection().length}/45)`);
+                }
             }
-        }
-        if (typeof trackGamePlay === 'function') trackGamePlay();
-        return origAddCollected(num);
-    };
-})();
+            if (typeof trackGamePlay === 'function') trackGamePlay();
+            break;
 
-// simulation.js 연동
-(function() {
-    if (typeof startSimulation === 'undefined') return;
-    const origStartSim = startSimulation;
-    startSimulation = function() {
-        if (typeof trackSimRun === 'function') {
-            const iters = parseInt(document.getElementById('iterationSelect')?.value || '0');
-            trackSimRun(iters);
-        }
-        return origStartSim.apply(this, arguments);
-    };
+        case 'startSimulation':
+            // 시뮬레이션 시작 시 업적 추적
+            if (typeof trackSimRun === 'function') trackSimRun(data);
+            break;
 
-    const origShowPrediction = showPredictionResult;
-    if (typeof showPredictionResult !== 'undefined') {
-        showPredictionResult = function(prediction, attempts, elapsed, isRandom) {
-            if (prediction && typeof trackMatchCount === 'function') {
-                const matching = (prediction || []).filter(n => (currentWinningNumbers || []).includes(n));
+        case 'showPredictionResult':
+            // 예측 결과 표시 시 매치 카운트 + 도감 수집
+            if (data && typeof trackMatchCount === 'function') {
+                const matching = (data || []).filter(function(n) {
+                    return (currentWinningNumbers || []).includes(n);
+                });
                 trackMatchCount(matching.length);
             }
-            prediction.forEach(n => addToCollection(n));
-            return origShowPrediction.apply(this, arguments);
-        };
-    }
-})();
+            if (data) data.forEach(function(n) { addToCollection(n); });
+            break;
 
-// 통계 탭 조회 연동
-(function() {
-    if (typeof switchStatsTab === 'undefined') return;
-    const origSwitchStatsTab = switchStatsTab;
-    switchStatsTab = function(tab) {
-        if (typeof trackStatsTabView === 'function') trackStatsTabView(tab);
-        return origSwitchStatsTab.apply(this, arguments);
-    };
-})();
+        case 'switchStatsTab':
+            // 통계 탭 조회 추적
+            if (typeof trackStatsTabView === 'function') trackStatsTabView(data);
+            break;
 
-// ========== HTML 추가 ==========
-// "내번호" 탭 내용을 확장하여 도감 포함
-(function() {
-    if (typeof switchFun2Tab === 'undefined') return;
-    const origSwitchFun2Tab = switchFun2Tab;
-    switchFun2Tab = function(name) {
-        const result = origSwitchFun2Tab.apply(this, arguments);
-        if (name === 'history') {
-            // 내번호 탭 하단에 도감 추가
-            setTimeout(() => {
-                const el = document.getElementById('historyContent');
-                if (el && !document.getElementById('collectionSection')) {
-                    const div = document.createElement('div');
-                    div.id = 'collectionSection';
-                    div.innerHTML = `
-                        <div style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.08);">
-                            <h4 style="color:var(--accent-cyan);margin-bottom:10px;">📚 번호 수집 도감</h4>
-                            <div id="collectionContent"></div>
-                        </div>`;
-                    el.appendChild(div);
-                    renderCollection();
-                }
-            }, 300);
-        }
-        return result;
-    };
-})();
+        case 'switchFun2Tab':
+            // 내번호 탭에 도감 UI 주입
+            if (data === 'history') {
+                setTimeout(function() {
+                    var el = document.getElementById('historyContent');
+                    if (el && !document.getElementById('collectionSection')) {
+                        var div = document.createElement('div');
+                        div.id = 'collectionSection';
+                        div.innerHTML = '<div style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.08);"><h4 style="color:var(--accent-cyan);margin-bottom:10px;">📚 번호 수집 도감</h4><div id="collectionContent"></div></div>';
+                        el.appendChild(div);
+                        renderCollection();
+                    }
+                }, 300);
+            }
+            break;
 
-// ========== 체크인 시 번호 수집 ==========
-(function() {
-    if (typeof doCheckin === 'undefined') return;
-    const origDoCheckin = doCheckin;
-    doCheckin = function() {
-        const result = origDoCheckin.apply(this, arguments);
-        // 출석 시 랜덤 번호 1개 수집
-        const coll = getCollection();
-        if (coll.length < 45) {
-            const available = [];
-            for (let i = 1; i <= 45; i++) if (!coll.includes(i)) available.push(i);
-            if (available.length > 0) {
-                const newNum = available[Math.floor(Math.random() * available.length)];
-                addToCollection(newNum);
-                if (typeof showToast === 'function') {
-                    setTimeout(() => showToast(`📚 출석 보너스! 도감에 ${newNum}번 등록!`), 1500);
+        case 'doCheckin':
+            // 출석 시 랜덤 번호 1개 수집
+            {
+                var coll = getCollection();
+                if (coll.length < 45) {
+                    var available = [];
+                    for (var i = 1; i <= 45; i++) if (coll.indexOf(i) === -1) available.push(i);
+                    if (available.length > 0) {
+                        var newNum = available[Math.floor(Math.random() * available.length)];
+                        addToCollection(newNum);
+                        if (typeof showToast === 'function') {
+                            setTimeout(function() { showToast('📚 출석 보너스! 도감에 ' + newNum + '번 등록!'); }, 1500);
+                        }
+                    }
                 }
             }
-        }
-        return result;
-    };
-})();
+            break;
 
-// ========== HTML 추가: 데일리 미션 UI ==========
-(function() {
-    const injectMissions = () => {
-        const el = document.getElementById('checkinContent');
-        if (!el || document.getElementById('dailyMissionsSection')) return;
-        const div = document.createElement('div');
-        div.id = 'dailyMissionsSection';
-        div.style.cssText = 'margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);';
-        div.innerHTML = `
-            <h4 style="color:var(--accent-cyan);margin-bottom:8px;font-size:0.9rem;">📋 오늘의 미션</h4>
-            <div id="dailyMissionsContent"></div>`;
-        el.appendChild(div);
-        if (typeof renderDailyMissions === 'function') renderDailyMissions();
-    };
+        case 'renderCheckinUI':
+            // 출석 UI 아래에 데일리 미션 주입
+            setTimeout(function() {
+                var el = document.getElementById('checkinContent');
+                if (!el || document.getElementById('dailyMissionsSection')) return;
+                var div = document.createElement('div');
+                div.id = 'dailyMissionsSection';
+                div.style.cssText = 'margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);';
+                div.innerHTML = '<h4 style="color:var(--accent-cyan);margin-bottom:8px;font-size:0.9rem;">📋 오늘의 미션</h4><div id="dailyMissionsContent"></div>';
+                el.appendChild(div);
+                if (typeof renderDailyMissions === 'function') renderDailyMissions();
+            }, 200);
+            break;
 
-    // renderCheckinUI가 이미 호출된 후라면 즉시 주입
-    if (document.querySelector('#checkinContent .checkin-week')) {
-        setTimeout(injectMissions, 100);
+        case 'handleMatch':
+            // 시뮬레이션 매치 시 피드백
+            if (typeof playBeep === 'function') playBeep(1000, 0.15);
+            if (typeof vibrate === 'function') vibrate(50);
+            if (data && data.matchCount === 1 && typeof fireConfetti === 'function') fireConfetti();
+            break;
+
+        case 'loadLatestJson':
+            // DB 로드 완료 후 통계 대시보드 초기화
+            if (lottoDb && lottoDb.length > 0 && typeof renderStatsDashboard === 'function') renderStatsDashboard();
+            break;
     }
-
-    // 이후 호출 시에도 주입하도록 래핑
-    if (typeof renderCheckinUI === 'function') {
-        const orig = renderCheckinUI;
-        renderCheckinUI = function() {
-            orig.apply(this, arguments);
-            setTimeout(injectMissions, 200);
-        };
-    }
-})();
+}

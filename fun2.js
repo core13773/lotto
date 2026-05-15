@@ -7,6 +7,8 @@ function switchFun2Tab(tabName) {
     const drawBtn = document.getElementById('drawBtn');
     if (drawBtn) { drawBtn.disabled = false; drawBtn.textContent = '🎱 추첨 시작!'; }
 
+    if (typeof _hook === 'function') _hook('switchFun2Tab', tabName);
+
     document.querySelectorAll('.fun2-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.fun2-tab-content').forEach(c => c.classList.remove('active'));
     const tabEl = document.querySelector(`.fun2-tab[data-fun2="${tabName}"]`);

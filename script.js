@@ -46,6 +46,7 @@ async function loadLatestJson() {
                 inputEl.max = latest.round;
                 setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB (최신)');
                 showStatus('success', `✅ ${data.length}개 회차 DB 로드 완료! 제 ${latest.round}회 자동 적용`);
+                if (typeof _hook === 'function') _hook('loadLatestJson');
                 return;
             }
             if (data.numbers && data.numbers.length === 6) {
@@ -557,22 +558,6 @@ function runRetrospective() {
     showStatus('success', `⏪ ${recentRounds.length}회차 분석 완료!`);
     playBeep(800, 0.1);
 }
-
-// ========== 통계 대시보드 초기화 (latest.json 로드 후) ==========
-const origLoadLatestJson = loadLatestJson;
-loadLatestJson = async function() {
-    await origLoadLatestJson();
-    if (lottoDb && lottoDb.length > 0) renderStatsDashboard();
-};
-
-// ========== 시뮬레이션 매치 시 파티클/비프 ==========
-const origHandleMatch = handleMatch;
-handleMatch = function(data) {
-    origHandleMatch(data);
-    playBeep(1000, 0.15);
-    vibrate(50);
-    if (data.matchCount === 1) fireConfetti();
-};
 
 // ========== DOMContentLoaded 추가 초기화 ==========
 document.addEventListener('DOMContentLoaded', () => {

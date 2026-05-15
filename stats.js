@@ -352,6 +352,7 @@ function renderDormantList(containerId, items) {
 }
 
 function switchStatsTab(tab) {
+    if (typeof _hook === 'function') _hook('switchStatsTab', tab);
     document.querySelectorAll('.stats-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.stats-tab-content').forEach(c => c.classList.remove('active'));
     const targetTab = document.querySelector(`.stats-tab[data-tab="${tab}"]`);

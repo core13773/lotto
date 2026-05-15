@@ -52,6 +52,7 @@ function doCheckin() {
     vibrate(100);
     playBeep(800, 0.15);
     renderCheckinUI();
+    if (typeof _hook === 'function') _hook('doCheckin');
 }
 
 function renderCheckinUI() {
@@ -96,6 +97,7 @@ function renderCheckinUI() {
         </button>
         ${data.streak >= 3 ? `<p class="text-xs-secondary text-center mt-10">🔥 ${data.streak}일 연속! ${data.streak >= 7 ? '대단해요!' : '내일도 출석하면 보너스 코인!'}</p>` : ''}
     `;
+    if (typeof _hook === 'function') _hook('renderCheckinUI');
 }
 
 // ========== 데일리 미션 ==========
@@ -223,10 +225,9 @@ function renderDailyLuckyNumber() {
     `;
 }
 
-function useDailyLuckyNumbers() {
-    const nums = getDailyLuckyNumber();
+// ========== 공통: Fun Zone 번호 분석 적용 ==========
+function _applyFunNumbers(numbers, meta, successMsg) {
     if (!currentWinningNumbers) {
-        // DB 데이터로 강제 설정 시도
         if (lottoDb && lottoDb.length > 0) {
             const latest = lottoDb[lottoDb.length - 1];
             setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
@@ -235,18 +236,22 @@ function useDailyLuckyNumbers() {
             return;
         }
     }
-    const analysis = analyzeNumbers(nums);
+    const analysis = analyzeNumbers(numbers);
     const score = calculateQualityScore(analysis);
-    const filterResult = checkFilters(nums);
-    const percentileRank = calculatePercentileRank(nums);
+    const filterResult = checkFilters(numbers);
+    const percentileRank = calculatePercentileRank(numbers);
     const gradeResult = determineGrade(filterResult, percentileRank);
-    renderBalls(nums, 'predictionBalls');
-    document.getElementById('predictionMeta').textContent = `오늘의 행운 번호 | ${getToday()}`;
+    renderBalls(numbers, 'predictionBalls');
+    document.getElementById('predictionMeta').textContent = meta;
     displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
     document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
     document.getElementById('predictionResult').classList.remove('hidden');
     document.getElementById('matchingSection').classList.add('hidden');
-    showStatus('success', '🍀 오늘의 행운 번호가 적용되었습니다!');
+    showStatus('success', successMsg);
+}
+
+function useDailyLuckyNumbers() {
+    _applyFunNumbers(getDailyLuckyNumber(), `오늘의 행운 번호 | ${getToday()}`, '🍀 오늘의 행운 번호가 적용되었습니다!');
 }
 
 // ========== 3. 추첨 카운트다운 ==========
@@ -489,27 +494,7 @@ function openPhotoToNumbers() {
 }
 
 function usePhotoNumbers(numbers) {
-    if (!currentWinningNumbers) {
-        if (lottoDb && lottoDb.length > 0) {
-            const latest = lottoDb[lottoDb.length - 1];
-            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
-        } else {
-            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
-            return;
-        }
-    }
-    const analysis = analyzeNumbers(numbers);
-    const score = calculateQualityScore(analysis);
-    const filterResult = checkFilters(numbers);
-    const percentileRank = calculatePercentileRank(numbers);
-    const gradeResult = determineGrade(filterResult, percentileRank);
-    renderBalls(numbers, 'predictionBalls');
-    document.getElementById('predictionMeta').textContent = '📷 사진에서 추출한 번호';
-    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
-    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
-    document.getElementById('predictionResult').classList.remove('hidden');
-    document.getElementById('matchingSection').classList.add('hidden');
-    showStatus('success', '📷 사진 번호로 분석 완료!');
+    _applyFunNumbers(numbers, '📷 사진에서 추출한 번호', '📷 사진 번호로 분석 완료!');
 }
 
 // ========== 5. 통계 스포트라이트 ==========
@@ -924,27 +909,7 @@ function startPersonalityQuiz() {
 }
 
 function usePersonalityNumbers(numbers) {
-    if (!currentWinningNumbers) {
-        if (lottoDb && lottoDb.length > 0) {
-            const latest = lottoDb[lottoDb.length - 1];
-            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
-        } else {
-            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
-            return;
-        }
-    }
-    const analysis = analyzeNumbers(numbers);
-    const score = calculateQualityScore(analysis);
-    const filterResult = checkFilters(numbers);
-    const percentileRank = calculatePercentileRank(numbers);
-    const gradeResult = determineGrade(filterResult, percentileRank);
-    renderBalls(numbers, 'predictionBalls');
-    document.getElementById('predictionMeta').textContent = '🧩 성격 테스트 추천 번호';
-    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
-    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
-    document.getElementById('predictionResult').classList.remove('hidden');
-    document.getElementById('matchingSection').classList.add('hidden');
-    showStatus('success', '🧩 성격 테스트 번호로 분석 완료!');
+    _applyFunNumbers(numbers, '🧩 성격 테스트 추천 번호', '🧩 성격 테스트 번호로 분석 완료!');
 }
 
 // ========== 9. 꿈해몽 → 번호 ==========
@@ -1040,27 +1005,7 @@ function generateDreamNumbers() {
 }
 
 function useDreamNumbers(numbers) {
-    if (!currentWinningNumbers) {
-        if (lottoDb && lottoDb.length > 0) {
-            const latest = lottoDb[lottoDb.length - 1];
-            setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
-        } else {
-            showStatus('warning', '⚠️ 먼저 당첨번호를 조회해주세요.');
-            return;
-        }
-    }
-    const analysis = analyzeNumbers(numbers);
-    const score = calculateQualityScore(analysis);
-    const filterResult = checkFilters(numbers);
-    const percentileRank = calculatePercentileRank(numbers);
-    const gradeResult = determineGrade(filterResult, percentileRank);
-    renderBalls(numbers, 'predictionBalls');
-    document.getElementById('predictionMeta').textContent = '💭 꿈해몽 추출 번호';
-    displayScoreCard('prediction', score, analysis, filterResult, gradeResult);
-    document.getElementById('predictionAnalysisContent').innerHTML = renderDetailedAnalysis(analysis);
-    document.getElementById('predictionResult').classList.remove('hidden');
-    document.getElementById('matchingSection').classList.add('hidden');
-    showStatus('success', '💭 꿈해몽 번호로 분석 완료!');
+    _applyFunNumbers(numbers, '💭 꿈해몽 추출 번호', '💭 꿈해몽 번호로 분석 완료!');
 }
 
 // ========== 10. 사운드트랙 모드 (Web Audio API) ==========
