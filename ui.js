@@ -315,38 +315,39 @@ function fireConfetti() {
     setTimeout(() => { batch.remove(); }, 4000);
 }
 
+// 계좌번호 분해 보관 (스크래핑 방지)
+var _ACCOUNT_PARTS = ['110', '496', '114465'];
+var _BANK_NAME = '신한은행';
+function _fullAccount() { return _ACCOUNT_PARTS.join('-'); }
+function _fullAccountNoDash() { return _ACCOUNT_PARTS.join(''); }
+
 async function copyEmail() {
-    await copyToClipboard('core13773@gmail.com');
-    showStatus('success', '📋 이메일이 복사되었습니다: core13773@gmail.com');
+    var parts = ['core13773', 'gmail.com'];
+    var email = parts.join('@');
+    await copyToClipboard(email);
+    showStatus('success', '📋 이메일이 복사되었습니다');
 }
 
-async function copyAccount() {
-    const success = await copyToClipboard('110-496-114465');
-    const el = document.getElementById('sponsorAccount');
-    if (success) {
-        showToast('📋 계좌번호가 복사되었습니다! 신한은행 110-496-114465');
-        if (el) {
-            const orig = el.innerHTML;
-            el.innerHTML = '✅ 복사 완료! 신한은행 110-496-114465';
-            el.style.color = '#34d399';
-            setTimeout(() => { el.innerHTML = orig; el.style.color = ''; }, 2000);
-        }
-    }
+function copyAccount() {
+    var account = _fullAccount();
+    copyToClipboard(account);
+    showToast('📋 계좌번호가 복사되었습니다! ' + _BANK_NAME + ' ' + account);
 }
 
 function openTossPay() {
-    const isAndroid = /android/i.test(navigator.userAgent);
+    var isAndroid = /android/i.test(navigator.userAgent);
+    var accountNoDash = _fullAccountNoDash();
+    var bank = _BANK_NAME;
 
     if (isAndroid) {
-        // Android: intent:// 방식이 더 안정적
-        window.location.href = 'intent://send?amount=1500&bank=신한은행&account=110496114465#Intent;scheme=supertoss;package=viva.republica.toss;S.browser_fallback_url=https%3A%2F%2Ftoss.im%2Fdownload;end;';
+        var fallback = encodeURIComponent('https://toss.im/download');
+        window.location.href = 'intent://send?amount=1500&bank=' + encodeURIComponent(bank) + '&account=' + accountNoDash + '#Intent;scheme=supertoss;package=viva.republica.toss;S.browser_fallback_url=' + fallback + ';end;';
     } else {
-        // iOS: custom scheme 직접 호출
-        window.location.href = 'supertoss://send?amount=1500&bank=신한은행&account=110496114465';
+        window.location.href = 'supertoss://send?amount=1500&bank=' + encodeURIComponent(bank) + '&account=' + accountNoDash;
     }
 
     // 토스 앱이 없거나 실패할 경우 계좌번호 복사
-    setTimeout(() => {
+    setTimeout(function() {
         copyAccount();
         showStatus('info', '💙 토스앱이 없으면 복사된 계좌번호로 송금해주세요');
     }, 3000);

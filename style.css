@@ -289,8 +289,6 @@
         .match-count { font-size: 2rem; color: #34d399; }
         .sponsor-box { background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(255,0,110,0.3)); border: 1px solid rgba(139,92,246,0.5); border-radius: 20px; padding: 30px; text-align: center; margin-top: 30px; }
         .sponsor-title { font-size: 1.5rem; color: var(--accent-gold); margin-bottom: 15px; }
-        .sponsor-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
-        .sponsor-account { font-size: 1.3rem; color: var(--accent-cyan); background: rgba(0,0,0,0.3); padding: 15px 25px; border-radius: 12px; display: inline-block; }
         .feedback-box { background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 25px; text-align: center; margin-top: 20px; }
         .feedback-title { font-size: 1.2rem; color: var(--accent-cyan); margin-bottom: 10px; }
         .sim-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: center; margin: 20px 0; }

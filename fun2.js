@@ -412,8 +412,8 @@ function runCompatibility() {
             <div class="compat-details">
                 <div class="compat-detail-row"><span>겹치는 번호</span><span>${common.length > 0 ? common.join(', ') : '없음 (다양성 ↑)'}</span></div>
                 <div class="compat-detail-row"><span>합계 차이</span><span>${sumDiff} (A:${sumA} / B:${sumB})</span></div>
-                <div class="compat-detail-row"><span>홀짝 비율</span><span>A: ${oddA}/4:${6-oddA}2 B: ${oddB}/4:${6-oddB}2</span></div>
-                <div class="compat-detail-row"><span>저/고 비율</span><span>A: ${lowA}/4:${6-lowA}2 B: ${lowB}/4:${6-lowB}2</span></div>
+                <div class="compat-detail-row"><span>홀짝 비율</span><span>A: 홀${oddA} 짝${6-oddA} / B: 홀${oddB} 짝${6-oddB}</span></div>
+                <div class="compat-detail-row"><span>저/고 비율</span><span>A: 저${lowA} 고${6-lowA} / B: 저${lowB} 고${6-lowB}</span></div>
             </div>
             <div class="balls-container">
                 <div style="text-align:center;"><p class="text-xs-secondary">조합 A</p>${a.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
