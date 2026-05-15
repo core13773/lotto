@@ -315,11 +315,13 @@ function fireConfetti() {
     setTimeout(() => { batch.remove(); }, 4000);
 }
 
-// 계좌번호 분해 보관 (스크래핑 방지)
+// 민감정보 분해 보관 (스크래핑 방지)
 var _ACCOUNT_PARTS = ['110', '496', '114465'];
 var _BANK_NAME = '신한은행';
+var _HOLDER_PARTS = ['강', '재', '영'];
 function _fullAccount() { return _ACCOUNT_PARTS.join('-'); }
 function _fullAccountNoDash() { return _ACCOUNT_PARTS.join(''); }
+function _fullHolder() { return _HOLDER_PARTS.join(''); }
 
 async function copyEmail() {
     var parts = ['core13773', 'gmail.com'];
@@ -329,9 +331,9 @@ async function copyEmail() {
 }
 
 function copyAccount() {
-    var account = _fullAccount();
-    copyToClipboard(account);
-    showToast('📋 계좌번호가 복사되었습니다! ' + _BANK_NAME + ' ' + account);
+    var text = _BANK_NAME + ' ' + _fullAccount() + ' ' + _fullHolder();
+    copyToClipboard(text);
+    showToast('📋 계좌정보가 복사되었습니다! ' + text);
 }
 
 function openTossPay() {
