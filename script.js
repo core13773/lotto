@@ -30,7 +30,7 @@ let lottoDb = null;
 
 async function loadLatestJson() {
     try {
-        const resp = await fetch('latest.json', { cache: 'no-cache' });
+        const resp = await fetch('latest.json?_=' + Date.now(), { cache: 'no-store' });
         if (resp.ok) {
             const data = await resp.json();
             if (Array.isArray(data) && data.length > 0) {

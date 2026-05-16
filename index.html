@@ -709,11 +709,27 @@
     <script src="simulation.js?v=3"></script>
     <script src="fun3.js?v=1"></script>
     <script src="ui.js?v=3"></script>
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=8');
+            var FORCE_RELOAD = !sessionStorage.getItem('sw-cleared');
+            // 기존 서비스 워커 + 캐시 완전 초기화
+            caches.keys().then(function(keys) {
+                return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+            }).then(function() {
+                return navigator.serviceWorker.getRegistrations();
+            }).then(function(regs) {
+                return Promise.all(regs.map(function(r) { return r.unregister(); }));
+            }).then(function() {
+                if (FORCE_RELOAD) {
+                    sessionStorage.setItem('sw-cleared', '1');
+                    window.location.reload();
+                } else {
+                    sessionStorage.removeItem('sw-cleared');
+                    navigator.serviceWorker.register('sw.js?v=9');
+                }
+            });
         }
     </script>
 </body>

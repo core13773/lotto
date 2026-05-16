@@ -4,16 +4,17 @@ const fs = require('fs');
 const LATEST_ROUND = (() => {
     const firstDraw = new Date(2002, 11, 7, 21, 0, 0);
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    const hours = now.getHours();
+    // KST = UTC+9
+    const kstNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
+    const dayOfWeek = kstNow.getUTCDay();
+    const hours = kstNow.getUTCHours();
     let lastDraw;
     if (dayOfWeek === 6 && hours >= 21) {
-        lastDraw = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
+        // 오늘(토요일) 오후 9시 이후 → 오늘 추첨이 최신
+        lastDraw = new Date(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), 21, 0, 0);
     } else {
         const daysSinceSat = dayOfWeek === 6 ? 7 : dayOfWeek + 1;
-        lastDraw = new Date(now);
-        lastDraw.setDate(now.getDate() - daysSinceSat);
-        lastDraw.setHours(21, 0, 0, 0);
+        lastDraw = new Date(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - daysSinceSat, 21, 0, 0);
     }
     return Math.floor((lastDraw - firstDraw) / (7 * 24 * 60 * 60 * 1000)) + 1;
 })();
