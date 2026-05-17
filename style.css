@@ -1719,3 +1719,21 @@
 .myhistory-stat-val { display: block; font-size: 1.1rem; font-weight: 700; color: var(--accent-cyan); }
 .myhistory-stat-lbl { display: block; font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
 
+/* ========== 통계 기간 선택기 ========== */
+.stats-period-bar { display: flex; gap: 6px; justify-content: center; margin: 10px 0 5px; flex-wrap: wrap; }
+.stats-period-btn { padding: 5px 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); color: var(--text-secondary); font-size: 0.78rem; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.stats-period-btn:hover { border-color: var(--accent-cyan); color: var(--text-primary); }
+.stats-period-btn.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); font-weight: 700; }
+
+/* ========== 내 번호 순위 분석 ========== */
+.myhistory-rank-panel { background: linear-gradient(135deg,rgba(139,92,246,0.1),rgba(0,245,255,0.08)); border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid rgba(139,92,246,0.2); }
+.rank-title { font-size: 1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 5px; text-align: center; }
+.rank-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.rank-item.rank-0 { border-left: 3px solid #ffd700; }
+.rank-item.rank-1 { border-left: 3px solid #c0c0c0; }
+.rank-item.rank-2 { border-left: 3px solid #cd7f32; }
+.rank-medal { font-size: 1.2rem; width: 28px; text-align: center; }
+.rank-balls { display: flex; gap: 3px; flex-wrap: wrap; }
+.rank-score { font-weight: 700; color: var(--accent-cyan); font-size: 0.85rem; white-space: nowrap; }
+.rank-info { font-size: 0.7rem; color: var(--text-secondary); width: 100%; margin-top: 4px; }
+

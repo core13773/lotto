@@ -2,20 +2,35 @@
 
 // ========== 통계 대시보드 ==========
 let dbStats = null;
+let statsPeriod = 'all';
+
+function setStatsPeriod(period) {
+    statsPeriod = period;
+    document.querySelectorAll('.stats-period-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.stats-period-btn[data-period="${period}"]`);
+    if (btn) btn.classList.add('active');
+    renderStatsDashboard();
+    showToast(`📊 ${period === 'all' ? '전체' : '최근 ' + period + '회'} 기준 통계`);
+}
 
 function computeDbStats() {
     if (!lottoDb || lottoDb.length === 0) return null;
-    const rounds = lottoDb.length;
-    const freq = new Array(46).fill(0); // 1-indexed
-    const lastSeen = new Array(46).fill(0);
+    var dataSet = lottoDb;
+    if (statsPeriod !== 'all') {
+        var n = parseInt(statsPeriod);
+        if (n > 0 && n < dataSet.length) dataSet = dataSet.slice(-n);
+    }
+    var rounds = dataSet.length;
+    var freq = new Array(46).fill(0);
+    var lastSeen = new Array(46).fill(0);
 
-    lottoDb.forEach((entry, idx) => {
+    dataSet.forEach((entry, idx) => {
         if (entry.numbers) {
             entry.numbers.forEach(n => { freq[n]++; lastSeen[n] = entry.round; });
         }
     });
 
-    const latestRound = lottoDb[lottoDb.length - 1].round;
+    const latestRound = dataSet[dataSet.length - 1].round;
     const dormant = [];
     for (let n = 1; n <= 45; n++) {
         dormant.push({ number: n, lastSeen: lastSeen[n], gap: latestRound - lastSeen[n] });
@@ -23,7 +38,7 @@ function computeDbStats() {
     dormant.sort((a, b) => b.gap - a.gap);
     const topDormant = dormant.slice(0, 10);
 
-    const recent50 = lottoDb.slice(-50);
+    const recent50 = dataSet.slice(-50);
     const recentFreq = new Array(46).fill(0);
     recent50.forEach(entry => {
         if (entry.numbers) entry.numbers.forEach(n => recentFreq[n]++);
@@ -38,7 +53,7 @@ function computeDbStats() {
 
     // 구간별 통계
     const sections = { '1-10': 0, '11-20': 0, '21-30': 0, '31-40': 0, '41-45': 0 };
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             entry.numbers.forEach(n => {
                 if (n <= 10) sections['1-10']++;
@@ -52,7 +67,7 @@ function computeDbStats() {
 
     // 전체 홀짝 통계
     let totalOdd = 0, totalEven = 0;
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             entry.numbers.forEach(n => { n % 2 ? totalOdd++ : totalEven++; });
         }
@@ -60,7 +75,7 @@ function computeDbStats() {
 
     // 합계 분포 통계
     const sumHist = { '21-80': 0, '81-110': 0, '111-140': 0, '141-170': 0, '171-200': 0, '201-279': 0 };
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             const s = entry.numbers.reduce((a, b) => a + b, 0);
             if (s <= 80) sumHist['21-80']++;
@@ -74,7 +89,7 @@ function computeDbStats() {
 
     // 홀짝 구성 분포
     const oddEvenDist = {};
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             const oc = entry.numbers.filter(n => n % 2 === 1).length;
             const key = `홀${oc} 짝${6-oc}`;
@@ -84,7 +99,7 @@ function computeDbStats() {
 
     // 고저 구성 분포
     const lowHighDist = {};
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             const hi = entry.numbers.filter(n => n >= 23).length;
             const key = `고${hi} 저${6-hi}`;
@@ -94,7 +109,7 @@ function computeDbStats() {
 
     // AC값 분포
     const acDist = {};
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             const s = [...entry.numbers].sort((a, b) => a - b);
             const diffs = new Set();
@@ -106,7 +121,7 @@ function computeDbStats() {
 
     // 연속쌍 분포
     const consecDist = { '없음': 0, '1쌍': 0, '2쌍': 0, '3쌍': 0, '4쌍': 0 };
-    lottoDb.forEach(entry => {
+    dataSet.forEach(entry => {
         if (entry.numbers) {
             const s = [...entry.numbers].sort((a, b) => a - b);
             let cp = 0;
@@ -123,7 +138,7 @@ function computeDbStats() {
     const numGapAnalysis = [];
     for (let n = 1; n <= 45; n++) {
         const appearances = [];
-        lottoDb.forEach(entry => {
+        dataSet.forEach(entry => {
             if (entry.numbers && entry.numbers.includes(n)) {
                 appearances.push(entry.round);
             }
@@ -140,7 +155,7 @@ function computeDbStats() {
         const recentGaps = gaps.slice(-10);
 
         let trend = '→';
-        const recent20Count = lottoDb.slice(-20).filter(e => e.numbers && e.numbers.includes(n)).length;
+        const recent20Count = dataSet.slice(-20).filter(e => e.numbers && e.numbers.includes(n)).length;
         if (recent20Count >= 5) trend = recent20Count >= 7 ? '↑↑' : '↑';
         else if (recent20Count <= 1) trend = recent20Count === 0 ? '↓↓' : '↓';
 
@@ -247,7 +262,7 @@ function renderBarcodeView() {
     const container = document.getElementById('barcodeContainer');
     if (!container) return;
     const recent52 = lottoDb.slice(-52);
-    const latestRound = lottoDb[lottoDb.length - 1].round;
+    const latestRound = dataSet[dataSet.length - 1].round;
 
     let html = '<div class="barcode-legend"><span>■=당첨</span><span>○=보너스</span><span>□=미출현</span><span>←좌최신</span></div>';
     html += '<div class="barcode-grid">';

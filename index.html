@@ -364,6 +364,12 @@
                     <button class="stats-tab" data-tab="barcode" data-action="switchStatsTab" data-arg="barcode">📋 바코드</button>
                     <button class="stats-tab" data-tab="distribution" data-action="switchStatsTab" data-arg="distribution">📊 분포표</button>
                 </div>
+                <div class="stats-period-bar">
+                    <button class="stats-period-btn" data-period="10" onclick="setStatsPeriod('10')">10회</button>
+                    <button class="stats-period-btn" data-period="50" onclick="setStatsPeriod('50')">50회</button>
+                    <button class="stats-period-btn" data-period="100" onclick="setStatsPeriod('100')">100회</button>
+                    <button class="stats-period-btn active" data-period="all" onclick="setStatsPeriod('all')">전체</button>
+                </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">
                         <div class="interpretation-title">📋 번호별 출현 빈도</div>

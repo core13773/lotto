@@ -595,6 +595,30 @@ function checkAllMyHistory() {
     const prizeAmt = { '1등': 2000000000, '2등': 50000000, '3등': 1500000, '4등': 50000, '5등': 5000 };
     const hits = [];
 
+    // 번호별 종합 점수 계산
+    const ranked = history.map((h, idx) => {
+        let crossScore = 0, bestMatch = 0, bestRound = 0, total3Plus = 0, totalMatches = 0;
+        lottoDb.forEach(entry => {
+            if (!entry.numbers) return;
+            const matches = h.numbers.filter(n => entry.numbers.includes(n));
+            const bonusMatch = entry.bonus && h.numbers.includes(entry.bonus);
+            totalMatches += matches.length;
+            if (matches.length > bestMatch) { bestMatch = matches.length; bestRound = entry.round; }
+            if (matches.length >= 3) {
+                total3Plus++;
+                if (matches.length >= 6) crossScore += 6;
+                else if (matches.length === 5 && bonusMatch) crossScore += 5;
+                else if (matches.length === 5) crossScore += 4;
+                else if (matches.length === 4) crossScore += 3;
+                else crossScore += 2;
+            }
+        });
+        const avgMatch = (totalMatches / lottoDb.length).toFixed(1);
+        return { ...h, idx, crossScore, bestMatch, bestRound, total3Plus, avgMatch };
+    });
+    ranked.sort((a, b) => b.crossScore - a.crossScore);
+
+    // 당첨 내역 수집
     history.forEach(h => {
         totalSpent += 1000;
         lottoDb.forEach(entry => {
@@ -615,7 +639,22 @@ function checkAllMyHistory() {
     });
 
     el.innerHTML = `
-        <div class="myhistory-summary">
+        <div class="myhistory-rank-panel">
+            <div class="rank-title">🏆 내 번호 전체 순위 분석</div>
+            <p class="text-xs-secondary" style="margin-bottom:10px;">전체 ${lottoDb.length}회차 기준 교차 점수 순위입니다. 점수가 높을수록 과거 당첨번호와 유사합니다.</p>
+            ${ranked.slice(0, 5).map((r, i) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+                return `
+                    <div class="rank-item rank-${i}">
+                        <span class="rank-medal">${medal}</span>
+                        <span class="rank-balls">${r.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:26px;height:26px;line-height:26px;font-size:0.6rem;">${n}</span>`).join(' ')}</span>
+                        <span class="rank-score">${r.crossScore}점</span>
+                        <span class="rank-info">최고 ${r.bestMatch}개 일치(제${r.bestRound}회) · 3회이상 ${r.total3Plus}회 · 평균 ${r.avgMatch}개</span>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        <div class="myhistory-summary" style="margin-top:12px;">
             <div class="myhistory-summary-row"><span>확인한 번호</span><strong>${history.length}개</strong></div>
             <div class="myhistory-summary-row"><span>총 구매 추정</span><strong>${totalSpent.toLocaleString()}원</strong></div>
             <div class="myhistory-summary-row"><span>총 당첨 추정</span><strong style="color:${totalWon > totalSpent ? '#10b981' : '#ef4444'}">${totalWon.toLocaleString()}원</strong></div>
@@ -624,6 +663,7 @@ function checkAllMyHistory() {
             <div class="myhistory-hit">🎯 <strong>${h.grade}</strong> — 제${h.round}회 ${h.matches}개 일치 (${h.date} 기록)</div>
         `).join('') : '<p class="text-secondary text-center mt-10">아쉽게도 당첨 내역이 없습니다.</p>'}
     `;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ========== 7. 공유 카드 생성기 ==========
