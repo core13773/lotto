@@ -407,6 +407,53 @@ function setWinningNumbers(numbers, bonus, round, source) {
 
     // 퍼널: 시뮬레이션 완료 시 회고 제안 (showPredictionResult에서 사용할 round 저장)
     if (typeof trackMission === 'function') trackMission('view_winning');
+
+    // 내 번호 자동 비교: 저장된 번호들과 현재 당첨번호 비교
+    setTimeout(() => autoCheckMyNumbers(numbers, bonus, round), 300);
+}
+
+function autoCheckMyNumbers(winNums, winBonus, winRound) {
+    try {
+        const myNums = JSON.parse(localStorage.getItem('lotto-my-numbers') || '[]');
+        if (!myNums.length) return;
+        const winSet = new Set(winNums);
+        const results = myNums.map(h => {
+            const matches = h.numbers.filter(n => winSet.has(n));
+            const bonusMatch = winBonus && h.numbers.includes(winBonus);
+            let grade = null, cls = '';
+            if (matches.length >= 6) { grade = '1등'; cls = 'grade-jackpot'; }
+            else if (matches.length === 5 && bonusMatch) { grade = '2등'; cls = 'grade-jackpot'; }
+            else if (matches.length === 5) { grade = '3등'; cls = 'grade-high'; }
+            else if (matches.length === 4) { grade = '4등'; cls = 'grade-mid'; }
+            else if (matches.length === 3) { grade = '5등'; cls = 'grade-low'; }
+            return { ...h, matches, bonusMatch, grade, cls };
+        });
+        const hasMatch = results.filter(r => r.grade).sort((a, b) => b.matches.length - a.matches.length);
+        if (hasMatch.length === 0) return;
+        const banner = document.createElement('div');
+        banner.className = 'card';
+        banner.id = 'myNumberCheckBanner';
+        banner.style.cssText = 'background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(0,245,255,0.1));border:1px solid rgba(16,185,129,0.5);margin-bottom:20px;';
+        banner.innerHTML = `
+            <div class="card-header" style="justify-content:center;"><div class="card-icon" style="background:linear-gradient(135deg,#10b981,#00f5ff);">🎯</div><h2 class="card-title">내 번호 당첨 확인 — 제 ${winRound}회</h2></div>
+            ${hasMatch.map(r => `
+                <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px;margin:8px 15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span class="grade-badge-large ${r.cls}" style="font-size:0.8rem;">${r.grade}</span>
+                    <span style="font-size:0.85rem;">${r.numbers.join(', ')}</span>
+                    ${r.note ? `<span style="font-size:0.75rem;color:var(--text-secondary);">(${r.note})</span>` : ''}
+                    <span style="color:#10b981;font-weight:700;font-size:0.9rem;">${r.matches.length}개 일치!</span>
+                </div>
+            `).join('')}
+            <div style="text-align:center;padding:5px 15px 12px;">
+                <button class="btn btn-secondary" style="font-size:0.8rem;" onclick="document.getElementById('myNumberCheckBanner')?.remove();">✕ 닫기</button>
+                <button class="btn btn-primary" style="font-size:0.8rem;margin-left:8px;" onclick="switchFun2Tab('history');document.getElementById('funZone2Card')?.scrollIntoView({behavior:'smooth',block:'center'});">📝 내 번호 관리</button>
+            </div>
+        `;
+        const container = document.querySelector('.container');
+        if (container) container.insertBefore(banner, container.firstChild);
+        fireConfetti();
+        playBeep(1200, 0.15);
+    } catch (e) {}
 }
 
 function createNumberGrid() {

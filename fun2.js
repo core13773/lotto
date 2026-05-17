@@ -507,6 +507,30 @@ function renderMyHistory() {
     if (!el) return;
     const history = getMyHistory();
 
+    // 내 번호 통계 계산
+    let statsHtml = '';
+    if (history.length > 0 && lottoDb && lottoDb.length > 0) {
+        const numFreq = {};
+        let totalMatches = 0, checkedCount = 0;
+        history.forEach(h => {
+            h.numbers.forEach(n => { numFreq[n] = (numFreq[n] || 0) + 1; });
+            if (h.round && currentWinningNumbers) {
+                checkedCount++;
+                totalMatches += h.numbers.filter(n => (currentWinningNumbers || []).includes(n)).length;
+            }
+        });
+        const topNums = Object.entries(numFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const avgMatch = checkedCount > 0 ? (totalMatches / checkedCount).toFixed(1) : '-';
+        statsHtml = `
+            <div class="myhistory-stats">
+                <div class="myhistory-stat-item"><span class="myhistory-stat-val">${history.length}</span><span class="myhistory-stat-lbl">저장된 조합</span></div>
+                <div class="myhistory-stat-item"><span class="myhistory-stat-val">${avgMatch}개</span><span class="myhistory-stat-lbl">평균 일치</span></div>
+                <div class="myhistory-stat-item"><span class="myhistory-stat-val">${new Set(history.flatMap(h => h.numbers)).size}</span><span class="myhistory-stat-lbl">고유 번호</span></div>
+            </div>
+            ${topNums.length > 0 ? `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;">가장 자주 선택한 번호: ${topNums.map(([n, c]) => `<span class="ball ${getBallClass(parseInt(n))}" style="width:28px;height:28px;line-height:28px;font-size:0.65rem;">${n}</span>`).join(' ')}</div>` : ''}
+        `;
+    }
+
     el.innerHTML = `
         <div class="myhistory-add">
             <p class="text-secondary mb-15">구매했거나 관심 있는 번호를 기록하고, 당첨 여부를 확인해보세요.</p>
@@ -516,6 +540,7 @@ function renderMyHistory() {
             </div>
             <input type="text" id="myNumberNote" class="input-field" placeholder="메모 (선택사항, 예: 생일조합)" style="margin-top:8px;">
         </div>
+        ${statsHtml}
         <div id="myHistoryList" style="margin-top:15px;">
             ${history.length === 0 ? '<p class="text-secondary text-center">아직 기록된 번호가 없어요.</p>' :
             history.map((h, i) => {
