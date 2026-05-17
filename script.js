@@ -24,6 +24,17 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFontSetting();
     loadSavedPredictions();
     loadLatestJson();
+    handleSharedPrediction();
+    loadUxSettings();
+    initRetroGrid();
+    initBonusGrid();
+    initScrollTopBtn();
+    initOnboarding();
+    if (typeof initGameZone === 'function') initGameZone();
+    if (typeof renderMissions === 'function') renderMissions();
+    try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
+    if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
+    updateNotifyBtn();
 });
 
 let lottoDb = null;
@@ -82,6 +93,7 @@ function savePrediction() {
     localStorage.setItem('lotto-predictions', JSON.stringify(saved));
     loadSavedPredictions();
     showStatus('success', '💾 예측 결과가 저장되었습니다!');
+    if (typeof trackMission === 'function') trackMission('save_prediction');
 }
 
 function getSavedPredictions() {
@@ -181,6 +193,46 @@ async function exportPrediction() {
     const text = `🎱 로또 645 AI 예측 번호\n━━━━━━━━━━━━━━\n📌 예측 번호: ${numbers}\n📊 품질 점수: ${score}점 (${grade})\n📝 기준: ${meta}\n━━━━━━━━━━━━━━\n🔗 https://123lotto.co.kr`;
     await copyToClipboard(text);
     showStatus('success', '📋 클립보드에 복사되었습니다!');
+}
+
+function handleSharedPrediction() {
+    const params = new URLSearchParams(window.location.search);
+    const predStr = params.get('pred');
+    if (!predStr) return;
+    const nums = predStr.split(/[,·\s]+/).map(Number).filter(n => n >= 1 && n <= 45);
+    if (nums.length !== 6 || new Set(nums).size !== 6) return;
+    nums.sort((a, b) => a - b);
+    const banner = document.createElement('div');
+    banner.className = 'card';
+    banner.style.cssText = 'background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(0,245,255,0.15));border:1px solid rgba(139,92,246,0.4);margin-bottom:20px;text-align:center;';
+    banner.innerHTML = `
+        <div class="card-header" style="justify-content:center;"><div class="card-icon" style="background:linear-gradient(135deg,#8b5cf6,#00f5ff);">📤</div><h2 class="card-title">공유받은 예측 번호</h2></div>
+        <div class="balls-container" style="padding:15px 0;gap:8px;">${nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:48px;height:48px;line-height:48px;font-size:1rem;">${n}</span>`).join('')}</div>
+        <p class="text-secondary mb-15" style="font-size:0.9rem;">친구가 공유한 번호예요. 이 번호로 분석을 시작해보세요!</p>
+        <button class="btn btn-primary" id="useSharedPredBtn" style="margin-bottom:15px;">🎯 이 번호로 AI 예측 시작하기</button>
+        <button class="btn btn-secondary" id="dismissSharedPredBtn" style="margin-bottom:10px;">✕ 닫기</button>
+    `;
+    const container = document.querySelector('.container');
+    if (container) container.insertBefore(banner, container.firstChild);
+    banner.querySelector('#useSharedPredBtn').onclick = () => {
+        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('roundInput')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof setWinningNumbers === 'function') {
+            setWinningNumbers(nums, null, '공유받은 번호', '공유 링크');
+        }
+        setTimeout(() => {
+            const aiCard = document.getElementById('aiReady')?.closest('.card');
+            if (aiCard) aiCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 800);
+        banner.style.opacity = '0.6';
+        banner.querySelector('#useSharedPredBtn').disabled = true;
+    };
+    banner.querySelector('#dismissSharedPredBtn').onclick = () => banner.remove();
+    // URL에서 pred 파라미터 제거
+    if (window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+    }
 }
 
 function calculateLatestRound() {
@@ -343,6 +395,18 @@ function setWinningNumbers(numbers, bonus, round, source) {
     document.getElementById('aiNotReady').classList.add('hidden');
     document.getElementById('aiReady').classList.remove('hidden');
     document.getElementById('targetRound').textContent = round;
+
+    // 퍼널: 당첨번호 조회 완료 → AI 예측 카드로 스크롤
+    setTimeout(() => {
+        const aiCard = document.getElementById('aiReady').closest('.card');
+        if (aiCard) aiCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const aiModeSim = document.getElementById('aiModeSimulation');
+        if (aiModeSim) aiModeSim.classList.add('funnel-highlight');
+        setTimeout(() => aiModeSim && aiModeSim.classList.remove('funnel-highlight'), 2000);
+    }, 600);
+
+    // 퍼널: 시뮬레이션 완료 시 회고 제안 (showPredictionResult에서 사용할 round 저장)
+    if (typeof trackMission === 'function') trackMission('view_winning');
 }
 
 function createNumberGrid() {
@@ -558,15 +622,3 @@ function runRetrospective() {
     showStatus('success', `⏪ ${recentRounds.length}회차 분석 완료!`);
     playBeep(800, 0.1);
 }
-
-// ========== DOMContentLoaded 추가 초기화 ==========
-document.addEventListener('DOMContentLoaded', () => {
-    loadUxSettings();
-    initRetroGrid();
-    initScrollTopBtn();
-    initOnboarding();
-    if (typeof initGameZone === 'function') initGameZone();
-    try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
-    if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
-    updateNotifyBtn();
-}, { once: true });

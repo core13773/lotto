@@ -188,8 +188,3 @@ function initBonusGrid() {
     }
 }
 
-// ========== 초기화 ==========
-document.addEventListener('DOMContentLoaded', () => {
-    initBonusGrid();
-    loadUxSettings();
-});

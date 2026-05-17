@@ -98,7 +98,7 @@ async function fetchLottoNumbers(round) {
 
     // 캐시 저장 (최대 크기 초과 시 가장 오래된 항목 삭제)
     if (CACHE.size >= CACHE_MAX) {
-        var oldest = null;
+        let oldest = null;
         CACHE.forEach(function(v, k) {
             if (!oldest || v.timestamp < oldest.timestamp) oldest = { key: k, timestamp: v.timestamp };
         });
@@ -112,9 +112,9 @@ const startTime = Date.now();
 
 const server = http.createServer(async (req, res) => {
     // Rate limiting
-    var ip = req.socket.remoteAddress || 'unknown';
-    var now = Date.now();
-    var rl = RATE_LIMIT.get(ip);
+    const ip = req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    let rl = RATE_LIMIT.get(ip);
     if (!rl || now > rl.reset) {
         rl = { count: 0, reset: now + RATE_WINDOW };
         RATE_LIMIT.set(ip, rl);
@@ -173,7 +173,7 @@ server.listen(PORT, () => {
 
 // 5분마다 만료된 rate limit 항목 정리
 setInterval(function() {
-    var now = Date.now();
+    const now = Date.now();
     RATE_LIMIT.forEach(function(v, k) {
         if (now > v.reset) RATE_LIMIT.delete(k);
     });

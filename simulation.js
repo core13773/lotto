@@ -1,5 +1,22 @@
 // simulation.js - 몬테카를로 시뮬레이션 제어, Worker 통신, 진행률, 예측 결과
 
+const SIM_TIPS = [
+    '💡 로또 1등 확률은 1/8,145,060 — 벼락에 맞을 확률(1/1,222,000)보다 낮아요!',
+    '🧠 AC값(산술복잡도)이 7 이상이면 번호 구성이 다양하다는 뜻이에요.',
+    '📊 역대 당첨번호의 약 65%가 합계 115~150 범위에 들어요.',
+    '🎯 홀짝 3:3 비율이 가장 많이 당첨됐어요 (약 33%).',
+    '📅 같은 번호가 연속으로 당첨될 확률은? 거의 제로에 가깝습니다.',
+    '🔢 1번부터 10번대 번호가 역대 최다 출현 구간이에요.',
+    '💸 로또 5등(3개 일치) 확률은 1/45 — 생각보다 높죠!',
+    '🏆 1등 당첨금은 평균 약 20억원, 세금 33% 공제 후 약 13억원 실수령.',
+    '🎰 로또는 완전 독립 확률 게임 — 지난 회차가 다음 회차에 영향을 주지 않아요.',
+    '📈 번호 34번은 역대 최다 출현 기록을 보유하고 있어요.',
+    '❄️ 장기 미출현 번호는 평균 회귀 성향이 있어 통계적으로 주목할 만해요.',
+    '🔗 번호쌍(페어) 분석을 보면 자주 함께 나오는 번호 조합을 알 수 있어요.',
+    '🕐 토요일 오후 8시 50분경 추첨, 9시 이후 당첨번호 확인 가능!',
+    '💪 몬테카를로 시뮬레이션은 무작위성을 기반으로 통계적 패턴을 찾는 방법이에요.'
+];
+
 function startSimulation() {
     if (isSimulating) return;
     if (!currentWinningNumbers) { alert('먼저 당첨번호를 설정해주세요!'); return; }
@@ -63,6 +80,16 @@ function updateProgress(data) {
     document.getElementById('currentMatchRate').textContent = matchCount > 0 ? `${formatNumber(Math.round(attempts / matchCount))}회당 1회` : '아직 미발견';
     document.getElementById('theoreticalComparison').textContent = matchCount > 0 ?
         (parseFloat(currentRate) > 0.8 && parseFloat(currentRate) < 1.2 ? '정상 범위' : parseFloat(currentRate) >= 1.2 ? '행운!' : '조금 낮음') : '-';
+
+    // 시뮬레이션 대기 중 흥미로운 로또 팁 로테이션
+    if (!updateProgress._tipIdx) updateProgress._tipIdx = 0;
+    if (!updateProgress._lastTipChange) updateProgress._lastTipChange = 0;
+    if (elapsed - updateProgress._lastTipChange > 3) {
+        updateProgress._lastTipChange = elapsed;
+        updateProgress._tipIdx = (updateProgress._tipIdx + 1) % SIM_TIPS.length;
+        const tipEl = document.getElementById('simTip');
+        if (tipEl) tipEl.textContent = SIM_TIPS[updateProgress._tipIdx];
+    }
 }
 
 function handleMatch(data) {
@@ -85,6 +112,22 @@ function handleComplete(data) {
     if (matchCount > 0) showStatus('success', `🎉 완료! ${formatNumber(attempts)}회 분석, ${matchCount}회 패턴 발견 (${elapsed.toFixed(1)}초)`);
     else { showStatus('info', `✅ 완료! ${formatNumber(attempts)}회 분석, 패턴 미발견 (${elapsed.toFixed(1)}초)`); showPredictionResult(generateRandomNumbers(), attempts, elapsed, true); }
     if (simulationWorker) { simulationWorker.terminate(); simulationWorker = null; }
+
+    // 퍼널: 시뮬레이션 완료 → 통계 대시보드 유도
+    setTimeout(() => {
+        const statsCard = document.getElementById('statsDashboard');
+        const statsCallout = document.getElementById('statsCallout');
+        if (statsCard && statsCallout) {
+            statsCallout.innerHTML = `
+                <div class="retro-callout" style="border-color:var(--accent-cyan);">
+                    <span>📊 전체 통계로 더 깊은 인사이트를 확인해보세요</span>
+                    <button class="btn btn-primary" onclick="document.getElementById('statsDashboard').classList.add('open');document.getElementById('statsDashboard').scrollIntoView({behavior:'smooth',block:'center'});" style="padding:8px 16px;font-size:0.85rem;">통계 열기</button>
+                </div>
+            `;
+            statsCallout.classList.remove('hidden');
+            statsCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 1500);
 }
 
 function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
@@ -125,6 +168,19 @@ function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
     }
     else document.getElementById('matchingSection').classList.add('hidden');
     document.getElementById('predictionResult').classList.remove('hidden');
+
+    // 퍼널: 예측 결과 확인 후 당첨 회고 제안
+    const retroCallout = document.getElementById('retroCallout');
+    if (retroCallout) {
+        retroCallout.innerHTML = `
+            <div class="retro-callout">
+                <span>⏪ 이 번호로 지난 1년간 샀다면?</span>
+                <button class="btn btn-primary" onclick="document.getElementById('retroInput').value='${prediction.join(',')}';document.getElementById('retroCard').classList.add('open');document.getElementById('retroCard').scrollIntoView({behavior:'smooth',block:'center'});runRetrospective();" style="padding:8px 16px;font-size:0.85rem;">당첨 회고 실행</button>
+            </div>
+        `;
+        retroCallout.classList.remove('hidden');
+    }
+    if (typeof trackMission === 'function') trackMission('run_simulation');
 }
 
 function updateAdvancedAnalysis(prefix, crossResult, top3, recent5, percentileRank) {

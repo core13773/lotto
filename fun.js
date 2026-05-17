@@ -48,6 +48,7 @@ function doCheckin() {
     if (data.total === 1) unlockAchievement('first_checkin');
 
     showStatus('success', `🎉 ${data.streak}일 연속 출석! 행운 코인 +${coinReward} (보유: ${data.coins}🪙)`);
+    if (typeof trackMission === 'function') trackMission('checkin');
     fireConfetti();
     vibrate(100);
     playBeep(800, 0.15);

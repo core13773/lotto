@@ -21,6 +21,7 @@ function addCollected(num) {
 
 function onGameComplete() {
     stopGame();
+    if (typeof trackMission === 'function') trackMission('play_game');
     const nums = gameCollected.slice(0, GAME_TARGET);
     const analysis = typeof analyzeNumbers === 'function' ? analyzeNumbers(nums) : null;
     const score = analysis && typeof calculateQualityScore === 'function' ? calculateQualityScore(analysis) : null;

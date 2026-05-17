@@ -176,6 +176,92 @@ function showToast(message) {
 // ========== 상태 표시 ==========
 function showStatus(type, message) { const container = document.getElementById('fetchStatus'); container.className = `status ${type}`; container.textContent = message; container.classList.remove('hidden'); }
 
+// ========== 오늘의 미션 시스템 ==========
+const DAILY_MISSIONS = [
+    { id: 'view_winning', label: '당첨번호 1회 조회', icon: '🔍', reward: 1, desc: '회차를 조회해보세요' },
+    { id: 'run_simulation', label: 'AI 시뮬레이션 1회 실행', icon: '🎲', reward: 3, desc: '몬테카를로 분석을 돌려보세요' },
+    { id: 'save_prediction', label: '예측 번호 저장', icon: '💾', reward: 2, desc: '마음에 드는 번호를 저장하세요' },
+    { id: 'checkin', label: '오늘 출석 체크', icon: '✅', reward: 2, desc: '출석하고 코인 받기' },
+    { id: 'view_stats', label: '통계 탭 3개 이상 열람', icon: '📊', reward: 2, desc: '빈도·차트·바코드를 확인하세요' },
+    { id: 'play_game', label: '미니 게임 1회 플레이', icon: '🎮', reward: 1, desc: '경마·낚시·슬롯을 즐겨보세요' }
+];
+
+function getMissionData() {
+    try { return JSON.parse(localStorage.getItem('lotto-missions') || '{"date":"","missions":{},"coins":0,"totalCoins":0,"allDone":false}'); } catch (e) { return { date: '', missions: {}, coins: 0, totalCoins: 0, allDone: false }; }
+}
+
+function saveMissionData(data) { try { localStorage.setItem('lotto-missions', JSON.stringify(data)); } catch (e) {} }
+
+function trackMission(missionId) {
+    const data = getMissionData();
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.date !== today) {
+        data.date = today;
+        data.missions = {};
+        data.coins = 0;
+        data.allDone = false;
+    }
+    if (data.missions[missionId]) return;
+    data.missions[missionId] = true;
+    const mission = DAILY_MISSIONS.find(m => m.id === missionId);
+    if (mission) {
+        data.coins += mission.reward;
+        data.totalCoins = (data.totalCoins || 0) + mission.reward;
+        showToast(`${mission.icon} 미션 달성! +${mission.reward} 코인 — ${mission.label}`);
+        playBeep(1000, 0.08);
+        vibrate(50);
+    }
+    const allDone = DAILY_MISSIONS.every(m => data.missions[m.id]);
+    if (allDone && !data.allDone) {
+        data.allDone = true;
+        data.coins += 5;
+        data.totalCoins += 5;
+        fireConfetti();
+        setTimeout(() => showToast('🏆 오늘의 로또 마스터! 전 미션 달성 +5 보너스 코인!'), 500);
+    }
+    saveMissionData(data);
+    renderMissions();
+}
+
+function renderMissions() {
+    const data = getMissionData();
+    const today = new Date().toISOString().slice(0, 10);
+    const isToday = data.date === today;
+    const el = document.getElementById('missionsContent');
+    if (!el) return;
+    const doneCount = isToday ? Object.keys(data.missions).length : 0;
+    const totalMissions = DAILY_MISSIONS.length;
+    const pct = Math.round(doneCount / totalMissions * 100);
+
+    el.innerHTML = `
+        <div class="missions-header">
+            <div class="missions-title">🎯 오늘의 미션</div>
+            <div class="missions-coin">🪙 ${data.totalCoins || 0} 코인</div>
+        </div>
+        <div class="missions-progress">
+            <div class="missions-bar-bg"><div class="missions-bar-fill" style="width:${pct}%"></div></div>
+            <div class="missions-progress-text">${doneCount}/${totalMissions} 완료${data.allDone ? ' — 🏆 마스터 달성!' : ''}</div>
+        </div>
+        <div class="missions-list">
+            ${DAILY_MISSIONS.map(m => {
+                const done = isToday && data.missions[m.id];
+                return `<div class="mission-item${done ? ' done' : ''}">
+                    <span class="mission-icon">${done ? '✅' : m.icon}</span>
+                    <span class="mission-label">${m.label}</span>
+                    <span class="mission-reward">+${m.reward}🪙</span>
+                </div>`;
+            }).join('')}
+        </div>
+        ${data.allDone ? '<p class="text-xs-secondary text-center mt-10">🎉 모든 미션을 달성했어요! 내일 새로운 미션이 열립니다.</p>' : '<p class="text-xs-secondary text-center mt-10">미션을 완료할 때마다 코인이 적립됩니다.</p>'}
+    `;
+}
+
+function trackStatsView() {
+    if (!trackStatsView._count) trackStatsView._count = 0;
+    trackStatsView._count++;
+    if (trackStatsView._count >= 3 && typeof trackMission === 'function') trackMission('view_stats');
+}
+
 // ========== 접기/펼치기 ==========
 function toggleCollapsible(id) {
     const el = document.getElementById(id);
