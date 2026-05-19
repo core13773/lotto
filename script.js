@@ -41,7 +41,7 @@ let lottoDb = null;
 
 async function loadLatestJson() {
     try {
-        const resp = await fetch('latest.json?_=' + Date.now(), { cache: 'no-store' });
+        const resp = await fetch('latest.json', { cache: 'no-store' });
         if (resp.ok) {
             const data = await resp.json();
             if (Array.isArray(data) && data.length > 0) {
@@ -314,8 +314,7 @@ function extractLottoNumbersFromHtml(html) {
 }
 
 const CORS_PROXIES = [
-    'https://corsproxy.io/?',
-    'https://api.allorigins.win/raw?url='
+    'https://corsproxy.io/?'
 ];
 
 async function fetchLottoFromProxy(roundNo) {

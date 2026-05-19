@@ -125,12 +125,12 @@ function getDailyMissions() {
     return [m1, m2];
 }
 
-function getMissionData() {
+function getDailyMissionData() {
     try { return JSON.parse(localStorage.getItem('lotto-daily-missions') || '{"date":"","done":[]}'); } catch (e) { return { date: '', done: [] }; }
 }
 
 function completeMission(idx) {
-    const data = getMissionData();
+    const data = getDailyMissionData();
     if (data.done.includes(idx)) return;
     data.done.push(idx);
     try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {}
@@ -149,7 +149,7 @@ function renderDailyMissions() {
     const el = document.getElementById('dailyMissionsContent');
     if (!el) return;
     const today = getToday();
-    const data = getMissionData();
+    const data = getDailyMissionData();
     if (data.date !== today) { data.date = today; data.done = []; try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {} }
     const missions = getDailyMissions();
     el.innerHTML = missions.map((m, i) => {
@@ -1365,3 +1365,139 @@ function initAllFunFeatures() {
 
 // 자동 초기화
 initAllFunFeatures();
+
+// ========== 11. 답변의 책 ==========
+const BOOK_ANSWERS = [
+    // 긍정 / 격려 (실용적 조언)
+    { text: '지금이 바로 그때입니다. 망설이지 마세요.', icon: '✨', type: 'positive' },
+    { text: '당신의 선택은 옳은 방향으로 흐르고 있어요.', icon: '🧭', type: 'positive' },
+    { text: '좋은 결과가 기다리고 있습니다. 자신감을 가지세요.', icon: '🌟', type: 'positive' },
+    { text: '문이 열리고 있어요. 한 걸음 내딛으면 길이 보일 거예요.', icon: '🚪', type: 'positive' },
+    { text: '생각보다 훨씬 잘 풀릴 거예요. 너무 걱정하지 마세요.', icon: '🎈', type: 'positive' },
+    { text: '기회는 준비된 사람에게 옵니다. 당신은 준비되어 있어요.', icon: '🎯', type: 'positive' },
+    { text: '그 길로 가도 괜찮습니다. 모든 경험은 당신을 성장시킬 거예요.', icon: '🛤️', type: 'positive' },
+    { text: '지금 내리는 결정이 앞으로의 큰 변화를 가져올 거예요.', icon: '🦋', type: 'positive' },
+    { text: '당신의 직감을 믿으세요. 이미 답은 마음속에 있습니다.', icon: '💫', type: 'positive' },
+    { text: '주변의 도움이 곧 찾아올 거예요. 혼자가 아니에요.', icon: '🤝', type: 'positive' },
+    { text: '작은 행운이 쌓여 큰 기쁨이 될 거예요.', icon: '🍀', type: 'positive' },
+    { text: '도전해볼 만한 가치가 있어요. 실패보다 후회가 더 아프니까요.', icon: '💪', type: 'positive' },
+    { text: '지금은 조금 힘들어도, 곧 빛이 보일 거예요. 포기하지 마세요.', icon: '🌤️', type: 'positive' },
+    { text: '기대해도 좋아요. 곧 반가운 소식이 찾아올 거예요.', icon: '📬', type: 'positive' },
+    { text: '당신의 노력은 헛되지 않았어요. 곧 결실을 맺을 거예요.', icon: '🌾', type: 'positive' },
+    { text: '확신을 가지고 나아가세요. 우주가 당신을 응원하고 있어요.', icon: '🌌', type: 'positive' },
+    { text: '이 순간의 선택이 최선입니다. 뒤돌아보지 마세요.', icon: '🏃', type: 'positive' },
+    { text: '곧 명확한 답이 나타날 거예요. 조금만 더 기다려보세요.', icon: '🔮', type: 'positive' },
+    { text: '누군가에게 도움을 청해보세요. 뜻밖의 조언을 얻게 될 거예요.', icon: '💡', type: 'positive' },
+    { text: '당신이 걱정하는 일은 생각보다 잘 풀릴 거예요.', icon: '☮️', type: 'positive' },
+
+    // 신중 / 대기 (실용적)
+    { text: '지금은 때가 아니에요. 조금만 더 기다렸다 결정하세요.', icon: '⏳', type: 'neutral' },
+    { text: '아직 모든 정보가 모이지 않았어요. 섣부른 판단은 금물.', icon: '📋', type: 'neutral' },
+    { text: '한 걸음 물러서서 다시 바라보세요. 새로운 시야가 열릴 거예요.', icon: '🔭', type: 'neutral' },
+    { text: '결정을 서두르지 마세요. 시간이 당신 편이에요.', icon: '🕰️', type: 'neutral' },
+    { text: '이 질문은 조금 더 고민이 필요해 보여요. 내일 다시 물어봐 주세요.', icon: '📝', type: 'neutral' },
+    { text: '아니요, 지금은 움직이지 않는 편이 좋겠어요.', icon: '🛑', type: 'neutral' },
+    { text: '당장의 답보다 과정을 즐기는 게 중요해 보여요.', icon: '🌿', type: 'neutral' },
+    { text: '이 결정은 당신 혼자 하기엔 무거워요. 신뢰하는 사람과 상의하세요.', icon: '💬', type: 'neutral' },
+    { text: '확실해질 때까지 기다리세요. 의심이 있다면 아직 준비가 안 된 거예요.', icon: '⚖️', type: 'neutral' },
+    { text: '보이는 것만 믿지 마세요. 숨겨진 정보가 있을 수 있어요.', icon: '👁️', type: 'neutral' },
+    { text: '다른 방향을 고려해보는 건 어떨까요?', icon: '🔄', type: 'neutral' },
+    { text: '조금 더 시간을 두고 지켜보세요. 상황이 더 명확해질 거예요.', icon: '☕', type: 'neutral' },
+    { text: '욕심을 내려놓으면 오히려 길이 보일 거예요.', icon: '🎈', type: 'neutral' },
+    { text: '모든 질문에 답이 있는 건 아니에요. 때로는 흘러가는 대로 두는 것도 방법.', icon: '🍃', type: 'neutral' },
+    { text: '아직은 확신할 수 없어요. 다음 주에 다시 물어봐 주세요.', icon: '📅', type: 'neutral' },
+
+    // 신비로운 운세형
+    { text: '별들이 당신의 길을 부드럽게 비추고 있습니다.', icon: '⭐', type: 'mystic' },
+    { text: '달이 차오를 무렵, 당신이 원하는 답이 찾아올 거예요.', icon: '🌙', type: 'mystic' },
+    { text: '바람이 당신의 등 뒤에서 밀어주고 있어요. 순항할 거예요.', icon: '🌬️', type: 'mystic' },
+    { text: '우주가 당신에게 보내는 신호를 놓치지 마세요.', icon: '🌠', type: 'mystic' },
+    { text: '오래된 나무 아래에 답이 숨어 있어요. 자연 속에서 영감을 얻으세요.', icon: '🌳', type: 'mystic' },
+    { text: '태양이 떠오르는 방향으로 나아가세요. 거기에 길이 있습니다.', icon: '☀️', type: 'mystic' },
+    { text: '파도가 밀려왔다 밀려가듯, 모든 것은 제때 찾아옵니다.', icon: '🌊', type: 'mystic' },
+    { text: '당신의 수호별이 특별히 빛나는 밤이에요. 소원을 빌어보세요.', icon: '💫', type: 'mystic' },
+    { text: '나비가 날개를 펼치듯, 당신의 운도 펼쳐지고 있어요.', icon: '🦋', type: 'mystic' },
+    { text: '무지개 끝자락에 숨겨진 행운이 당신을 기다리고 있어요.', icon: '🌈', type: 'mystic' },
+    { text: '우연한 만남이 당신의 인생을 바꿀 거예요. 눈을 크게 뜨고 다니세요.', icon: '👀', type: 'mystic' },
+    { text: '네잎클로버가 당신 주변에 피어나고 있어요. 행운이 가까이 왔습니다.', icon: '🍀', type: 'mystic' },
+    { text: '과거의 당신이 지금의 당신에게 보내는 메시지: "잘하고 있어요."', icon: '💌', type: 'mystic' },
+    { text: '밤하늘의 가장 밝은 별이 당신의 이름을 부르고 있어요.', icon: '🌟', type: 'mystic' },
+    { text: '시간의 강은 항상 흘러요. 지금의 고민도 언젠가 추억이 될 거예요.', icon: '⏳', type: 'mystic' },
+    { text: '책 속에 적힌 오래된 지혜가 당신을 인도할 거예요.', icon: '📜', type: 'mystic' },
+    { text: '새벽 안개 속에서 길이 보일 거예요. 잠시 멈춰 서서 주위를 둘러보세요.', icon: '🌫️', type: 'mystic' },
+    { text: '우주는 당신이 생각하는 것보다 훨씬 더 큰 그림을 그리고 있어요.', icon: '🎨', type: 'mystic' },
+    { text: '당신이 놓친 작은 행운이 곧 되돌아올 거예요. 받을 준비를 하세요.', icon: '🪃', type: 'mystic' },
+    { text: '고요한 호수처럼 마음을 가라앉히면, 그 안에 답이 비칠 거예요.', icon: '🪷', type: 'mystic' },
+];
+
+function updateBookCharCount() {
+    const textarea = document.getElementById('bookQuestion');
+    const counter = document.getElementById('bookCharCount');
+    if (textarea && counter) {
+        const len = textarea.value.length;
+        counter.textContent = `${len} / 120자`;
+    }
+}
+
+function openBookOfAnswers() {
+    const question = document.getElementById('bookQuestion').value.trim();
+    if (!question) {
+        if (typeof showStatus === 'function') showStatus('warning', '📖 질문을 입력하고 책을 열어주세요.');
+        return;
+    }
+
+    const bookVisual = document.getElementById('bookVisual');
+    const openBtn = document.getElementById('openBookBtn');
+    const answerEl = document.getElementById('bookAnswer');
+    const answerText = document.getElementById('bookAnswerText');
+    const answerSub = document.getElementById('bookAnswerSub');
+    const answerIcon = document.getElementById('bookAnswerIcon');
+    const textarea = document.getElementById('bookQuestion');
+
+    // 책 펼쳐지는 연출
+    if (bookVisual) bookVisual.classList.add('opened');
+    if (openBtn) openBtn.classList.add('hidden');
+    if (textarea) textarea.disabled = true;
+
+    // 랜덤 답변 선택 (질문 길이 기반 시드 살짝 가미)
+    const seed = question.length;
+    const idx = (seed * 7 + Math.floor(Math.random() * BOOK_ANSWERS.length)) % BOOK_ANSWERS.length;
+    const answer = BOOK_ANSWERS[idx];
+
+    // 답변 표시 (약간의 지연 후 — 책 넘기는 느낌)
+    setTimeout(() => {
+        answerIcon.textContent = answer.icon;
+        answerText.textContent = answer.text;
+        // 타입별 서브 메시지
+        const subs = {
+            positive: '— 답변의 책이 당신에게 건네는 따뜻한 한 마디',
+            neutral: '— 때로는 기다림도 지혜입니다',
+            mystic: '— 우주가 당신에게 속삭이는 비밀',
+        };
+        answerSub.textContent = subs[answer.type] || subs.positive;
+        answerEl.classList.remove('hidden');
+
+        if (typeof playBeep === 'function') playBeep(800, 0.15);
+        if (typeof vibrate === 'function') vibrate(30);
+
+        // 통계 추적
+        if (typeof trackStatsView === 'function') trackStatsView();
+    }, 400);
+}
+
+function resetBookOfAnswers() {
+    const bookVisual = document.getElementById('bookVisual');
+    const openBtn = document.getElementById('openBookBtn');
+    const answerEl = document.getElementById('bookAnswer');
+    const textarea = document.getElementById('bookQuestion');
+    const answerText = document.getElementById('bookAnswerText');
+
+    if (bookVisual) bookVisual.classList.remove('opened');
+    if (openBtn) openBtn.classList.remove('hidden');
+    if (answerEl) answerEl.classList.add('hidden');
+    if (textarea) { textarea.disabled = false; textarea.value = ''; textarea.focus(); }
+    if (answerText) answerText.textContent = '';
+    updateBookCharCount();
+
+    if (typeof playBeep === 'function') playBeep(500, 0.05);
+}

@@ -262,7 +262,6 @@ function renderBarcodeView() {
     const container = document.getElementById('barcodeContainer');
     if (!container) return;
     const recent52 = lottoDb.slice(-52);
-    const latestRound = dataSet[dataSet.length - 1].round;
 
     let html = '<div class="barcode-legend"><span>■=당첨</span><span>○=보너스</span><span>□=미출현</span><span>←좌최신</span></div>';
     html += '<div class="barcode-grid">';
