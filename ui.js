@@ -52,12 +52,15 @@ const FONT_OPTIONS = {
     'Jua': "'Jua', sans-serif",
     'Nanum Pen Script': "'Nanum Pen Script', cursive",
     'Hi Melody': "'Hi Melody', cursive",
-    'Yeon Sung': "'Yeon Sung', cursive"
+    'Yeon Sung': "'Yeon Sung', cursive",
+    'Black Han Sans': "'Black Han Sans', sans-serif",
+    'Gowun Dodum': "'Gowun Dodum', sans-serif"
 };
 const FONT_ORDER = [
     'Noto Sans KR', 'Noto Serif KR', 'Nanum Gothic', 'Nanum Myeongjo',
     'IBM Plex Sans KR', 'Gothic A1', 'Dongle', 'Sunflower',
-    'Do Hyeon', 'Jua', 'Nanum Pen Script', 'Hi Melody', 'Yeon Sung'
+    'Do Hyeon', 'Jua', 'Nanum Pen Script', 'Hi Melody', 'Yeon Sung',
+    'Black Han Sans', 'Gowun Dodum'
 ];
 const FONT_LABELS = {
     'Noto Sans KR': 'Noto Sans KR (기본 산세리프)',
@@ -72,7 +75,9 @@ const FONT_LABELS = {
     'Jua': '주아 (부드러움)',
     'Nanum Pen Script': '나눔손글씨',
     'Hi Melody': 'Hi Melody (러블리)',
-    'Yeon Sung': '연성 (전통)'
+    'Yeon Sung': '연성 (전통)',
+    'Black Han Sans': '검은고딕 (임팩트)',
+    'Gowun Dodum': '고운돋움 (산뜻)'
 };
 
 function changeFont(fontName) {
