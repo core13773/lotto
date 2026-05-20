@@ -63,10 +63,10 @@ self.onmessage = function(e) {
             }
         }
 
-        // 동적 배치 크기 조정
+        // 동적 배치 크기 조정 (점진적 증가)
         const batchTime = performance.now() - batchStart;
-        if (batchTime < 30) batchSize = Math.min(batchSize * 2, 500000);
-        else if (batchTime > 300) batchSize = Math.max(batchSize / 2, 10000);
+        if (batchTime < 30) batchSize = Math.min(Math.floor(batchSize * 1.5), 200000);
+        else if (batchTime > 300) batchSize = Math.max(Math.floor(batchSize / 2), 10000);
 
         const elapsed = (Date.now() - startTime) / 1000;
         const progress = attempts / maxIterations;

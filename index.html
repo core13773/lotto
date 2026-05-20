@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://pagead2.googlesyndication.com; connect-src 'self' https://www.google-analytics.com https://pagead2.googlesyndication.com https://corsproxy.io https://cdn.jsdelivr.net; media-src 'self' https://www.youtube.com; frame-src 'self' https://www.youtube.com https://googleads.g.doubleclick.net; worker-src 'self' blob:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://pagead2.googlesyndication.com; connect-src 'self' https://www.google-analytics.com https://pagead2.googlesyndication.com https://cdn.jsdelivr.net; media-src 'self' https://www.youtube.com; frame-src 'self' https://www.youtube.com https://googleads.g.doubleclick.net; worker-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>로또645 — 로또 당첨번호 조회, 통계 분석, AI 예측 | 무료 로또 번호 추천</title>
     <meta name="description" content="로또645에서 최신 로또 당첨번호 조회, 역대 당첨번호 통계 분석, 몬테카를로 시뮬레이션 기반 AI 로또 예측, 무료 로또 번호 추천을 제공합니다.">
@@ -54,6 +54,32 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4794002106764884" crossorigin="anonymous"></script>
 </head>
 <body>
+    <noscript>
+        <div style="max-width:900px;margin:40px auto;padding:40px;background:#12122a;border-radius:20px;border:1px solid rgba(255,255,255,0.08);text-align:center;font-family:sans-serif;color:#fff;">
+            <h1 style="color:#ffd700;margin-bottom:20px;">🎰 로또 645 AI 예측 시스템</h1>
+            <p style="color:#a0a0c0;margin-bottom:20px;line-height:1.8;">
+                로또 당첨번호 조회, 역대 통계 분석, 몬테카를로 시뮬레이션 기반 AI 예측을 제공하는 무료 웹사이트입니다.
+            </p>
+            <p style="color:#a0a0c0;margin-bottom:15px;">
+                JavaScript를 활성화하시면 모든 기능을 이용하실 수 있습니다.
+            </p>
+            <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:20px;margin:20px 0;text-align:left;display:inline-block;">
+                <h3 style="color:#00f5ff;margin-bottom:10px;">주요 기능</h3>
+                <ul style="color:#a0a0c0;list-style:none;padding:0;line-height:2;">
+                    <li>🔍 최신 로또 당첨번호 조회</li>
+                    <li>🤖 몬테카를로 시뮬레이션 기반 AI 예측</li>
+                    <li>📊 번호 빈도·핫콜드·차트·바코드 통계</li>
+                    <li>🎮 미니 게임존 & Fun Zone</li>
+                </ul>
+            </div>
+            <p style="margin-top:20px;">
+                <a href="privacy.html" style="color:#00f5ff;">개인정보 처리방침 / 이용약관</a>
+            </p>
+            <p style="color:#a0a0c0;font-size:0.8rem;margin-top:15px;">
+                ⚠️ 로또는 독립 확률 게임입니다. 이 도구는 통계적 참고용이며 당첨을 보장하지 않습니다.
+            </p>
+        </div>
+    </noscript>
     <div class="onboarding-overlay" id="onboardingOverlay" role="dialog" aria-modal="true" aria-label="이용 안내">
         <div class="onboarding-card">
             <div class="onboarding-header">
@@ -753,26 +779,6 @@
     <script src="ui.js?v=3"></script>
     <script src="script.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            var FORCE_RELOAD = !sessionStorage.getItem('sw-cleared');
-            // 기존 서비스 워커 + 캐시 완전 초기화
-            caches.keys().then(function(keys) {
-                return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-            }).then(function() {
-                return navigator.serviceWorker.getRegistrations();
-            }).then(function(regs) {
-                return Promise.all(regs.map(function(r) { return r.unregister(); }));
-            }).then(function() {
-                if (FORCE_RELOAD) {
-                    sessionStorage.setItem('sw-cleared', '1');
-                    window.location.reload();
-                } else {
-                    sessionStorage.removeItem('sw-cleared');
-                    navigator.serviceWorker.register('sw.js?v=9');
-                }
-            });
-        }
-    </script>
+    <script src="sw-register.js"></script>
 </body>
 </html>

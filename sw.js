@@ -1,5 +1,11 @@
-const CACHE = 'lotto645-v9';
-const FILES = ['./', './index.html', './privacy.html', './robots.txt', './sitemap.xml', './style.css?v=2', './analysis.js?v=3', './stats.js?v=3', './simulation.js?v=3', './ui.js?v=3', './features.js?v=3', './fun.js?v=1', './fun2.js?v=1', './fun3.js?v=1', './games.js?v=1', './script.js?v=4', './worker.js', './manifest.json', './icon-192.png', './icon-512.png', './latest.json'];
+const CACHE = 'lotto645-v10';
+const FILES = [
+    './', './index.html', './privacy.html', './robots.txt', './sitemap.xml',
+    './style.css', './analysis.js', './stats.js', './simulation.js', './ui.js',
+    './features.js', './fun.js', './fun2.js', './fun3.js', './games.js',
+    './script.js', './worker.js', './sw-register.js',
+    './manifest.json', './icon-192.png', './icon-512.png', './latest.json'
+];
 
 self.addEventListener('install', e => {
     self.skipWaiting();
@@ -18,16 +24,37 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-    // 네트워크 우선, 실패 시 캐시 폴백
+    const url = new URL(e.request.url);
+    // 쿼리스트링을 제외한 캐시 키 사용 (버전 파라미터 무시)
+    const cacheKey = url.origin + url.pathname;
+
+    // latest.json은 항상 네트워크 우선 (실시간 데이터)
+    if (url.pathname.endsWith('/latest.json')) {
+        e.respondWith(
+            fetch(e.request)
+                .then(resp => {
+                    if (resp.ok) {
+                        const clone = resp.clone();
+                        caches.open(CACHE).then(c => c.put(cacheKey, clone));
+                    }
+                    return resp;
+                })
+                .catch(() => caches.match(cacheKey))
+        );
+        return;
+    }
+
+    // 정적 자산: 캐시 우선, 캐시 미스 시 네트워크
     e.respondWith(
-        fetch(e.request)
-            .then(resp => {
+        caches.match(cacheKey).then(cached => {
+            if (cached) return cached;
+            return fetch(e.request).then(resp => {
                 if (resp.ok && resp.type === 'basic') {
                     const clone = resp.clone();
-                    caches.open(CACHE).then(c => c.put(e.request, clone));
+                    caches.open(CACHE).then(c => c.put(cacheKey, clone));
                 }
                 return resp;
-            })
-            .catch(() => caches.match(e.request))
+            });
+        })
     );
 });

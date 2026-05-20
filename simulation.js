@@ -725,7 +725,7 @@ function saveCustomPrediction(numbers, score, grade) {
         grade
     });
     if (saved.length > 50) saved.length = 50;
-    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    try { localStorage.setItem('lotto-predictions', JSON.stringify(saved)); } catch (e) {}
     loadSavedPredictions();
     showStatus('success', '💾 수동 조합이 저장되었습니다!');
     playBeep(600, 0.08);
@@ -742,7 +742,7 @@ function saveSimPrediction(numbers, score, grade, attempts, elapsed) {
         grade
     });
     if (saved.length > 50) saved.length = 50;
-    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    try { localStorage.setItem('lotto-predictions', JSON.stringify(saved)); } catch (e) {}
     loadSavedPredictions();
     showStatus('success', '💾 시뮬레이션 결과가 저장되었습니다!');
     playBeep(600, 0.08);

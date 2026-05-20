@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /__pycache__/
 Sitemap: https://123lotto.co.kr/sitemap.xml

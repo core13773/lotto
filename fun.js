@@ -639,7 +639,7 @@ function trackRetroUse() { unlockAchievement('retro_used'); }
 function trackPhotoUse() { unlockAchievement('photo_numbers'); }
 function trackWheelSpin() {
     const spins = (parseInt(localStorage.getItem('lotto-wheel-spins') || '0')) + 1;
-    localStorage.setItem('lotto-wheel-spins', spins);
+    try { localStorage.setItem('lotto-wheel-spins', spins); } catch (e) {}
     if (spins >= 10) unlockAchievement('wheel_spin_10');
 }
 function trackDreamUse() { unlockAchievement('dream_used'); }
@@ -768,7 +768,7 @@ function spinWheel() {
     }
 
     // 결과 저장
-    localStorage.setItem('lotto-last-wheel-spin', getToday());
+    try { localStorage.setItem('lotto-last-wheel-spin', getToday()); } catch (e) {}
     trackWheelSpin();
 
     if (prize.coins > 0) {

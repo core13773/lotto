@@ -3,15 +3,6 @@ let currentWinningNumbers = null, currentBonusNumber = null, currentRound = null
 const LOCAL_PROXY = 'http://localhost:3456';
 const LOTTO_TOTAL_COMBINATIONS = 8145060;
 
-// 구형 브라우저 AbortSignal.timeout 폴백
-if (!AbortSignal.timeout) {
-    AbortSignal.timeout = function(ms) {
-        const controller = new AbortController();
-        setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), ms);
-        return controller.signal;
-    };
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const latestRound = calculateLatestRound();
     const roundInput = document.getElementById('roundInput');
@@ -90,7 +81,7 @@ function savePrediction() {
     const saved = getSavedPredictions();
     saved.unshift({ date: new Date().toLocaleString('ko-KR'), round: currentRound || '-', numbers, meta, score, grade });
     if (saved.length > 50) saved.length = 50;
-    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    try { localStorage.setItem('lotto-predictions', JSON.stringify(saved)); } catch (e) {}
     loadSavedPredictions();
     showStatus('success', '💾 예측 결과가 저장되었습니다!');
     if (typeof trackMission === 'function') trackMission('save_prediction');
@@ -160,14 +151,14 @@ function loadSavedPrediction(index) {
 function deleteSavedPrediction(index) {
     const saved = getSavedPredictions();
     saved.splice(index, 1);
-    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    try { localStorage.setItem('lotto-predictions', JSON.stringify(saved)); } catch (e) {}
     loadSavedPredictions();
     showStatus('success', '🗑️ 삭제되었습니다.');
 }
 
 function clearSavedPredictions() {
     if (confirm('모든 저장된 예측 결과를 삭제하시겠습니까?')) {
-        localStorage.removeItem('lotto-predictions');
+        try { localStorage.removeItem('lotto-predictions'); } catch (e) {}
         loadSavedPredictions();
         showStatus('success', '🗑️ 모두 삭제되었습니다.');
     }
@@ -177,7 +168,7 @@ function saveSmartPrediction(numbers, score, meta) {
     const saved = getSavedPredictions();
     saved.unshift({ date: new Date().toLocaleString('ko-KR'), round: currentRound || '-', numbers, meta: `스마트 추천 | ${meta}`, score, grade: score >= 70 ? '최상' : score >= 50 ? '양호' : '보통' });
     if (saved.length > 50) saved.length = 50;
-    localStorage.setItem('lotto-predictions', JSON.stringify(saved));
+    try { localStorage.setItem('lotto-predictions', JSON.stringify(saved)); } catch (e) {}
     loadSavedPredictions();
     showStatus('success', '💾 스마트 추천 결과가 저장되었습니다!');
     playBeep(600, 0.08);
@@ -237,7 +228,7 @@ function handleSharedPrediction() {
 
 function calculateLatestRound() {
     const now = new Date();
-    const kstNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
+    const kstNow = new Date(now.getTime() + 9 * 3600000);
     const kstDay = kstNow.getUTCDay();
     const kstHours = kstNow.getUTCHours();
     const firstDraw = Date.UTC(2002, 11, 7, 12, 0, 0);
@@ -285,13 +276,17 @@ function renderBalls(numbers, containerId, bonus = null) {
 }
 
 async function fetchFromLocalProxy(roundNo) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
-        const resp = await fetch(`${LOCAL_PROXY}/api/lotto?round=${roundNo}`, { signal: AbortSignal.timeout(8000) });
+        const resp = await fetch(`${LOCAL_PROXY}/api/lotto?round=${roundNo}`, { signal: controller.signal });
+        clearTimeout(timer);
         if (resp.ok) {
             const data = await resp.json();
             if (data.numbers) return data;
         }
     } catch (e) {}
+    finally { clearTimeout(timer); }
     return null;
 }
 
@@ -313,21 +308,23 @@ function extractLottoNumbersFromHtml(html) {
     return { numbers: nums.sort((a, b) => a - b), bonus };
 }
 
-const CORS_PROXIES = [
-    'https://corsproxy.io/?'
-];
+const CORS_PROXIES = [];
 
 async function fetchLottoFromProxy(roundNo) {
     const url = `https://search.naver.com/search.naver?where=nexearch&query=${roundNo}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8`;
     for (const proxy of CORS_PROXIES) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
         try {
-            const resp = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+            const resp = await fetch(proxy + encodeURIComponent(url), { signal: controller.signal });
+            clearTimeout(timer);
             if (resp.ok) {
                 const html = await resp.text();
                 const result = extractLottoNumbersFromHtml(html);
                 if (result) return result;
             }
         } catch (e) { continue; }
+        finally { clearTimeout(timer); }
     }
     return null;
 }
