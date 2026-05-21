@@ -67,7 +67,7 @@ function onDiceComplete() {
                 </div>
                 ${score ? `
                 <div class="game-score-card">
-                    <div class="game-score-main">${score.totalScore}点</div>
+                    <div class="game-score-main">${score.totalScore}점</div>
                     <div class="game-score-grade" style="color:${score.totalScore>=75?'var(--grade-excellent)':score.totalScore>=60?'var(--grade-good)':'var(--grade-normal)'}">${score.grade}</div>
                     <div class="game-score-detail">합계 ${analysis.sum} · AC ${analysis.ac} · ${analysis.oddEvenRatio} · ${analysis.lowHighRatio}</div>
                 </div>` : ''}
