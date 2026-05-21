@@ -1,4 +1,4 @@
-// dice.js — 주사위 존: 요트, 듀얼, 보드게임, 점괘, 번호생성기, 복불복 챌린지
+// dice.js — 주사위 존: 매치, 듀얼, 보드게임, 점괘, 번호생성기, 푸시유어럭
 let currentDiceTab = 'yacht';
 let diceCollected = [];
 const DICE_TARGET = 6;
@@ -140,27 +140,9 @@ function drawDieFace(ctx, x, y, size, value, held) {
 }
 
 // ===================================================================
-// 1. 🎲 주사위 요트 (Dice Yacht)
+// 1. 🎲 주사위 매치 (Dice Match) — 같은 눈 모으기
 // ===================================================================
-// 족보 카테고리 (renderYachtScorecard + scoreYacht 공유)
-const YACHT_CATS = [
-    { key: 'aces', label: 'Aces (1)', icon: '⚀', calc: d => d.filter(v => v === 1).length * 1 },
-    { key: 'deuces', label: 'Deuces (2)', icon: '⚁', calc: d => d.filter(v => v === 2).length * 2 },
-    { key: 'threes', label: 'Threes (3)', icon: '⚂', calc: d => d.filter(v => v === 3).length * 3 },
-    { key: 'fours', label: 'Fours (4)', icon: '⚃', calc: d => d.filter(v => v === 4).length * 4 },
-    { key: 'fives', label: 'Fives (5)', icon: '⚄', calc: d => d.filter(v => v === 5).length * 5 },
-    { key: 'sixes', label: 'Sixes (6)', icon: '⚅', calc: d => d.filter(v => v === 6).length * 6 },
-    { key: 'choice', label: 'Choice', icon: '🎯', calc: d => d.reduce((a, b) => a + b, 0) },
-    { key: 'fourKind', label: '4 of a Kind', icon: '💎', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); return Object.values(cnt).some(c => c >= 4) ? d.reduce((a,b)=>a+b,0) : 0; }},
-    { key: 'fullHouse', label: 'Full House', icon: '🏠', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); const vals = Object.values(cnt); return (vals.includes(3) && vals.includes(2)) ? 25 : 0; }},
-    { key: 'sStraight', label: 'S. Straight', icon: '📈', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); for(let i=0;i<=s.length-4;i++) if(s[i+3]-s[i]===3) return 30; return 0; }},
-    { key: 'lStraight', label: 'L. Straight', icon: '🚀', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); return s.length===5 && (s[4]-s[0]===4) ? 40 : 0; }},
-    { key: 'yacht', label: 'YACHT!', icon: '👑', calc: d => new Set(d).size === 1 ? 50 : 0 },
-];
-const YACHT_CATS_MAP = {};
-YACHT_CATS.forEach(c => { YACHT_CATS_MAP[c.key] = c.calc; });
-
-let yachtState = null;
+let matchState = null;
 
 function initYacht() {
     stopDice();
@@ -168,23 +150,22 @@ function initYacht() {
     const el = document.getElementById('diceContentYacht');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🎲 주사위 5개를 최대 <strong>3회</strong> 굴려 족보를 완성하세요! 족보 점수를 합산해 번호를 받습니다.</div>
+        <div class="game-info-box">🎲 주사위 5개를 <strong>최대 3회</strong> 굴려 같은 숫자를 많이 만드세요!<br>같은 눈이 많을수록 좋은 번호를 받습니다.</div>
         <canvas id="yachtCanvas" width="440" height="130"></canvas>
-        <div id="yachtRollInfo" style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin:5px 0;">남은 굴림: 3회</div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0;" id="yachtControls">
-            <button class="btn btn-gold" onclick="rollYachtDice()" id="yachtRollBtn" style="padding:8px 24px;">🎲 주사위 굴리기</button>
+        <div id="yachtRollInfo" style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin:5px 0;">주사위를 터치해서 킵(유지)할 수 있어요 · 남은 굴림: 3회</div>
+        <div id="matchResult" style="text-align:center;min-height:30px;font-weight:700;font-size:1rem;margin:5px 0;"></div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0;">
+            <button class="btn btn-gold" onclick="rollMatchDice()" id="yachtRollBtn" style="padding:8px 24px;">🎲 굴리기 (3회)</button>
+            <button class="btn btn-primary" onclick="collectMatch()" id="matchCollectBtn" style="padding:8px 24px;display:none;">📋 번호 받기</button>
         </div>
-        <div class="yacht-scorecard" id="yachtScorecard"></div>
     `;
-    yachtState = { dice: [1,1,1,1,1], held: [false,false,false,false,false], rollsLeft: 3, scores: {}, turn: 0 };
+    matchState = { dice: [1,1,1,1,1], held: [false,false,false,false,false], rollsLeft: 3 };
 
-    // 캔버스 클릭 → 홀드 (탭 전환 시 이전 리스너는 innerHTML 교체로 자연 소멸)
     const canvas = document.getElementById('yachtCanvas');
     if (canvas) {
         canvas.onclick = function(e) {
-            if (!yachtState || yachtState.rollsLeft >= 3) return;
+            if (!matchState || matchState.rollsLeft >= 3) return;
             const rect = canvas.getBoundingClientRect();
-            // CSS max-width:100% 축소 보정
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const mx = (e.clientX - rect.left) * scaleX;
@@ -193,21 +174,19 @@ function initYacht() {
             if (!rects) return;
             rects.forEach(r => {
                 if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
-                    yachtState.held[r.idx] = !yachtState.held[r.idx];
+                    matchState.held[r.idx] = !matchState.held[r.idx];
                     renderYachtDice();
-                    renderYachtScorecard();
                     if (typeof playBeep === 'function') playBeep(500, 0.05);
                 }
             });
         };
     }
     renderYachtDice();
-    renderYachtScorecard();
 }
 
 function renderYachtDice() {
     const canvas = document.getElementById('yachtCanvas');
-    if (!canvas || !yachtState) return;
+    if (!canvas || !matchState) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
@@ -215,65 +194,64 @@ function renderYachtDice() {
     ctx.beginPath(); ctx.roundRect(5, 5, w - 10, h - 10, 12); ctx.fill();
 
     const dieSize = 62, spacing = 78, startX = 55, y = h / 2;
-    yachtState.dice.forEach((v, i) => {
+    matchState.dice.forEach((v, i) => {
         const x = startX + i * spacing;
-        drawDieFace(ctx, x, y, dieSize, v, yachtState.held[i]);
+        drawDieFace(ctx, x, y, dieSize, v, matchState.held[i]);
     });
 
-    canvas._diceRects = yachtState.dice.map((_, i) => {
+    canvas._diceRects = matchState.dice.map((_, i) => {
         const x = startX + i * spacing;
         return { x: x - dieSize/2, y: y - dieSize/2, w: dieSize, h: dieSize, idx: i };
     });
 }
 
-function rollYachtDice() {
-    if (!yachtState || yachtState.rollsLeft <= 0) return;
-    yachtState.dice = yachtState.dice.map((v, i) => yachtState.held[i] ? v : Math.floor(Math.random() * 6) + 1);
-    yachtState.rollsLeft--;
+function rollMatchDice() {
+    if (!matchState || matchState.rollsLeft <= 0) return;
+    matchState.dice = matchState.dice.map((v, i) => matchState.held[i] ? v : Math.floor(Math.random() * 6) + 1);
+    matchState.rollsLeft--;
     const infoEl = document.getElementById('yachtRollInfo');
-    if (infoEl) infoEl.textContent = `남은 굴림: ${yachtState.rollsLeft}회`;
+    const btn = document.getElementById('yachtRollBtn');
+    const collectBtn = document.getElementById('matchCollectBtn');
+    if (infoEl) infoEl.textContent = `주사위를 터치해서 킵할 수 있어요 · 남은 굴림: ${matchState.rollsLeft}회`;
+    if (btn) btn.textContent = matchState.rollsLeft > 0 ? `🎲 굴리기 (${matchState.rollsLeft}회)` : '✅ 굴림 완료';
+    if (collectBtn) collectBtn.style.display = 'inline-flex';
     renderYachtDice();
+    showMatchResult();
     if (typeof playBeep === 'function') playBeep(400 + Math.random() * 200, 0.08);
-    if (yachtState.rollsLeft <= 0) {
-        const btn = document.getElementById('yachtRollBtn');
-        if (btn) btn.textContent = '📋 점수 기록하기';
-    }
 }
 
-function renderYachtScorecard() {
-    const el = document.getElementById('yachtScorecard');
-    if (!el || !yachtState) return;
+function showMatchResult() {
+    if (!matchState) return;
+    const resultEl = document.getElementById('matchResult');
+    if (!resultEl) return;
+    const cnt = {};
+    matchState.dice.forEach(v => cnt[v] = (cnt[v]||0)+1);
+    const maxMatch = Math.max(...Object.values(cnt));
+    const matchNum = Object.entries(cnt).find(([,c]) => c === maxMatch)?.[0] || '?';
 
-    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px;margin-top:10px;">';
-    YACHT_CATS.forEach(c => {
-        const used = yachtState.scores[c.key] !== undefined;
-        const score = used ? yachtState.scores[c.key] : (yachtState.rollsLeft < 3 ? c.calc(yachtState.dice) : '-');
-        const canUse = !used && yachtState.rollsLeft < 3;
-        html += `<div class="yacht-cat ${used ? 'used' : ''} ${canUse ? 'clickable' : ''}"
-            ${canUse ? `onclick="scoreYacht('${c.key}')"` : ''}
-            style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:0.8rem;${canUse?'cursor:pointer;border:1px solid rgba(255,215,0,0.3);':''}${used?'opacity:0.5;':''}">
-            <span>${c.icon} ${c.label}</span>
-            <span style="font-weight:700;color:${used?'var(--text-secondary)':'var(--accent-gold)'};">${used ? score : (canUse ? score : '-')}</span>
-        </div>`;
-    });
-    html += '</div>';
-    el.innerHTML = html;
+    const levels = {
+        5: { label: '올 주사위 일치! 👑', color: '#ffd700', zone: '35~45' },
+        4: { label: '4개 일치! 💎', color: '#a78bfa', zone: '25~35' },
+        3: { label: '3개 일치! ⭐', color: '#60a5fa', zone: '15~25' },
+        2: { label: '2개 일치 (페어)', color: '#9ca3af', zone: '5~15' },
+        1: { label: '모두 다름', color: 'var(--text-secondary)', zone: '1~10' },
+    };
+    const level = levels[maxMatch] || levels[1];
+    resultEl.innerHTML = `<span style="color:${level.color};">${level.label}</span> <span style="font-size:0.8rem;color:var(--text-secondary);">→ ${level.zone}번대 번호</span>`;
 }
 
-function scoreYacht(key) {
-    if (!yachtState || yachtState.scores[key] !== undefined) return;
-    const calcFn = YACHT_CATS_MAP[key];
-    if (!calcFn) return;
+function collectMatch() {
+    if (!matchState) return;
+    const cnt = {};
+    matchState.dice.forEach(v => cnt[v] = (cnt[v]||0)+1);
+    const maxMatch = Math.max(...Object.values(cnt));
 
-    yachtState.scores[key] = calcFn(yachtState.dice);
-    yachtState.turn++;
-
-    const scoreVal = yachtState.scores[key];
     let num;
-    if (scoreVal >= 40) num = Math.floor(Math.random() * 6) + 35;
-    else if (scoreVal >= 20) num = Math.floor(Math.random() * 10) + 21;
-    else if (scoreVal >= 10) num = Math.floor(Math.random() * 10) + 11;
-    else num = Math.floor(Math.random() * 10) + 1;
+    if (maxMatch >= 5) num = Math.floor(Math.random() * 6) + 40;
+    else if (maxMatch >= 4) num = Math.floor(Math.random() * 10) + 30;
+    else if (maxMatch >= 3) num = Math.floor(Math.random() * 10) + 20;
+    else if (maxMatch >= 2) num = Math.floor(Math.random() * 10) + 10;
+    else num = Math.floor(Math.random() * 9) + 1;
 
     const avail = getAvailable(diceCollected);
     if (avail.length > 0) {
@@ -281,22 +259,26 @@ function scoreYacht(key) {
     }
     addDiceCollected(num);
 
-    yachtState.dice = [1,1,1,1,1];
-    yachtState.held = [false,false,false,false,false];
-    yachtState.rollsLeft = 3;
+    // 리셋
+    matchState.dice = [1,1,1,1,1];
+    matchState.held = [false,false,false,false,false];
+    matchState.rollsLeft = 3;
     const infoEl = document.getElementById('yachtRollInfo');
     const btn = document.getElementById('yachtRollBtn');
-    if (infoEl) infoEl.textContent = '남은 굴림: 3회';
-    if (btn) btn.textContent = '🎲 주사위 굴리기';
+    const collectBtn = document.getElementById('matchCollectBtn');
+    const resultEl = document.getElementById('matchResult');
+    if (infoEl) infoEl.textContent = '주사위를 터치해서 킵할 수 있어요 · 남은 굴림: 3회';
+    if (btn) btn.textContent = '🎲 굴리기 (3회)';
+    if (collectBtn) collectBtn.style.display = 'none';
+    if (resultEl) resultEl.innerHTML = '';
     renderYachtDice();
-    renderYachtScorecard();
 
+    if (diceCollected.length >= DICE_TARGET) {
+        if (btn) btn.disabled = true;
+        if (collectBtn) collectBtn.style.display = 'none';
+    }
     if (typeof playBeep === 'function') playBeep(800, 0.12);
     if (typeof vibrate === 'function') vibrate(30);
-
-    if (Object.keys(yachtState.scores).length >= YACHT_CATS.length) {
-        if (btn) { btn.disabled = true; btn.textContent = '게임 완료!'; }
-    }
 }
 
 // ===================================================================
@@ -881,122 +863,127 @@ function useGenNumbers(numbers) {
 }
 
 // ===================================================================
-// 6. 🍀 복불복 주사위 챌린지 (Dice Lucky Challenge)
+// 6. 🎲 푸시 유어 럭 (Push Your Luck)
 // ===================================================================
-let _challengeHistoryCache = null;
-
-function getChallengeHistory() {
-    if (_challengeHistoryCache) return _challengeHistoryCache;
-    try { _challengeHistoryCache = JSON.parse(localStorage.getItem('dice-challenge-history') || '[]'); } catch(e) { _challengeHistoryCache = []; }
-    return _challengeHistoryCache;
-}
+let pushLuckState = null;
 
 function initChallenge() {
     stopDice();
     const el = document.getElementById('diceContentChallenge');
     if (!el) return;
-
-    const today = new Date().toISOString().slice(0, 10);
-    const usedToday = localStorage.getItem('dice-challenge-date') === today;
-    const history = getChallengeHistory();
-
     el.innerHTML = `
-        <div class="game-info-box">🍀 하루 한 번! 주사위를 굴려 <strong>코인, 번호, 도감 등록</strong> 등 다양한 보상을 받으세요!</div>
-        <canvas id="challengeCanvas" width="200" height="120"></canvas>
-        <div id="challengeResult" style="text-align:center;min-height:60px;"></div>
-        <button class="btn btn-gold" onclick="rollChallenge()" id="challengeBtn" style="width:100%;" ${usedToday?'disabled':''}>
-            ${usedToday ? '✅ 오늘 챌린지 완료! (내일 다시)' : '🎲 주사위 던지기!'}
-        </button>
-        ${history.length > 0 ? `
-            <div style="margin-top:12px;font-size:0.75rem;color:var(--text-secondary);">
-                최근: ${history.slice(-5).reverse().map(h => `<span style="margin:0 4px;">${h}</span>`).join('')}
-            </div>
-        ` : ''}
+        <div class="game-info-box">🎲 주사위 2개를 굴려 점수를 쌓으세요!<br>언제든 <strong>멈추면</strong> 번호를 받지만, <strong style="color:#ef4444;">1</strong>이 나오면 이번 판은 무효!</div>
+        <canvas id="challengeCanvas" width="260" height="130"></canvas>
+        <div id="challengeRoundScore" style="text-align:center;min-height:28px;font-size:1rem;font-weight:700;color:var(--accent-gold);"></div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0;">
+            <button class="btn btn-gold" onclick="pushLuckRoll()" id="challengeRollBtn" style="padding:8px 24px;">🎲 굴리기</button>
+            <button class="btn btn-primary" onclick="pushLuckBank()" id="challengeBankBtn" style="padding:8px 24px;display:none;">💰 은행에 넣기</button>
+        </div>
+        <div id="challengeTotal" style="text-align:center;font-size:0.85rem;color:var(--text-secondary);"></div>
     `;
-
-    const canvas = document.getElementById('challengeCanvas');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath(); ctx.roundRect(5, 5, 190, 110, 12); ctx.fill();
-        drawDieFace(ctx, 100, 60, 70, 1, false);
-    }
+    pushLuckState = { roundScore: 0, canRoll: true, totalBanks: 0 };
+    renderPushLuckDice(1, 1);
+    document.getElementById('challengeTotal').textContent = '모은 번호: 아직 없음';
 }
 
-function rollChallenge() {
-    const today = new Date().toISOString().slice(0, 10);
-    if (localStorage.getItem('dice-challenge-date') === today) return;
+function renderPushLuckDice(d1, d2) {
+    const canvas = document.getElementById('challengeCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.roundRect(5, 5, 250, 120, 12); ctx.fill();
+    drawDieFace(ctx, 80, 65, 60, d1, false);
+    drawDieFace(ctx, 180, 65, 60, d2, false);
+}
 
-    localStorage.setItem('dice-challenge-date', today);
-    const btn = document.getElementById('challengeBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '🎲 굴리는 중...'; }
+function pushLuckRoll() {
+    if (!pushLuckState) return;
+    if (diceCollected.length >= DICE_TARGET) return;
 
-    const roll = Math.floor(Math.random() * 6) + 1;
-
-    const rewards = {
-        1: { icon: '🪙', text: '기본 코인!', reward: '+2 🪙', coins: 2, color: 'var(--text-secondary)' },
-        2: { icon: '📚', text: '도감 등록!', reward: '랜덤 번호 도감', coins: 1, color: 'var(--accent-cyan)', collection: true },
-        3: { icon: '🪙', text: '코인 획득!', reward: '+4 🪙', coins: 4, color: 'var(--accent-gold)' },
-        4: { icon: '🔍', text: '번호 공개!', reward: '행운 번호 1개', coins: 1, color: 'var(--accent-cyan)', number: true },
-        5: { icon: '🎁', text: '럭키 보너스!', reward: '+3 🪙 + 도감', coins: 3, color: 'var(--accent-gold)', collection: true },
-        6: { icon: '👑', text: '잭팟!', reward: '+7 🪙 + 번호 2개', coins: 7, color: '#ffd700', number: true, collection: true },
-    };
-
-    const r = rewards[roll];
-
-    if (r.coins > 0 && typeof getCheckinData === 'function' && typeof saveCheckinData === 'function') {
-        const checkin = getCheckinData();
-        checkin.coins = (checkin.coins || 0) + r.coins;
-        saveCheckinData(checkin);
+    // 버스트 후 "다시 시작"
+    if (!pushLuckState.canRoll && pushLuckState.roundScore === 0) {
+        pushLuckState.canRoll = true;
+        const rollBtn = document.getElementById('challengeRollBtn');
+        const roundEl = document.getElementById('challengeRoundScore');
+        if (rollBtn) { rollBtn.textContent = '🎲 굴리기'; rollBtn.classList.add('btn-gold'); rollBtn.classList.remove('btn-secondary'); }
+        if (roundEl) roundEl.innerHTML = '';
+        renderPushLuckDice(1, 1);
+        return;
     }
-    let extraHtml = '';
-    if (r.collection && typeof addToCollection === 'function' && typeof getCollection === 'function') {
-        const coll = getCollection();
-        const avail = getAvailable(coll);
-        if (avail.length > 0) {
-            const newNum = avail[Math.floor(Math.random() * avail.length)];
-            addToCollection(newNum);
-            extraHtml += `<p style="font-size:0.8rem;color:var(--accent-cyan);margin-top:5px;">📚 도감에 ${newNum}번 등록!</p>`;
-        }
+    if (!pushLuckState.canRoll) return;
+
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    renderPushLuckDice(d1, d2);
+
+    const roundEl = document.getElementById('challengeRoundScore');
+    const totalEl = document.getElementById('challengeTotal');
+    const rollBtn = document.getElementById('challengeRollBtn');
+    const bankBtn = document.getElementById('challengeBankBtn');
+
+    if (d1 === 1 || d2 === 1) {
+        // 버스트!
+        const bothOne = d1 === 1 && d2 === 1;
+        if (roundEl) roundEl.innerHTML = bothOne
+            ? '<span style="color:#ef4444;">💥 스네이크 아이즈! 모든 것이 날아갔습니다...</span>'
+            : `<span style="color:#ef4444;">💨 ${pushLuckState.roundScore}점이 증발! 1이 나왔어요</span>`;
+        pushLuckState.roundScore = 0;
+        pushLuckState.canRoll = false;
+        if (rollBtn) { rollBtn.textContent = '🔄 다시 시작'; rollBtn.classList.add('btn-secondary'); rollBtn.classList.remove('btn-gold'); }
+        if (bankBtn) bankBtn.style.display = 'none';
+        if (typeof playBeep === 'function') playBeep(200, 0.3);
+        if (typeof vibrate === 'function') vibrate([30, 50, 30]);
+        return;
     }
-    if (r.number) {
-        const avail = getAvailable(typeof getCollection === 'function' ? getCollection() : []);
-        const num = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : Math.floor(Math.random()*45)+1;
-        extraHtml += `<p style="font-size:0.8rem;color:var(--accent-gold);margin-top:3px;">🎱 행운 번호: <span class="ball ${typeof getBallClass==='function'?getBallClass(num):''}" style="width:32px;height:32px;line-height:32px;font-size:0.8rem;">${num}</span></p>`;
+
+    const sum = d1 + d2;
+    pushLuckState.roundScore += sum;
+    if (roundEl) roundEl.innerHTML = `이번 판: <span style="color:var(--accent-gold);font-size:1.3rem;">${pushLuckState.roundScore}점</span> (방금 +${sum})`;
+    if (bankBtn) bankBtn.style.display = 'inline-flex';
+    if (typeof playBeep === 'function') playBeep(600, 0.1);
+    if (typeof vibrate === 'function') vibrate(15);
+}
+
+function pushLuckBank() {
+    if (!pushLuckState || pushLuckState.roundScore <= 0) return;
+    if (diceCollected.length >= DICE_TARGET) return;
+
+    const score = pushLuckState.roundScore;
+    pushLuckState.totalBanks += score;
+    pushLuckState.roundScore = 0;
+    pushLuckState.canRoll = true;
+
+    // 점수 → 번호 변환
+    let num;
+    if (score >= 30) num = Math.floor(Math.random() * 5) + 41;
+    else if (score >= 20) num = Math.floor(Math.random() * 10) + 31;
+    else if (score >= 10) num = Math.floor(Math.random() * 10) + 16;
+    else num = Math.floor(Math.random() * 15) + 1;
+
+    const avail = getAvailable(diceCollected);
+    if (avail.length > 0) {
+        num = avail.reduce((a, b) => Math.abs(b - num) < Math.abs(a - num) ? b : a);
+    }
+    addDiceCollected(num);
+
+    const roundEl = document.getElementById('challengeRoundScore');
+    const totalEl = document.getElementById('challengeTotal');
+    const rollBtn = document.getElementById('challengeRollBtn');
+    const bankBtn = document.getElementById('challengeBankBtn');
+
+    if (roundEl) roundEl.innerHTML = `<span style="color:#10b981;">✅ ${score}점 적립! ${num}번 획득!</span>`;
+    if (totalEl) totalEl.textContent = `모은 번호: ${Math.min(diceCollected.length, DICE_TARGET)}/${DICE_TARGET}`;
+    if (rollBtn) { rollBtn.textContent = '🎲 굴리기'; rollBtn.classList.add('btn-gold'); rollBtn.classList.remove('btn-secondary'); }
+    if (bankBtn) bankBtn.style.display = 'none';
+
+    if (diceCollected.length >= DICE_TARGET) {
+        if (rollBtn) { rollBtn.disabled = true; rollBtn.textContent = '🎉 완료!'; }
     }
 
-    _challengeHistoryCache = null; // 캐시 무효화
-    const history = getChallengeHistory();
-    history.push(`${r.icon}${roll}`);
-    if (history.length > 30) history.shift();
-    try { localStorage.setItem('dice-challenge-history', JSON.stringify(history)); } catch(e) {}
-
-    setTimeout(() => {
-        const canvas = document.getElementById('challengeCanvas');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.beginPath(); ctx.roundRect(5, 5, 190, 110, 12); ctx.fill();
-            drawDieFace(ctx, 100, 60, 70, roll, false);
-        }
-
-        const resultEl = document.getElementById('challengeResult');
-        if (resultEl) resultEl.innerHTML = `
-            <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(255,215,0,0.1));border-radius:14px;padding:18px;border:1px solid ${r.color};animation:answerReveal 0.6s ease-out;">
-                <div style="font-size:3rem;">${r.icon}</div>
-                <div style="color:${r.color};font-weight:700;font-size:1.1rem;">${r.text}</div>
-                <p style="color:var(--text-primary);font-size:1.2rem;font-weight:700;">${r.reward}</p>
-                ${extraHtml}
-            </div>
-        `;
-        if (btn) btn.textContent = '✅ 오늘 챌린지 완료! (내일 다시)';
-        if (typeof playBeep === 'function') playBeep(roll >= 5 ? 1000 : 600, 0.15);
-        if (typeof vibrate === 'function') vibrate(roll >= 5 ? 100 : 40);
-        if (roll === 6 && typeof fireConfetti === 'function') fireConfetti();
-        if (typeof renderCheckinUI === 'function') setTimeout(renderCheckinUI, 500);
-    }, 500);
+    if (typeof playBeep === 'function') playBeep(800, 0.15);
+    if (typeof vibrate === 'function') vibrate(40);
+    if (score >= 30 && typeof fireConfetti === 'function') fireConfetti();
 }
 
 function initDiceZone() {

@@ -1880,18 +1880,6 @@
 .dice-content { display: none; }
 .dice-content.active { display: block; }
 
-/* 요트 점수표 */
-.yacht-cat {
-    transition: all 0.2s ease;
-}
-.yacht-cat.clickable:hover {
-    background: rgba(139,92,246,0.2) !important;
-    border-color: #8b5cf6 !important;
-}
-.yacht-cat.used {
-    background: rgba(16,185,129,0.08) !important;
-}
-
 /* 주사위 생성기 */
 .dice-generator-panel {
     display: flex;
