@@ -1,14 +1,21 @@
 // dice.js — 주사위 존: 요트, 듀얼, 보드게임, 점괘, 번호생성기, 복불복 챌린지
-let diceAnimId = null;
 let currentDiceTab = 'yacht';
 let diceCollected = [];
 const DICE_TARGET = 6;
+let boardTimeoutHandle = null;
 
 function stopDice() {
-    if (diceAnimId) { cancelAnimationFrame(diceAnimId); diceAnimId = null; }
+    if (boardTimeoutHandle) { clearTimeout(boardTimeoutHandle); boardTimeoutHandle = null; }
+}
+
+function getAvailable(existing) {
+    const avail = [];
+    for (let i = 1; i <= 45; i++) { if (!existing.includes(i)) avail.push(i); }
+    return avail;
 }
 
 function addDiceCollected(num) {
+    if (diceCollected.length >= DICE_TARGET) return;
     if (diceCollected.includes(num)) return;
     diceCollected.push(num);
     diceCollected.sort((a, b) => a - b);
@@ -39,7 +46,7 @@ function updateDiceBasket() {
                 if (show) return `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''}" style="width:30px;height:30px;line-height:30px;font-size:0.7rem;">${n}</span>`;
                 return `<span class="ball hidden-ball" style="width:30px;height:30px;line-height:30px;font-size:0.7rem;">?</span>`;
             }).join('')}
-            <span style="color:var(--text-secondary);font-size:0.7rem;">(${diceCollected.length}/${DICE_TARGET})</span>
+            <span style="color:var(--text-secondary);font-size:0.7rem;">(${Math.min(diceCollected.length, DICE_TARGET)}/${DICE_TARGET})</span>
         </div>
     `;
 }
@@ -60,7 +67,7 @@ function onDiceComplete() {
                 </div>
                 ${score ? `
                 <div class="game-score-card">
-                    <div class="game-score-main">${score.totalScore}점</div>
+                    <div class="game-score-main">${score.totalScore}点</div>
                     <div class="game-score-grade" style="color:${score.totalScore>=75?'var(--grade-excellent)':score.totalScore>=60?'var(--grade-good)':'var(--grade-normal)'}">${score.grade}</div>
                     <div class="game-score-detail">합계 ${analysis.sum} · AC ${analysis.ac} · ${analysis.oddEvenRatio} · ${analysis.lowHighRatio}</div>
                 </div>` : ''}
@@ -135,6 +142,24 @@ function drawDieFace(ctx, x, y, size, value, held) {
 // ===================================================================
 // 1. 🎲 주사위 요트 (Dice Yacht)
 // ===================================================================
+// 족보 카테고리 (renderYachtScorecard + scoreYacht 공유)
+const YACHT_CATS = [
+    { key: 'aces', label: 'Aces (1)', icon: '⚀', calc: d => d.filter(v => v === 1).length * 1 },
+    { key: 'deuces', label: 'Deuces (2)', icon: '⚁', calc: d => d.filter(v => v === 2).length * 2 },
+    { key: 'threes', label: 'Threes (3)', icon: '⚂', calc: d => d.filter(v => v === 3).length * 3 },
+    { key: 'fours', label: 'Fours (4)', icon: '⚃', calc: d => d.filter(v => v === 4).length * 4 },
+    { key: 'fives', label: 'Fives (5)', icon: '⚄', calc: d => d.filter(v => v === 5).length * 5 },
+    { key: 'sixes', label: 'Sixes (6)', icon: '⚅', calc: d => d.filter(v => v === 6).length * 6 },
+    { key: 'choice', label: 'Choice', icon: '🎯', calc: d => d.reduce((a, b) => a + b, 0) },
+    { key: 'fourKind', label: '4 of a Kind', icon: '💎', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); return Object.values(cnt).some(c => c >= 4) ? d.reduce((a,b)=>a+b,0) : 0; }},
+    { key: 'fullHouse', label: 'Full House', icon: '🏠', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); const vals = Object.values(cnt); return (vals.includes(3) && vals.includes(2)) ? 25 : 0; }},
+    { key: 'sStraight', label: 'S. Straight', icon: '📈', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); for(let i=0;i<=s.length-4;i++) if(s[i+3]-s[i]===3) return 30; return 0; }},
+    { key: 'lStraight', label: 'L. Straight', icon: '🚀', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); return s.length===5 && (s[4]-s[0]===4) ? 40 : 0; }},
+    { key: 'yacht', label: 'YACHT!', icon: '👑', calc: d => new Set(d).size === 1 ? 50 : 0 },
+];
+const YACHT_CATS_MAP = {};
+YACHT_CATS.forEach(c => { YACHT_CATS_MAP[c.key] = c.calc; });
+
 let yachtState = null;
 
 function initYacht() {
@@ -152,6 +177,26 @@ function initYacht() {
         <div class="yacht-scorecard" id="yachtScorecard"></div>
     `;
     yachtState = { dice: [1,1,1,1,1], held: [false,false,false,false,false], rollsLeft: 3, scores: {}, turn: 0 };
+
+    // 캔버스 클릭 → 홀드 (탭 전환 시 이전 리스너는 innerHTML 교체로 자연 소멸)
+    const canvas = document.getElementById('yachtCanvas');
+    if (canvas) {
+        canvas.onclick = function(e) {
+            if (!yachtState || yachtState.rollsLeft >= 3) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const rects = canvas._diceRects;
+            if (!rects) return;
+            rects.forEach(r => {
+                if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+                    yachtState.held[r.idx] = !yachtState.held[r.idx];
+                    renderYachtDice();
+                    renderYachtScorecard();
+                    if (typeof playBeep === 'function') playBeep(500, 0.05);
+                }
+            });
+        };
+    }
     renderYachtDice();
     renderYachtScorecard();
 }
@@ -171,7 +216,6 @@ function renderYachtDice() {
         drawDieFace(ctx, x, y, dieSize, v, yachtState.held[i]);
     });
 
-    // 클릭 영역 표시
     canvas._diceRects = yachtState.dice.map((_, i) => {
         const x = startX + i * spacing;
         return { x: x - dieSize/2, y: y - dieSize/2, w: dieSize, h: dieSize, idx: i };
@@ -182,34 +226,22 @@ function rollYachtDice() {
     if (!yachtState || yachtState.rollsLeft <= 0) return;
     yachtState.dice = yachtState.dice.map((v, i) => yachtState.held[i] ? v : Math.floor(Math.random() * 6) + 1);
     yachtState.rollsLeft--;
-    document.getElementById('yachtRollInfo').textContent = `남은 굴림: ${yachtState.rollsLeft}회`;
+    const infoEl = document.getElementById('yachtRollInfo');
+    if (infoEl) infoEl.textContent = `남은 굴림: ${yachtState.rollsLeft}회`;
     renderYachtDice();
     if (typeof playBeep === 'function') playBeep(400 + Math.random() * 200, 0.08);
     if (yachtState.rollsLeft <= 0) {
-        document.getElementById('yachtRollBtn').textContent = '📋 점수 기록하기';
+        const btn = document.getElementById('yachtRollBtn');
+        if (btn) btn.textContent = '📋 점수 기록하기';
     }
 }
 
 function renderYachtScorecard() {
     const el = document.getElementById('yachtScorecard');
     if (!el || !yachtState) return;
-    const cats = [
-        { key: 'aces', label: 'Aces (1)', icon: '⚀', calc: d => d.filter(v => v === 1).length * 1 },
-        { key: 'deuces', label: 'Deuces (2)', icon: '⚁', calc: d => d.filter(v => v === 2).length * 2 },
-        { key: 'threes', label: 'Threes (3)', icon: '⚂', calc: d => d.filter(v => v === 3).length * 3 },
-        { key: 'fours', label: 'Fours (4)', icon: '⚃', calc: d => d.filter(v => v === 4).length * 4 },
-        { key: 'fives', label: 'Fives (5)', icon: '⚄', calc: d => d.filter(v => v === 5).length * 5 },
-        { key: 'sixes', label: 'Sixes (6)', icon: '⚅', calc: d => d.filter(v => v === 6).length * 6 },
-        { key: 'choice', label: 'Choice', icon: '🎯', calc: d => d.reduce((a, b) => a + b, 0) },
-        { key: 'fourKind', label: '4 of a Kind', icon: '💎', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); return Object.values(cnt).some(c => c >= 4) ? d.reduce((a,b)=>a+b,0) : 0; }},
-        { key: 'fullHouse', label: 'Full House', icon: '🏠', calc: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); const vals = Object.values(cnt); return (vals.includes(3) && vals.includes(2)) ? 25 : 0; }},
-        { key: 'sStraight', label: 'S. Straight', icon: '📈', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); for(let i=0;i<=s.length-4;i++) if(s[i+3]-s[i]===3) return 30; return 0; }},
-        { key: 'lStraight', label: 'L. Straight', icon: '🚀', calc: d => { const s = [...new Set(d)].sort((a,b)=>a-b); return s.length===5 && (s[4]-s[0]===4) ? 40 : 0; }},
-        { key: 'yacht', label: 'YACHT!', icon: '👑', calc: d => new Set(d).size === 1 ? 50 : 0 },
-    ];
 
     let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px;margin-top:10px;">';
-    cats.forEach(c => {
+    YACHT_CATS.forEach(c => {
         const used = yachtState.scores[c.key] !== undefined;
         const score = used ? yachtState.scores[c.key] : (yachtState.rollsLeft < 3 ? c.calc(yachtState.dice) : '-');
         const canUse = !used && yachtState.rollsLeft < 3;
@@ -226,77 +258,45 @@ function renderYachtScorecard() {
 
 function scoreYacht(key) {
     if (!yachtState || yachtState.scores[key] !== undefined) return;
-    const cats = {
-        aces: d => d.filter(v => v === 1).length * 1,
-        deuces: d => d.filter(v => v === 2).length * 2,
-        threes: d => d.filter(v => v === 3).length * 3,
-        fours: d => d.filter(v => v === 4).length * 4,
-        fives: d => d.filter(v => v === 5).length * 5,
-        sixes: d => d.filter(v => v === 6).length * 6,
-        choice: d => d.reduce((a, b) => a + b, 0),
-        fourKind: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); return Object.values(cnt).some(c => c >= 4) ? d.reduce((a,b)=>a+b,0) : 0; },
-        fullHouse: d => { const cnt = {}; d.forEach(v => cnt[v] = (cnt[v]||0)+1); const vals = Object.values(cnt); return (vals.includes(3) && vals.includes(2)) ? 25 : 0; },
-        sStraight: d => { const s = [...new Set(d)].sort((a,b)=>a-b); for(let i=0;i<=s.length-4;i++) if(s[i+3]-s[i]===3) return 30; return 0; },
-        lStraight: d => { const s = [...new Set(d)].sort((a,b)=>a-b); return s.length===5 && (s[4]-s[0]===4) ? 40 : 0; },
-        yacht: d => new Set(d).size === 1 ? 50 : 0,
-    };
-    yachtState.scores[key] = cats[key](yachtState.dice);
+    const calcFn = YACHT_CATS_MAP[key];
+    if (!calcFn) return;
+
+    yachtState.scores[key] = calcFn(yachtState.dice);
     yachtState.turn++;
 
-    // 족보 점수에 따라 번호 수집 (턴당 1개)
     const scoreVal = yachtState.scores[key];
     let num;
-    if (scoreVal >= 40) num = Math.floor(Math.random() * 6) + 35;       // 35~40 (고급)
-    else if (scoreVal >= 20) num = Math.floor(Math.random() * 10) + 21; // 21~30
-    else if (scoreVal >= 10) num = Math.floor(Math.random() * 10) + 11; // 11~20
-    else num = Math.floor(Math.random() * 10) + 1;                      // 1~10
-    // 미수집 번호 우선
-    const avail = []; for (let i=1;i<=45;i++) if(!diceCollected.includes(i)) avail.push(i);
+    if (scoreVal >= 40) num = Math.floor(Math.random() * 6) + 35;
+    else if (scoreVal >= 20) num = Math.floor(Math.random() * 10) + 21;
+    else if (scoreVal >= 10) num = Math.floor(Math.random() * 10) + 11;
+    else num = Math.floor(Math.random() * 10) + 1;
+
+    const avail = getAvailable(diceCollected);
     if (avail.length > 0) {
-        const closest = avail.reduce((a,b) => Math.abs(b-num) < Math.abs(a-num) ? b : a);
-        num = closest;
+        num = avail.reduce((a, b) => Math.abs(b - num) < Math.abs(a - num) ? b : a);
     }
     addDiceCollected(num);
 
-    // 리셋 주사위
     yachtState.dice = [1,1,1,1,1];
     yachtState.held = [false,false,false,false,false];
     yachtState.rollsLeft = 3;
-    document.getElementById('yachtRollInfo').textContent = '남은 굴림: 3회';
-    document.getElementById('yachtRollBtn').textContent = '🎲 주사위 굴리기';
+    const infoEl = document.getElementById('yachtRollInfo');
+    const btn = document.getElementById('yachtRollBtn');
+    if (infoEl) infoEl.textContent = '남은 굴림: 3회';
+    if (btn) btn.textContent = '🎲 주사위 굴리기';
     renderYachtDice();
     renderYachtScorecard();
 
     if (typeof playBeep === 'function') playBeep(800, 0.12);
     if (typeof vibrate === 'function') vibrate(30);
 
-    const totalCats = Object.keys(cats).length;
-    if (Object.keys(yachtState.scores).length >= totalCats) {
-        document.getElementById('yachtRollBtn').disabled = true;
-        document.getElementById('yachtRollBtn').textContent = '게임 완료!';
+    if (Object.keys(yachtState.scores).length >= YACHT_CATS.length) {
+        if (btn) { btn.disabled = true; btn.textContent = '게임 완료!'; }
     }
 }
 
-// Yacht 캔버스 클릭 → 홀드
-document.addEventListener('click', function(e) {
-    const canvas = document.getElementById('yachtCanvas');
-    if (!canvas || !yachtState || yachtState.rollsLeft >= 3) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const rects = canvas._diceRects;
-    if (!rects) return;
-    rects.forEach(r => {
-        if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
-            yachtState.held[r.idx] = !yachtState.held[r.idx];
-            renderYachtDice();
-            renderYachtScorecard();
-            if (typeof playBeep === 'function') playBeep(500, 0.05);
-        }
-    });
-});
-
 // ===================================================================
-// 2. 🎯 주사위 듀얼 (Dice Battle)
+// 2. ⚔️ 주사위 듀얼 (Dice Battle)
 // ===================================================================
 let battleState = null;
 
@@ -347,14 +347,14 @@ function evalHand(dice) {
     return { name: 'High Card', rank: 1 };
 }
 
-function renderBattleDice(canvasId, dice, held) {
+function renderBattleDice(canvasId, dice) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const dieSize = 44, spacing = 52, startX = 30, y = 35;
     dice.forEach((v, i) => {
-        drawDieFace(ctx, startX + i * spacing, y, dieSize, v, held ? held[i] : false);
+        drawDieFace(ctx, startX + i * spacing, y, dieSize, v, false);
     });
 }
 
@@ -362,35 +362,33 @@ function startBattleRound() {
     if (!battleState) return;
     if (battleState.playerWins >= 2 || battleState.cpuWins >= 2) {
         battleState.playerWins = 0; battleState.cpuWins = 0;
-        document.getElementById('playerScore').textContent = '0승';
-        document.getElementById('cpuScore').textContent = '0승';
+        const ps = document.getElementById('playerScore'); if (ps) ps.textContent = '0승';
+        const cs = document.getElementById('cpuScore'); if (cs) cs.textContent = '0승';
     }
     battleState.round++;
     const btn = document.getElementById('battleBtn');
+    if (!btn) return;
     btn.disabled = true;
     btn.textContent = '🎲 굴리는 중...';
 
     const playerDice = rollBattleDice();
     const cpuDice = rollBattleDice();
-    renderBattleDice('playerDiceCanvas', playerDice, null);
-    renderBattleDice('cpuDiceCanvas', cpuDice, null);
+    renderBattleDice('playerDiceCanvas', playerDice);
+    renderBattleDice('cpuDiceCanvas', cpuDice);
 
     const playerHand = evalHand(playerDice);
     const cpuHand = evalHand(cpuDice);
-    document.getElementById('playerHandLabel').textContent = playerHand.name;
-    document.getElementById('cpuHandLabel').textContent = cpuHand.name;
+    const plEl = document.getElementById('playerHandLabel'); if (plEl) plEl.textContent = playerHand.name;
+    const clEl = document.getElementById('cpuHandLabel'); if (clEl) clEl.textContent = cpuHand.name;
 
     let resultText, winner;
     if (playerHand.rank > cpuHand.rank) {
-        battleState.playerWins++;
-        winner = 'player';
+        battleState.playerWins++; winner = 'player';
         resultText = `🎉 승리! (${playerHand.name} vs ${cpuHand.name})`;
     } else if (cpuHand.rank > playerHand.rank) {
-        battleState.cpuWins++;
-        winner = 'cpu';
+        battleState.cpuWins++; winner = 'cpu';
         resultText = `😞 패배... (${playerHand.name} vs ${cpuHand.name})`;
     } else {
-        // 동점 → 주사위 합 비교
         const pSum = playerDice.reduce((a,b)=>a+b,0);
         const cSum = cpuDice.reduce((a,b)=>a+b,0);
         if (pSum > cSum) { battleState.playerWins++; winner = 'player'; resultText = `🎉 합계 승리! (${pSum} vs ${cSum})`; }
@@ -398,35 +396,32 @@ function startBattleRound() {
         else { resultText = `🤝 무승부! (${pSum} vs ${cSum})`; winner = 'draw'; }
     }
 
-    document.getElementById('playerScore').textContent = battleState.playerWins + '승';
-    document.getElementById('cpuScore').textContent = battleState.cpuWins + '승';
-    document.getElementById('battleResult').innerHTML = `
-        <div style="color:${winner==='player'?'var(--grade-excellent)':winner==='cpu'?'var(--grade-caution)':'var(--text-secondary)'};font-weight:700;">${resultText}</div>
-    `;
+    const ps = document.getElementById('playerScore'); if (ps) ps.textContent = battleState.playerWins + '승';
+    const cs = document.getElementById('cpuScore'); if (cs) cs.textContent = battleState.cpuWins + '승';
+    const br = document.getElementById('battleResult');
+    if (br) br.innerHTML = `<div style="color:${winner==='player'?'var(--grade-excellent)':winner==='cpu'?'var(--grade-caution)':'var(--text-secondary)'};font-weight:700;">${resultText}</div>`;
 
     if (winner === 'player') {
-        const avail = []; for (let i=1;i<=45;i++) if(!diceCollected.includes(i)) avail.push(i);
+        const avail = getAvailable(diceCollected);
         const num = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : Math.floor(Math.random()*45)+1;
         addDiceCollected(num);
         if (typeof vibrate === 'function') vibrate(50);
     }
 
-    if (battleState.playerWins >= 2 || battleState.cpuWins >= 2) {
-        const finalWinner = battleState.playerWins >= 2 ? 'player' : 'cpu';
+    const finalWinner = battleState.playerWins >= 2 ? 'player' : battleState.cpuWins >= 2 ? 'cpu' : null;
+    if (finalWinner) {
         setTimeout(() => {
-            document.getElementById('battleResult').innerHTML += `
+            const br2 = document.getElementById('battleResult');
+            if (br2) br2.innerHTML += `
                 <div style="margin-top:8px;font-size:1.2rem;color:${finalWinner==='player'?'var(--accent-gold)':'var(--text-secondary)'};">
                     ${finalWinner==='player' ? '🏆 최종 승리! 번호를 모두 획득하세요!' : '💪 다음 기회에... 다시 도전하세요!'}
-                </div>
-            `;
-            btn.disabled = false;
-            btn.textContent = '🔄 다시 대결!';
+                </div>`;
+            if (btn) { btn.disabled = false; btn.textContent = '🔄 다시 대결!'; }
             if (finalWinner === 'player' && typeof fireConfetti === 'function') fireConfetti();
         }, 600);
     } else {
         setTimeout(() => {
-            btn.disabled = false;
-            btn.textContent = `⚔️ ${battleState.round}라운드 대결!`;
+            if (btn) { btn.disabled = false; btn.textContent = `⚔️ ${battleState.round}라운드 대결!`; }
         }, 600);
     }
 }
@@ -435,6 +430,26 @@ function startBattleRound() {
 // 3. 🏃 주사위 보드게임 (Dice Board Game)
 // ===================================================================
 let boardState = null;
+// 보드 셀 지오메트리 캐시 (한 번만 계산)
+let _cachedBoardCells = null;
+
+function getBoardCells() {
+    if (_cachedBoardCells) return _cachedBoardCells;
+    const cells = [];
+    const cx = 220, cy = 200, outerR = 170, innerR = 120;
+    for (let i = 0; i < 45; i++) {
+        const angle = (i / 45) * Math.PI * 2 - Math.PI / 2;
+        const midR = (outerR + innerR) / 2;
+        cells.push({
+            num: i + 1,
+            x: cx + Math.cos(angle) * midR,
+            y: cy + Math.sin(angle) * midR,
+            angle,
+        });
+    }
+    _cachedBoardCells = cells;
+    return cells;
+}
 
 function initBoard() {
     stopDice();
@@ -448,32 +463,13 @@ function initBoard() {
         <button class="btn btn-gold" onclick="rollBoardDice()" id="boardRollBtn" style="width:100%;">🎲 주사위 굴리기</button>
         <div id="boardLog" style="margin-top:8px;max-height:80px;overflow-y:auto;font-size:0.75rem;color:var(--text-secondary);"></div>
     `;
-    boardState = {
-        cells: [], pos: 0, collected: [],
-        specialCells: {}
-    };
-    // 45칸 원형 보드 생성
-    const cells = [];
-    const cx = 220, cy = 200, outerR = 170, innerR = 120;
-    for (let i = 0; i < 45; i++) {
-        const angle = (i / 45) * Math.PI * 2 - Math.PI / 2;
-        const midR = (outerR + innerR) / 2;
-        cells.push({
-            num: i + 1,
-            x: cx + Math.cos(angle) * midR,
-            y: cy + Math.sin(angle) * midR,
-            angle,
-            collected: false
-        });
-    }
-    // 특수 칸 설정
+
+    const specialCells = {};
     const specialIndices = [3, 9, 15, 21, 27, 33, 39, 44, 7, 18, 30, 41];
     const specialTypes = ['double', 'skip', 'swap', 'bonus', 'double', 'skip', 'swap', 'bonus', 'double', 'skip', 'swap', 'bonus'];
-    specialIndices.forEach((si, i) => {
-        boardState.specialCells[si] = specialTypes[i];
-    });
+    specialIndices.forEach((si, i) => { specialCells[si] = specialTypes[i]; });
 
-    boardState.cells = cells;
+    boardState = { pos: 0, specialCells };
     renderBoard();
 }
 
@@ -483,26 +479,23 @@ function renderBoard() {
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     const cx = 220, cy = 200, outerR = 170, innerR = 120;
+    const cells = getBoardCells();
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#1a2a1a';
     ctx.beginPath(); ctx.roundRect(5, 5, w - 10, h - 10, 16); ctx.fill();
 
-    // 원형 트랙 배경
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
     ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI * 2); ctx.fill();
 
-    // 칸 그리기
-    const cells = boardState.cells;
     cells.forEach((cell, i) => {
         const angle = cell.angle;
         const isCollected = diceCollected.includes(cell.num);
         const isSpecial = boardState.specialCells[i] !== undefined;
         const isCurrent = boardState.pos === i;
 
-        // 칸 배경
         const or2 = outerR - 1, ir2 = innerR + 1;
         const a1 = angle - Math.PI / 50, a2 = angle + Math.PI / 50;
         ctx.beginPath();
@@ -515,14 +508,12 @@ function renderBoard() {
         ctx.lineWidth = isCurrent ? 2 : 0.5;
         ctx.stroke();
 
-        // 번호
         ctx.fillStyle = isCollected ? '#10b981' : '#fff';
         ctx.font = '9px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(cell.num, cell.x, cell.y);
 
-        // 특수 칸 표시
         if (isSpecial) {
             const icons = { double: '×2', skip: '⏭️', swap: '🔄', bonus: '🎁' };
             ctx.fillText(icons[boardState.specialCells[i]] || '?', cell.x, cell.y - 10);
@@ -544,12 +535,12 @@ function renderBoard() {
     ctx.textBaseline = 'middle';
     ctx.fillText('ME', posCell.x, posCell.y);
 
-    // 중앙 정보
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath(); ctx.arc(cx, cy, innerR - 10, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffd700';
     ctx.font = 'bold 13px "Noto Sans KR"';
-    ctx.fillText(`${diceCollected.length}/6`, cx, cy - 5);
+    ctx.fillText(`${Math.min(diceCollected.length, DICE_TARGET)}/6`, cx, cy - 5);
+    ctx.textAlign = 'center';
     ctx.fillStyle = 'var(--text-secondary)';
     ctx.font = '9px sans-serif';
     ctx.fillText('수집', cx, cy + 15);
@@ -558,71 +549,91 @@ function renderBoard() {
 function rollBoardDice() {
     if (!boardState || diceCollected.length >= DICE_TARGET) return;
     const btn = document.getElementById('boardRollBtn');
+    if (!btn) return;
     btn.disabled = true;
     btn.textContent = '🎲 이동 중...';
 
     const roll = Math.floor(Math.random() * 6) + 1;
-    document.getElementById('boardInfo').textContent = `🎲 ${roll} 칸 전진!`;
+    const infoEl = document.getElementById('boardInfo');
+    if (infoEl) infoEl.textContent = `🎲 ${roll} 칸 전진!`;
 
     let steps = roll;
-    const log = document.getElementById('boardLog');
-
-    // 애니메이션 효과
     let stepCount = 0;
-    function stepAnim() {
-        if (stepCount >= steps) {
-            // 도착 처리
-            const cell = boardState.cells[boardState.pos];
-            const specType = boardState.specialCells[boardState.pos];
-
-            let logMsg = `${cell.num}번 도착!`;
-            if (specType) {
-                if (specType === 'double') {
-                    const avail = []; for (let i=1;i<=45;i++) if(!diceCollected.includes(i)) avail.push(i);
-                    if (avail.length > 0) {
-                        const bonusNum = avail[Math.floor(Math.random() * avail.length)];
-                        addDiceCollected(bonusNum);
-                        logMsg += ` ✨ 더블찬스! 보너스 ${bonusNum}번 추가!`;
-                    }
-                } else if (specType === 'skip') {
-                    boardState.pos = (boardState.pos + 3) % 45;
-                    logMsg += ` ⏭️ 점프! 3칸 추가 이동 → ${boardState.cells[boardState.pos].num}번`;
-                    renderBoard();
-                } else if (specType === 'swap') {
-                    if (diceCollected.length > 0) {
-                        const removed = diceCollected.pop();
-                        const avail = []; for (let i=1;i<=45;i++) if(!diceCollected.includes(i) && i !== removed) avail.push(i);
-                        const newNum = avail[Math.floor(Math.random() * avail.length)];
-                        addDiceCollected(newNum);
-                        logMsg += ` 🔄 교환! ${removed}번 → ${newNum}번`;
-                    }
-                } else if (specType === 'bonus') {
-                    logMsg += ` 🎁 보너스! 추가 주사위 1회!`;
-                    steps += 1;
-                }
-            }
-            if (!diceCollected.includes(cell.num)) addDiceCollected(cell.num);
-            addLog(log, logMsg);
-            renderBoard();
-
-            btn.disabled = false;
-            btn.textContent = diceCollected.length >= DICE_TARGET ? '🎉 완료!' : '🎲 주사위 굴리기';
-            document.getElementById('boardInfo').textContent = diceCollected.length >= DICE_TARGET ? '🎉 6개 모두 모았습니다!' : `현재 칸: ${boardState.cells[boardState.pos].num}번`;
-            if (typeof playBeep === 'function') playBeep(600, 0.1);
-            return;
-        }
-        boardState.pos = (boardState.pos + 1) % 45;
-        stepCount++;
-        renderBoard();
-        setTimeout(stepAnim, 120);
-    }
+    boardTimeoutHandle = null;
 
     function addLog(el, msg) {
         el.innerHTML = `<div>${msg}</div>` + el.innerHTML;
         const lines = el.querySelectorAll('div');
         if (lines.length > 4) lines[lines.length - 1].remove();
     }
-    setTimeout(stepAnim, 120);
+
+    function stepAnim() {
+        // 완료되었거나 중단된 경우
+        if (!boardState || diceCollected.length >= DICE_TARGET) {
+            boardTimeoutHandle = null;
+            if (btn) { btn.disabled = false; btn.textContent = '🎉 완료!'; }
+            return;
+        }
+
+        if (stepCount >= steps) {
+            const cells = getBoardCells();
+            const cell = cells[boardState.pos];
+            const specType = boardState.specialCells[boardState.pos];
+            let logMsg = `${cell.num}번 도착!`;
+
+            if (specType === 'double') {
+                const avail = getAvailable(diceCollected);
+                if (avail.length > 0) {
+                    const bonusNum = avail[Math.floor(Math.random() * avail.length)];
+                    addDiceCollected(bonusNum);
+                    logMsg += ` ✨ 더블찬스! 보너스 ${bonusNum}번 추가!`;
+                }
+            } else if (specType === 'skip') {
+                boardState.pos = (boardState.pos + 3) % 45;
+                logMsg += ` ⏭️ 점프! 3칸 추가 이동 → ${cells[boardState.pos].num}번`;
+                renderBoard();
+            } else if (specType === 'swap' && diceCollected.length > 0) {
+                const removed = diceCollected.pop();
+                const avail = getAvailable(diceCollected);
+                if (avail.length > 0) {
+                    const newNum = avail[Math.floor(Math.random() * avail.length)];
+                    addDiceCollected(newNum);
+                    logMsg += ` 🔄 교환! ${removed}번 → ${newNum}번`;
+                }
+            } else if (specType === 'bonus') {
+                steps += 1;
+                logMsg += ` 🎁 보너스! 추가 1칸 전진`;
+                // bonus는 도착 처리 후 추가 이동 (stepCount < steps 유지)
+                stepCount++;
+                boardState.pos = (boardState.pos + 1) % 45;
+                renderBoard();
+                const logEl = document.getElementById('boardLog');
+                if (logEl) addLog(logEl, logMsg);
+                boardTimeoutHandle = setTimeout(stepAnim, 120);
+                return;
+            }
+
+            // 일반 칸 번호 수집 (이미 addDiceCollected 내부에서 중복 체크함)
+            addDiceCollected(cell.num);
+
+            const logEl = document.getElementById('boardLog');
+            if (logEl) addLog(logEl, logMsg);
+            renderBoard();
+
+            const complete = diceCollected.length >= DICE_TARGET;
+            btn.disabled = false;
+            btn.textContent = complete ? '🎉 완료!' : '🎲 주사위 굴리기';
+            if (infoEl) infoEl.textContent = complete ? '🎉 6개 모두 모았습니다!' : `현재 칸: ${cells[boardState.pos].num}번`;
+            if (typeof playBeep === 'function') playBeep(600, 0.1);
+            boardTimeoutHandle = null;
+            return;
+        }
+        boardState.pos = (boardState.pos + 1) % 45;
+        stepCount++;
+        renderBoard();
+        boardTimeoutHandle = setTimeout(stepAnim, 120);
+    }
+    boardTimeoutHandle = setTimeout(stepAnim, 120);
 }
 
 // ===================================================================
@@ -646,7 +657,6 @@ function initFortune() {
         </button>
     `;
 
-    // 초기 주사위
     const canvas = document.getElementById('fortuneCanvas');
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -668,7 +678,6 @@ function rollFortune() {
     const dice = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
     const total = dice.reduce((a,b)=>a+b, 0);
 
-    // 운세 데이터
     const fortunes = {
         3: { text: '대길! 새로운 시작의 기운이 가득합니다.', icon: '🌟', level: '최상', nums: [3,7,11,21,33,42] },
         4: { text: '안정된 기운이 감돌고 있어요. 차분히 준비하세요.', icon: '🌿', level: '양호', nums: [4,8,12,22,34,40] },
@@ -691,7 +700,6 @@ function rollFortune() {
     const f = fortunes[total] || fortunes[10];
     const luckNums = f.nums;
 
-    // 캔버스에 주사위 그리기
     setTimeout(() => {
         const canvas = document.getElementById('fortuneCanvas');
         if (canvas) {
@@ -703,7 +711,7 @@ function rollFortune() {
         }
 
         const resultEl = document.getElementById('fortuneResult');
-        resultEl.innerHTML = `
+        if (resultEl) resultEl.innerHTML = `
             <div style="background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(255,215,0,0.1));border-radius:14px;padding:18px;margin-top:10px;border:1px solid rgba(139,92,246,0.3);animation:answerReveal 0.6s ease-out;">
                 <div style="font-size:2.5rem;">${f.icon}</div>
                 <div style="color:var(--accent-gold);font-weight:700;font-size:1.1rem;">합계 ${total} — ${f.level}운!</div>
@@ -714,7 +722,7 @@ function rollFortune() {
                 <button class="btn btn-primary" onclick="useFortuneNumbers([${luckNums}])" style="margin-top:8px;">🎱 이 번호로 분석하기</button>
             </div>
         `;
-        btn.textContent = '✅ 오늘 점괘 완료 (내일 다시!)';
+        if (btn) btn.textContent = '✅ 오늘 점괘 완료 (내일 다시!)';
         if (typeof playBeep === 'function') playBeep(800, 0.15);
         if (typeof vibrate === 'function') vibrate(50);
         if (total >= 11 && typeof fireConfetti === 'function') fireConfetti();
@@ -778,85 +786,64 @@ function renderGenDice() {
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath(); ctx.roundRect(5, 5, 430, 90, 12); ctx.fill();
 
-    // 메서드에 따라 다른 주사위 표시
     const method = window._genMethod || 'd20';
     const configs = {
-        d20: [{ label: 'd20', size: 50, x: 80 }, { label: 'd12', size: 42, x: 165 }, { label: 'd8', size: 36, x: 240 }, { label: 'd6', size: 30, x: 305 }],
-        dnd: [{ label: '4d6', size: 50, x: 100 }, { label: 'best3', size: 50, x: 220 }, { label: '×7.5', size: 50, x: 340 }],
-        multiply: [{ label: 'd10', size: 50, x: 120 }, { label: '×', size: 30, x: 210 }, { label: 'd6', size: 50, x: 280 }],
-        percentile: [{ label: 'd10', size: 46, x: 110 }, { label: 'd10', size: 46, x: 190 }, { label: '→1~45', size: 40, x: 290 }],
+        d20: [{ label: 'd20', x: 80 }, { label: 'd12', x: 165 }, { label: 'd8', x: 240 }, { label: 'd6', x: 305 }],
+        dnd: [{ label: '4d6', x: 100 }, { label: 'best3', x: 220 }, { label: '×2.5', x: 340 }],
+        multiply: [{ label: 'd10', x: 120 }, { label: '×', x: 210 }, { label: 'd6', x: 280 }],
+        percentile: [{ label: 'd10', x: 110 }, { label: 'd10', x: 190 }, { label: '→1~45', x: 290 }],
     };
     const config = configs[method] || configs.d20;
-    config.forEach(c => {
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(c.label, c.x, 50);
-    });
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    config.forEach(c => ctx.fillText(c.label, c.x, 50));
 }
 
 function rollGenerator() {
     const method = window._genMethod || 'd20';
-    let numbers = [];
-    const btn = document.getElementById('genRollBtn');
+    const numbers = [];
+    const avail = getAvailable(numbers);
 
-    switch (method) {
-        case 'd20': {
-            // d20 + d12 + d8 + d6 - 1 → 3~45 범위
-            while (numbers.length < 6) {
-                const d20 = Math.floor(Math.random() * 20) + 1;
-                const d12 = Math.floor(Math.random() * 12) + 1;
-                const d8 = Math.floor(Math.random() * 8) + 1;
-                const d6 = Math.floor(Math.random() * 6) + 1;
-                let n = d20 + d12 + d8 + d6 - 1;
-                n = Math.max(1, Math.min(45, n));
-                if (!numbers.includes(n)) numbers.push(n);
-            }
-            break;
-        }
-        case 'dnd': {
-            // 4d6 best 3 → 3~18, ×2.5 → 7~45
-            while (numbers.length < 6) {
+    while (numbers.length < 6 && avail.length > 0) {
+        let n;
+        switch (method) {
+            case 'd20':
+                n = Math.floor(Math.random()*20) + Math.floor(Math.random()*12) + Math.floor(Math.random()*8) + Math.floor(Math.random()*6) + 3;
+                break;
+            case 'dnd': {
                 const rolls = Array.from({length:4}, () => Math.floor(Math.random()*6)+1).sort((a,b)=>b-a);
-                const best3 = rolls[0] + rolls[1] + rolls[2];
-                let n = Math.round(best3 * 2.5);
-                n = Math.max(1, Math.min(45, n));
-                if (!numbers.includes(n)) numbers.push(n);
+                n = Math.round((rolls[0] + rolls[1] + rolls[2]) * 2.5);
+                break;
             }
-            break;
-        }
-        case 'multiply': {
-            // d10 × d6 → 1~60, 초과 시 재시도
-            while (numbers.length < 6) {
-                const d10 = Math.floor(Math.random() * 10) + 1;
-                const d6 = Math.floor(Math.random() * 6) + 1;
-                let n = d10 * d6;
+            case 'multiply': {
+                n = (Math.floor(Math.random()*10)+1) * (Math.floor(Math.random()*6)+1);
                 if (n > 45) n = Math.floor(n * 0.75);
-                n = Math.max(1, Math.min(45, n));
-                if (!numbers.includes(n)) numbers.push(n);
+                break;
             }
-            break;
-        }
-        case 'percentile': {
-            // 2d10 → 1~100 백분위 → 1~45 매핑
-            while (numbers.length < 6) {
-                const d10_1 = Math.floor(Math.random() * 10);
-                const d10_2 = Math.floor(Math.random() * 10) + 1;
-                const pct = d10_1 * 10 + d10_2;
-                let n = Math.ceil((pct / 100) * 45);
-                n = Math.max(1, Math.min(45, n));
-                if (!numbers.includes(n)) numbers.push(n);
+            case 'percentile': {
+                const pct = Math.floor(Math.random()*10)*10 + Math.floor(Math.random()*10) + 1;
+                n = Math.ceil((pct / 100) * 45);
+                break;
             }
-            break;
+            default: n = Math.floor(Math.random()*45)+1;
         }
+        n = Math.max(1, Math.min(45, n));
+        if (!numbers.includes(n)) numbers.push(n);
+    }
+
+    // 부족한 번호 채우기
+    while (numbers.length < 6) {
+        const n = Math.floor(Math.random()*45)+1;
+        if (!numbers.includes(n)) numbers.push(n);
     }
 
     numbers.sort((a, b) => a - b);
     window._genNumbers = numbers;
 
     const resultEl = document.getElementById('genResult');
-    resultEl.innerHTML = `
+    if (resultEl) resultEl.innerHTML = `
         <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:15px;animation:answerReveal 0.5s ease-out;">
             <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">🎲 ${method} 방식 생성 결과</div>
             <div class="balls-container" style="gap:8px;">
@@ -869,12 +856,13 @@ function rollGenerator() {
         </div>
     `;
 
-    // 히스토리
     const histEl = document.getElementById('genHistory');
-    const balls = numbers.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:24px;height:24px;line-height:24px;font-size:0.6rem;">${n}</span>`).join('');
-    histEl.innerHTML = `<div style="margin-bottom:4px;">🕐 ${new Date().toLocaleTimeString('ko-KR')} [${method}] ${balls}</div>` + histEl.innerHTML;
-    const lines = histEl.querySelectorAll('div');
-    if (lines.length > 8) lines[lines.length - 1].remove();
+    if (histEl) {
+        const balls = numbers.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:24px;height:24px;line-height:24px;font-size:0.6rem;">${n}</span>`).join('');
+        histEl.innerHTML = `<div style="margin-bottom:4px;">🕐 ${new Date().toLocaleTimeString('ko-KR')} [${method}] ${balls}</div>` + histEl.innerHTML;
+        const lines = histEl.querySelectorAll('div');
+        if (lines.length > 8) lines[lines.length - 1].remove();
+    }
 
     if (typeof playBeep === 'function') playBeep(700, 0.1);
     if (typeof vibrate === 'function') vibrate(30);
@@ -889,15 +877,22 @@ function useGenNumbers(numbers) {
 // ===================================================================
 // 6. 🍀 복불복 주사위 챌린지 (Dice Lucky Challenge)
 // ===================================================================
+let _challengeHistoryCache = null;
+
+function getChallengeHistory() {
+    if (_challengeHistoryCache) return _challengeHistoryCache;
+    try { _challengeHistoryCache = JSON.parse(localStorage.getItem('dice-challenge-history') || '[]'); } catch(e) { _challengeHistoryCache = []; }
+    return _challengeHistoryCache;
+}
+
 function initChallenge() {
     stopDice();
     const el = document.getElementById('diceContentChallenge');
     if (!el) return;
 
     const today = new Date().toISOString().slice(0, 10);
-    const lastChallenge = localStorage.getItem('dice-challenge-date');
-    const usedToday = lastChallenge === today;
-    const history = JSON.parse(localStorage.getItem('dice-challenge-history') || '[]');
+    const usedToday = localStorage.getItem('dice-challenge-date') === today;
+    const history = getChallengeHistory();
 
     el.innerHTML = `
         <div class="game-info-box">🍀 하루 한 번! 주사위를 굴려 <strong>코인, 번호, 도감 등록</strong> 등 다양한 보상을 받으세요!</div>
@@ -944,16 +939,15 @@ function rollChallenge() {
 
     const r = rewards[roll];
 
-    // 보상 처리
-    if (r.coins > 0) {
-        const checkin = typeof getCheckinData === 'function' ? getCheckinData() : { coins: 0 };
+    if (r.coins > 0 && typeof getCheckinData === 'function' && typeof saveCheckinData === 'function') {
+        const checkin = getCheckinData();
         checkin.coins = (checkin.coins || 0) + r.coins;
-        if (typeof saveCheckinData === 'function') saveCheckinData(checkin);
+        saveCheckinData(checkin);
     }
     let extraHtml = '';
-    if (r.collection && typeof addToCollection === 'function') {
-        const avail = []; const coll = typeof getCollection === 'function' ? getCollection() : [];
-        for (let i=1;i<=45;i++) if(!coll.includes(i)) avail.push(i);
+    if (r.collection && typeof addToCollection === 'function' && typeof getCollection === 'function') {
+        const coll = getCollection();
+        const avail = getAvailable(coll);
         if (avail.length > 0) {
             const newNum = avail[Math.floor(Math.random() * avail.length)];
             addToCollection(newNum);
@@ -961,17 +955,16 @@ function rollChallenge() {
         }
     }
     if (r.number) {
-        const avail = []; const coll = typeof getCollection === 'function' ? getCollection() : [];
-        for (let i=1;i<=45;i++) if(!coll.includes(i)) avail.push(i);
+        const avail = getAvailable(typeof getCollection === 'function' ? getCollection() : []);
         const num = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : Math.floor(Math.random()*45)+1;
         extraHtml += `<p style="font-size:0.8rem;color:var(--accent-gold);margin-top:3px;">🎱 행운 번호: <span class="ball ${typeof getBallClass==='function'?getBallClass(num):''}" style="width:32px;height:32px;line-height:32px;font-size:0.8rem;">${num}</span></p>`;
     }
 
-    // 히스토리
-    const history = JSON.parse(localStorage.getItem('dice-challenge-history') || '[]');
+    _challengeHistoryCache = null; // 캐시 무효화
+    const history = getChallengeHistory();
     history.push(`${r.icon}${roll}`);
     if (history.length > 30) history.shift();
-    localStorage.setItem('dice-challenge-history', JSON.stringify(history));
+    try { localStorage.setItem('dice-challenge-history', JSON.stringify(history)); } catch(e) {}
 
     setTimeout(() => {
         const canvas = document.getElementById('challengeCanvas');
@@ -983,7 +976,8 @@ function rollChallenge() {
             drawDieFace(ctx, 100, 60, 70, roll, false);
         }
 
-        document.getElementById('challengeResult').innerHTML = `
+        const resultEl = document.getElementById('challengeResult');
+        if (resultEl) resultEl.innerHTML = `
             <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(255,215,0,0.1));border-radius:14px;padding:18px;border:1px solid ${r.color};animation:answerReveal 0.6s ease-out;">
                 <div style="font-size:3rem;">${r.icon}</div>
                 <div style="color:${r.color};font-weight:700;font-size:1.1rem;">${r.text}</div>
@@ -991,7 +985,7 @@ function rollChallenge() {
                 ${extraHtml}
             </div>
         `;
-        btn.textContent = '✅ 오늘 챌린지 완료! (내일 다시)';
+        if (btn) btn.textContent = '✅ 오늘 챌린지 완료! (내일 다시)';
         if (typeof playBeep === 'function') playBeep(roll >= 5 ? 1000 : 600, 0.15);
         if (typeof vibrate === 'function') vibrate(roll >= 5 ? 100 : 40);
         if (roll === 6 && typeof fireConfetti === 'function') fireConfetti();
@@ -999,7 +993,6 @@ function rollChallenge() {
     }, 500);
 }
 
-// ========== 초기화 ==========
 function initDiceZone() {
     const yachtContent = document.getElementById('diceContentYacht');
     if (yachtContent && !yachtContent.querySelector('canvas')) {
