@@ -1929,3 +1929,23 @@
     font-weight: 700;
 }
 
+/* 주사위 존 캔버스 반응형 */
+.dice-content canvas {
+    display: block;
+    max-width: 100%;
+    height: auto !important;
+    margin: 0 auto;
+}
+#battleArena {
+    overflow-x: auto;
+}
+@media (max-width: 500px) {
+    #battleArena {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    #battleArena > div:nth-child(2) {
+        font-size: 1.2rem !important;
+    }
+}
+

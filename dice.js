@@ -184,7 +184,11 @@ function initYacht() {
         canvas.onclick = function(e) {
             if (!yachtState || yachtState.rollsLeft >= 3) return;
             const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            // CSS max-width:100% 축소 보정
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mx = (e.clientX - rect.left) * scaleX;
+            const my = (e.clientY - rect.top) * scaleY;
             const rects = canvas._diceRects;
             if (!rects) return;
             rects.forEach(r => {
