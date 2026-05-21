@@ -557,9 +557,11 @@ function rollBoardDice() {
     btn.disabled = true;
     btn.textContent = '🎲 이동 중...';
 
-    const roll = Math.floor(Math.random() * 6) + 1;
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const roll = d1 + d2;
     const infoEl = document.getElementById('boardInfo');
-    if (infoEl) infoEl.textContent = `🎲 ${roll} 칸 전진!`;
+    if (infoEl) infoEl.textContent = `🎲 ${d1}+${d2}=${roll} 칸 전진!`;
 
     let steps = roll;
     let stepCount = 0;
