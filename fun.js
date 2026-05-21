@@ -847,6 +847,8 @@ function startPersonalityQuiz() {
         { q: '당첨되면 가장 먼저 할 일은?', options: ['가족에게 알린다', '조용히 은행부터 간다', 'SNS에 자랑한다', '일단 아무 말도 안 한다'] },
         { q: '당신의 투자 성향은?', options: ['공격적 (한 방을 노린다)', '안정적 (꾸준히 산다)', '즉흥적 (기분 따라 산다)', '전략적 (데이터 기반)'] },
         { q: '로또를 사는 주된 이유는?', options: ['인생 역전의 꿈', '작은 즐거움/취미', '친구/가족 따라', '습관적으로'] },
+        { q: '매주 로또에 얼마나 투자하나요?', options: ['5,000원 (1게임)', '10,000원 (2게임)', '20,000원 이상', '기분 따라 다르게'] },
+        { q: '당신의 행운의 색깔은?', options: ['빨강 (열정)', '파랑 (냉철)', '노랑 (희망)', '초록 (안정)'] },
     ];
 
     let qi = 0;
@@ -859,7 +861,7 @@ function startPersonalityQuiz() {
         }
         const q = questions[qi];
         el.innerHTML = `
-            <div class="quiz-card">
+            <div class="quiz-card" style="animation:answerReveal 0.3s ease-out;">
                 <div class="quiz-progress">질문 ${qi + 1} / ${questions.length}</div>
                 <h3 class="quiz-question">${q.q}</h3>
                 <div class="quiz-options">
@@ -874,36 +876,38 @@ function startPersonalityQuiz() {
     window.answerQuiz = function(qIdx, aIdx) {
         answers.push(aIdx);
         qi++;
+        if (typeof playBeep === 'function') playBeep(500, 0.05);
         showQuestion();
     };
 
     function showResult() {
         const score = answers.reduce((a, b) => a + b, 0);
         const profiles = [
-            { type: '직감형 플레이어', emoji: '🎯', desc: '당신은 촉을 믿는 타입! 번호 선택은 그냥 느낌대로. 가끔은 그 직감이 기적을 만들기도 해요.', rec: '인기 번호보다는 나만의 의미 있는 번호를 선택하세요.' },
-            { type: '분석형 플레이어', emoji: '🧠', desc: '데이터와 통계를 사랑하는 이성파. 몬테카를로 시뮬레이션과 찰떡궁합!', rec: 'AI 예측 + 스마트 추천 조합이 당신에게 딱이에요.' },
-            { type: '낭만형 플레이어', emoji: '🌙', desc: '로또를 꿈과 희망으로 생각하는 낭만주의자. 당첨 상상을 즐기는 것만으로도 행복한 타입!', rec: '오늘의 행운 번호와 사진 번호 변환을 추천드려요.' },
-            { type: '소셜형 플레이어', emoji: '🤝', desc: '주변 사람들과 함께하는 걸 좋아하는 사교적 타입. 함께 당첨되는 상상을 자주 해요.', rec: '친구들과 번호를 공유하고 함께 분석해보세요.' },
+            { type: '직감형 플레이어', emoji: '🎯', desc: '당신은 촉을 믿는 타입! 번호 선택은 그냥 느낌대로. 가끔은 그 직감이 기적을 만들기도 해요.', rec: '인기 번호보다는 나만의 의미 있는 번호를 선택하세요.', color: '#ff6b35' },
+            { type: '분석형 플레이어', emoji: '🧠', desc: '데이터와 통계를 사랑하는 이성파. 몬테카를로 시뮬레이션과 찰떡궁합!', rec: 'AI 예측 + 스마트 추천 조합이 당신에게 딱이에요.', color: '#60a5fa' },
+            { type: '낭만형 플레이어', emoji: '🌙', desc: '로또를 꿈과 희망으로 생각하는 낭만주의자. 당첨 상상을 즐기는 것만으로도 행복한 타입!', rec: '오늘의 행운 번호와 사진 번호 변환을 추천드려요.', color: '#a78bfa' },
+            { type: '소셜형 플레이어', emoji: '🤝', desc: '주변 사람들과 함께하는 걸 좋아하는 사교적 타입. 함께 당첨되는 상상을 자주 해요.', rec: '친구들과 번호를 공유하고 함께 분석해보세요.', color: '#10b981' },
         ];
         const profile = profiles[score % profiles.length];
         const luckyNums = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1).sort((a, b) => a - b);
 
         el.innerHTML = `
-            <div class="quiz-result-card">
-                <div class="quiz-result-emoji">${profile.emoji}</div>
-                <h3 class="quiz-result-type">${profile.type}</h3>
+            <div class="quiz-result-card" style="animation:answerReveal 0.6s ease-out;">
+                <div class="quiz-result-emoji" style="font-size:4rem;">${profile.emoji}</div>
+                <h3 class="quiz-result-type" style="color:${profile.color};" id="typewriterTarget">${profile.type}</h3>
                 <p class="quiz-result-desc">${profile.desc}</p>
-                <div class="quiz-result-rec">💡 추천: ${profile.rec}</div>
+                <div class="quiz-result-rec" style="background:rgba(139,92,246,0.1);border-radius:10px;padding:12px;margin:10px 0;">💡 추천: ${profile.rec}</div>
                 <div style="margin-top:15px;">
                     <p class="text-xs-secondary">당신을 위한 추천 번호</p>
-                    <div class="balls-container">${luckyNums.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+                    <div class="balls-container">${luckyNums.map(n => `<span class="ball ${getBallClass(n)}" style="animation:revealPop 0.3s ease-out backwards;animation-delay:${n%6*0.1}s;">${n}</span>`).join('')}</div>
                     <button class="btn btn-primary" onclick="usePersonalityNumbers([${luckyNums}])" style="margin-top:10px;">🎱 이 번호로 분석하기</button>
                     <button class="btn btn-secondary" onclick="startPersonalityQuiz()" style="margin-top:5px;">🔄 다시 테스트</button>
                 </div>
             </div>
         `;
         trackPersonalityDone();
-        playBeep(600, 0.1);
+        if (typeof playBeep === 'function') playBeep(600, 0.1);
+        if (typeof fireConfetti === 'function') fireConfetti();
     }
 
     showQuestion();

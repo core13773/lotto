@@ -392,29 +392,34 @@ function initFishingGame() {
     const el = document.getElementById('gameContentFishing');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🎣 물고기를 터치해서 낚으세요! <strong>6마리</strong>를 낚으면 번호가 공개됩니다 (총 45마리)</div>
+        <div class="game-info-box">🎣 물고기를 터치해서 낚으세요! <strong>6마리</strong>를 낚으면 번호가 공개됩니다.<br><span style="color:#ffd700;">✨ 황금 물고기</span>는 <strong>2마리</strong>로 계산돼요! 빠르게 연속 낚으면 <strong style="color:#ff6b35;">콤보</strong>!</div>
         <canvas id="fishCanvas" class="game-canvas" width="400" height="380"></canvas>
     `;
     const canvas = document.getElementById('fishCanvas');
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
 
-    // 45마리 물고기
     fishList = [];
     fishBubbles = [];
+    const goldenIdx = new Set();
+    while (goldenIdx.size < 5) goldenIdx.add(Math.floor(Math.random() * 45));
     for (let num = 1; num <= 45; num++) {
+        const isGolden = goldenIdx.has(num - 1);
         fishList.push({
             num,
             x: 25 + Math.random() * (w - 50),
             y: 25 + Math.random() * (h - 50),
             vx: (Math.random() - 0.5) * 1.3,
             vy: (Math.random() - 0.5) * 1.0,
-            size: 10 + Math.random() * 5,
-            color: ['#ffd700','#60a5fa','#f87171','#34d399','#f97316','#a78bfa'][Math.floor(Math.random() * 6)],
+            size: isGolden ? 16 + Math.random() * 4 : 10 + Math.random() * 5,
+            color: isGolden ? '#ffd700' : ['#60a5fa','#f87171','#34d399','#f97316','#a78bfa'][Math.floor(Math.random() * 5)],
             angle: Math.random() * Math.PI * 2,
-            caught: false
+            caught: false,
+            golden: isGolden
         });
     }
+
+    let fishCombo = 0, lastCatchTime = 0;
 
     canvas.onclick = (e) => {
         if (gameCollected.length >= GAME_TARGET) return;
@@ -429,16 +434,32 @@ function initFishingGame() {
         });
         if (bestFish) {
             bestFish.caught = true;
-            for (let i = 0; i < 12; i++) {
+            const now = Date.now();
+            fishCombo = (now - lastCatchTime < 1500) ? fishCombo + 1 : 1;
+            lastCatchTime = now;
+            const isGolden = bestFish.golden;
+            const particleCount = isGolden ? 25 : 12;
+            for (let i = 0; i < particleCount; i++) {
                 fishBubbles.push({
                     x: bestFish.x, y: bestFish.y,
-                    vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 5 - 3,
-                    life: 1, size: 2 + Math.random() * 4
+                    vx: (Math.random() - 0.5) * (isGolden ? 8 : 5),
+                    vy: -Math.random() * (isGolden ? 7 : 5) - 3,
+                    life: 1, size: (isGolden ? 3 : 2) + Math.random() * (isGolden ? 5 : 4),
+                    golden: isGolden
                 });
             }
             addCollected(bestFish.num);
-            if (typeof playBeep === 'function') playBeep(500, 0.08);
-            if (typeof vibrate === 'function') vibrate(20);
+            if (isGolden && gameCollected.length < GAME_TARGET) {
+                // 황금 물고기: 추가 번호 (미수집 중 랜덤)
+                const allNums = []; for (let i=1;i<=45;i++) if(!gameCollected.includes(i)) allNums.push(i);
+                if (allNums.length > 0) {
+                    addCollected(allNums[Math.floor(Math.random() * allNums.length)]);
+                }
+            }
+            if (typeof playBeep === 'function') playBeep(isGolden ? 800 : 500, isGolden ? 0.15 : 0.08);
+            if (isGolden && typeof playBeep === 'function') setTimeout(() => playBeep(1000, 0.12), 100);
+            if (typeof vibrate === 'function') vibrate(isGolden ? [30, 20, 50] : 20);
+            if (isGolden && typeof fireConfetti === 'function') fireConfetti();
         }
     };
 
@@ -450,11 +471,9 @@ function initFishingGame() {
         ctx.fillStyle = waterGrad;
         ctx.fillRect(0, 0, w, h);
 
-        // 빛줄기
         ctx.fillStyle = 'rgba(255,255,255,0.025)';
         for (let i = 0; i < 6; i++) ctx.fillRect(40 + i * 70, 0, 2, h);
 
-        // 물고기
         fishList.forEach(f => {
             if (f.caught) return;
             f.x += f.vx; f.y += f.vy; f.angle += 0.02;
@@ -465,8 +484,6 @@ function initFishingGame() {
             ctx.save();
             ctx.translate(f.x, f.y);
             ctx.rotate(f.angle * 0.25);
-
-            // 꼬리
             ctx.fillStyle = f.color;
             ctx.beginPath();
             ctx.moveTo(-f.size, 0);
@@ -474,25 +491,25 @@ function initFishingGame() {
             ctx.lineTo(-f.size - 5, 0);
             ctx.lineTo(-f.size - 7, 5);
             ctx.closePath(); ctx.fill();
-
-            // 몸통
             ctx.beginPath();
             ctx.ellipse(0, 0, f.size, f.size * 0.55, 0, 0, Math.PI * 2);
             ctx.fill();
-
-            // 눈
             ctx.fillStyle = '#fff';
             ctx.beginPath(); ctx.arc(f.size * 0.4, -1.5, f.size * 0.22, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#000';
             ctx.beginPath(); ctx.arc(f.size * 0.5, -1.5, f.size * 0.1, 0, Math.PI * 2); ctx.fill();
 
-            // ? 표시
-            ctx.fillStyle = '#fff';
+            if (f.golden) {
+                // 황금 빛 반짝임
+                ctx.fillStyle = `rgba(255,215,0,${0.3 + Math.sin(Date.now()*0.01)*0.2})`;
+                ctx.beginPath(); ctx.arc(0, 0, f.size + 3, 0, Math.PI*2); ctx.fill();
+            }
+
+            ctx.fillStyle = f.golden ? '#000' : '#fff';
             ctx.font = `bold ${Math.max(8, f.size*0.6)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('?', 0, 0);
-
             ctx.restore();
 
             if (Math.random() < 0.03) {
@@ -501,18 +518,20 @@ function initFishingGame() {
                     y: f.y - 6,
                     vx: (Math.random()-0.5)*0.3,
                     vy: -0.2 - Math.random()*0.5,
-                    life: 1, size: 1 + Math.random()*3
+                    life: 1, size: 1 + Math.random()*3,
+                    golden: false
                 });
             }
         });
 
-        // 거품
         fishBubbles = fishBubbles.filter(b => b.life > 0);
         fishBubbles.forEach(b => {
             b.x += b.vx; b.y += b.vy; b.life -= 0.012;
-            ctx.strokeStyle = `rgba(255,255,255,${b.life*0.5})`;
+            const alpha = b.life * (b.golden ? 0.8 : 0.5);
+            ctx.fillStyle = b.golden ? `rgba(255,215,0,${alpha})` : `rgba(255,255,255,${alpha})`;
             ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2);
+            b.golden ? ctx.fill() : ctx.stroke();
         });
 
         if (gameCollected.length >= GAME_TARGET) {
@@ -525,13 +544,18 @@ function initFishingGame() {
             ctx.fillText('아래에서 번호를 확인하세요', w/2, h/2 + 20);
             return;
         }
-        // 카운터
+        // 카운터 + 콤보
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(w - 95, h - 35, 88, 28);
+        ctx.fillRect(w - 95, h - 55, 88, 50);
         ctx.fillStyle = '#ffd700';
         ctx.font = 'bold 13px "Noto Sans KR"';
         ctx.textAlign = 'center';
-        ctx.fillText(`🐟 ${Math.min(gameCollected.length, GAME_TARGET)}/${GAME_TARGET}`, w - 50, h - 14);
+        ctx.fillText(`🐟 ${Math.min(gameCollected.length, GAME_TARGET)}/${GAME_TARGET}`, w - 50, h - 38);
+        if (fishCombo >= 2) {
+            ctx.fillStyle = '#ff6b35';
+            ctx.font = 'bold 11px "Noto Sans KR"';
+            ctx.fillText(`🔥 ${fishCombo}콤보!`, w - 50, h - 18);
+        }
 
         gameAnimId = requestAnimationFrame(animate);
     }
@@ -708,18 +732,32 @@ function spinSlot() {
         if (allStopped) {
             slotState.spinning = false;
             slotState.spinCount++;
-            // 번호 수집
             slotState.targetReels.forEach(n => addCollected(n));
             const remaining = 2 - slotState.spinCount;
 
+            // 아슬아슬 연출: 2개 이상 같은 색상대면 특별 효과
+            const reelNums = slotState.targetReels;
+            const reelColors = reelNums.map(n => typeof getBallClass === 'function' ? getBallClass(n) : '');
+            const colorCount = {};
+            reelColors.forEach(c => colorCount[c] = (colorCount[c]||0)+1);
+            const hasNearMiss = Object.values(colorCount).some(c => c >= 2);
+
             const info = document.getElementById('slotInfo');
             if (info) {
-                const colors = slotState.targetReels.map(n => {
-                    const c = typeof getBallClass === 'function' ? getBallClass(n) : '';
-                    const names = {yellow:'노랑',blue:'파랑',red:'빨강',gray:'회색',green:'초록'};
-                    return names[c] || '기타';
-                });
-                info.innerHTML = `🎯 당첨: <span style="color:var(--accent-gold);">${slotState.targetReels.join(', ')}</span> (${colors.join('/')})`;
+                const colorNames = {yellow:'노랑',blue:'파랑',red:'빨강',gray:'회색',green:'초록'};
+                const colors = reelColors.map(c => colorNames[c] || '기타');
+                if (hasNearMiss && reelColors[0] === reelColors[1] && reelColors[1] === reelColors[2]) {
+                    info.innerHTML = `🎯 당첨: <span style="color:var(--accent-gold);">${reelNums.join(', ')}</span> (${colors.join('/')}) <span style="font-size:1.2rem;">✨ 트리플!</span>`;
+                } else if (hasNearMiss) {
+                    info.innerHTML = `🎯 당첨: <span style="color:var(--accent-gold);">${reelNums.join(', ')}</span> (${colors.join('/')}) <span style="color:#ff6b35;">😱 아슬아슬!</span>`;
+                } else {
+                    info.innerHTML = `🎯 당첨: <span style="color:var(--accent-gold);">${reelNums.join(', ')}</span> (${colors.join('/')})`;
+                }
+            }
+
+            if (hasNearMiss) {
+                if (typeof vibrate === 'function') vibrate([30, 15, 30, 15, 50]);
+                if (typeof playBeep === 'function') { playBeep(600, 0.1); setTimeout(() => playBeep(800, 0.12), 120); }
             }
 
             if (btn) {

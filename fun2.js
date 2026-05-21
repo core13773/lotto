@@ -328,23 +328,35 @@ function selectPrizeTier(amount, tier) {
         return { ...item, count };
     }).filter(r => r.count > 0).slice(0, 6);
 
+    // 헤더 먼저 표시
     el.innerHTML = `
-        <div class="shopping-result-card">
+        <div class="shopping-result-card" style="animation:answerReveal 0.4s ease-out;">
             <div class="shopping-header">${tier} 당첨</div>
             <div class="shopping-net">실수령 <strong>${net.toLocaleString()}원</strong></div>
             <div class="shopping-tax">(세금 ${(taxRate*100).toFixed(0)}% 차감)</div>
-            <div class="shopping-items">
-                ${rows.map(r => `
-                    <div class="shopping-item-row">
-                        <span class="shopping-item-icon">${r.icon}</span>
-                        <span class="shopping-item-name">${r.name}</span>
-                        <span class="shopping-item-count">× <strong>${r.count.toLocaleString()}</strong>개</span>
-                    </div>
-                `).join('')}
-            </div>
+            <div class="shopping-items" id="shoppingItemsList"></div>
             ${rows.length === 0 ? '<p class="text-secondary text-center">구매 가능한 항목이 없어요 😅</p>' : ''}
         </div>
     `;
+
+    // 아이템 하나씩 순차 공개
+    const listEl = document.getElementById('shoppingItemsList');
+    if (listEl && rows.length > 0) {
+        rows.forEach((r, i) => {
+            setTimeout(() => {
+                const div = document.createElement('div');
+                div.className = 'shopping-item-row';
+                div.style.cssText = 'animation:answerReveal 0.3s ease-out;';
+                div.innerHTML = `
+                    <span class="shopping-item-icon">${r.icon}</span>
+                    <span class="shopping-item-name">${r.name}</span>
+                    <span class="shopping-item-count">× <strong>${r.count.toLocaleString()}</strong>개</span>
+                `;
+                listEl.appendChild(div);
+                if (typeof playBeep === 'function') playBeep(600 + i * 100, 0.06);
+            }, i * 200);
+        });
+    }
 }
 
 // ========== 4. 번호 궁합 테스트 ==========
