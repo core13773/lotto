@@ -489,15 +489,20 @@ function initBoard() {
     const el = document.getElementById('diceContentBoard');
     if (!el) return;
     el.innerHTML = `
-        <div class="game-info-box">🏃 주사위 2개를 굴려 말을 이동시키고 도착한 칸의 번호를 모으세요! <strong>6개</strong> 모으면 완료!</div>
+        <div class="game-info-box">🏃 주사위 2개를 굴려 말을 이동! <strong>6개</strong> 모으면 완료!<br>🎁×2✨🔄=이득 · <strong style="color:#ef4444;">💥⬅️=손해</strong> — 행운을 빌어요!</div>
         <canvas id="boardCanvas" width="440" height="380"></canvas>
         <div id="boardInfo" style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin:5px 0;">주사위를 굴려보세요!</div>
         <button class="btn btn-gold" onclick="rollBoardDice()" id="boardRollBtn" style="width:100%;">🎲 주사위 굴리기</button>
         <div id="boardLog" style="margin-top:8px;max-height:80px;overflow-y:auto;font-size:0.75rem;color:var(--text-secondary);"></div>
     `;
     const specialCells = {};
-    const specialIndices = [3, 9, 15, 21, 27, 33, 39, 44, 7, 18, 30, 41];
-    const specialTypes = ['double', 'skip', 'swap', 'bonus', 'double', 'skip', 'swap', 'bonus', 'double', 'skip', 'swap', 'bonus'];
+    const specialIndices = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 44, 7, 13, 19, 25, 31, 37, 43];
+    const specialTypes = [
+        'bonus', 'trap', 'double', 'back', 'skip', 'swap',
+        'bonus', 'trap', 'double', 'back', 'skip', 'swap',
+        'bonus', 'trap', 'double', 'back', 'bonus', 'double',
+        'swap', 'skip', 'bonus', 'trap'
+    ];
     specialIndices.forEach((si, i) => { specialCells[si] = specialTypes[i]; });
     boardState = { pos: 0, specialCells };
     renderBoard();
@@ -530,7 +535,8 @@ function renderBoard(diceD1, diceD2, dicePhase) {
         ctx.arc(cx, cy, or2, a1, a2);
         ctx.arc(cx, cy, ir2, a2, a1, true);
         ctx.closePath();
-        ctx.fillStyle = isCurrent ? 'rgba(255,215,0,0.4)' : isCollected ? 'rgba(16,185,129,0.2)' : isSpecial ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)';
+        const isBad = isSpecial && (boardState.specialCells[i] === 'trap' || boardState.specialCells[i] === 'back');
+        ctx.fillStyle = isCurrent ? 'rgba(255,215,0,0.4)' : isCollected ? 'rgba(16,185,129,0.2)' : isBad ? 'rgba(239,68,68,0.2)' : isSpecial ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)';
         ctx.fill();
         ctx.strokeStyle = isCurrent ? '#ffd700' : 'rgba(255,255,255,0.08)';
         ctx.lineWidth = isCurrent ? 2 : 0.5;
@@ -541,7 +547,7 @@ function renderBoard(diceD1, diceD2, dicePhase) {
         ctx.textBaseline = 'middle';
         ctx.fillText(cell.num, cell.x, cell.y);
         if (isSpecial) {
-            const icons = { double: '×2', skip: '⏭️', swap: '🔄', bonus: '🎁' };
+            const icons = { double: '×2', skip: '⏭️', swap: '🔄', bonus: '🎁', trap: '💥', back: '⬅️' };
             ctx.fillText(icons[boardState.specialCells[i]] || '?', cell.x, cell.y - 10);
         }
     });
@@ -673,6 +679,20 @@ function startBoardMove(steps, btn) {
                     addDiceCollected(newNum);
                     logMsg += ` 🔄 교환! ${removed}번 → ${newNum}번`;
                 }
+            } else if (specType === 'trap' && diceCollected.length > 0) {
+                const lost = diceCollected.pop();
+                updateDiceBasket();
+                logMsg += ` 💥 함정! ${lost}번을 잃었어요...`;
+                if (typeof vibrate === 'function') vibrate([50, 30, 50]);
+                if (typeof playBeep === 'function') playBeep(150, 0.3);
+            } else if (specType === 'back') {
+                boardState.pos = (boardState.pos - 5 + 45) % 45;
+                logMsg += ` ⬅️ 뒤로! 5칸 후퇴 → ${cells[boardState.pos].num}번`;
+                renderBoard();
+                if (typeof vibrate === 'function') vibrate([20, 30]);
+                if (typeof playBeep === 'function') playBeep(250, 0.2);
+            } else if (specType === 'trap') {
+                logMsg += ` 💥 함정! (잃을 번호가 없어 다행...)`;
             } else if (specType === 'bonus') {
                 steps += 1;
                 logMsg += ` 🎁 보너스! 추가 1칸 전진`;
