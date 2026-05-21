@@ -1828,3 +1828,104 @@
     100% { transform: scale(1); box-shadow: 0 0 0 rgba(139, 92, 246, 0); }
 }
 
+/* ========== 주사위 존 ========== */
+.dice-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 12px;
+}
+.dice-tab {
+    padding: 7px 13px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.25);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.dice-tab:hover {
+    border-color: rgba(139,92,246,0.5);
+    color: var(--text-primary);
+    background: rgba(139,92,246,0.1);
+}
+.dice-tab.active {
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+    color: #fff;
+    border-color: #8b5cf6;
+    font-weight: 700;
+    box-shadow: 0 0 16px rgba(139,92,246,0.35);
+}
+
+.dice-basket {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: rgba(139,92,246,0.06);
+    border: 1px dashed rgba(139,92,246,0.2);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.dice-content { display: none; }
+.dice-content.active { display: block; }
+
+/* 요트 점수표 */
+.yacht-cat {
+    transition: all 0.2s ease;
+}
+.yacht-cat.clickable:hover {
+    background: rgba(139,92,246,0.2) !important;
+    border-color: #8b5cf6 !important;
+}
+.yacht-cat.used {
+    background: rgba(16,185,129,0.08) !important;
+}
+
+/* 주사위 생성기 */
+.dice-generator-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.gen-methods {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.gen-method {
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.gen-method:hover {
+    border-color: rgba(139,92,246,0.5);
+    color: var(--text-primary);
+}
+.gen-method.active {
+    border-color: #8b5cf6;
+    background: rgba(139,92,246,0.15);
+    color: #a78bfa;
+    font-weight: 700;
+}
+

@@ -716,6 +716,7 @@ document.addEventListener('click', function(e) {
         case 'switchFunTab': if (arg) switchFunTab(arg); break;
         case 'switchFun2Tab': if (arg) switchFun2Tab(arg); break;
         case 'switchGameTab': if (arg) switchGameTab(arg); break;
+        case 'switchDiceTab': if (arg && typeof switchDiceTab === 'function') switchDiceTab(arg); break;
     }
 });
 

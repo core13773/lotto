@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollTopBtn();
     initOnboarding();
     if (typeof initGameZone === 'function') initGameZone();
+    if (typeof initDiceZone === 'function') initDiceZone();
     if (typeof renderMissions === 'function') renderMissions();
     try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
     if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
