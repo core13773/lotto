@@ -7,7 +7,7 @@ let statsPeriod = 'all';
 function setStatsPeriod(period) {
     statsPeriod = period;
     document.querySelectorAll('.stats-period-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`.stats-period-btn[data-period="${period}"]`);
+    const btn = document.querySelector(`.stats-period-btn[data-arg="${period}"]`);
     if (btn) btn.classList.add('active');
     renderStatsDashboard();
     showToast(`📊 ${period === 'all' ? '전체' : '최근 ' + period + '회'} 기준 통계`);

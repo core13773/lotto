@@ -70,6 +70,10 @@ jobs:
           data.sort(key=lambda x: x['round'])
           with open('latest.json', 'w') as f:
               json.dump(data, f, ensure_ascii=False)
+          # 경량 브리프 파일 (최근 10회)
+          brief = data[-10:]
+          with open('latest-brief.json', 'w') as f:
+              json.dump(brief, f, ensure_ascii=False)
           print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {sorted(nums)}, 보너스: {bonus}, 총 {len(data)}개')
           " 2>&1
 
@@ -79,5 +83,5 @@ jobs:
         run: |
           git config user.name "lotto-bot"
           git config user.email "bot@example.com"
-          git add latest.json
+          git add latest.json latest-brief.json
           git diff --staged --quiet || (git commit -m "최신 당첨번호 업데이트" && git push)

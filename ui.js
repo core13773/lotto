@@ -80,7 +80,32 @@ const FONT_LABELS = {
     'Gowun Dodum': '고운돋움 (산뜻)'
 };
 
+const FONT_WEIGHTS = {
+    'Noto Sans KR': 'wght@300;400;500;700;900',
+    'Noto Serif KR': 'wght@400;500;700;900',
+    'Nanum Gothic': 'wght@400;700;800',
+    'Nanum Myeongjo': 'wght@400;700;800',
+    'IBM Plex Sans KR': 'wght@400;500;700',
+    'Gothic A1': 'wght@400;500;700;900',
+    'Dongle': 'wght@300;400;700',
+    'Sunflower': 'wght@300;500;700'
+};
+const LOADED_FONTS = new Set(['Noto Sans KR', 'Noto Serif KR']);
+
+function loadGoogleFont(fontName) {
+    if (LOADED_FONTS.has(fontName)) return;
+    LOADED_FONTS.add(fontName);
+    const family = fontName.replace(/ /g, '+');
+    const weights = FONT_WEIGHTS[fontName] || '';
+    const href = `https://fonts.googleapis.com/css2?family=${family}${weights ? ':' + weights : ''}&display=swap`;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+}
+
 function changeFont(fontName) {
+    loadGoogleFont(fontName);
     const fontStack = FONT_OPTIONS[fontName] || FONT_OPTIONS['Noto Sans KR'];
     document.body.style.fontFamily = fontStack;
     try { localStorage.setItem('lotto-font', fontName); } catch (e) {}
@@ -162,6 +187,7 @@ function selectFont(fontName) {
 
 function loadFontSetting() {
     const fontName = getCurrentFontName();
+    loadGoogleFont(fontName);
     document.body.style.fontFamily = FONT_OPTIONS[fontName];
 }
 
@@ -681,6 +707,9 @@ document.addEventListener('click', function(e) {
         case 'interpretDream': interpretDream(); break;
         case 'openSoundtrack': openSoundtrack(); break;
         case 'startLottoQuiz': startLottoQuiz(); break;
+        case 'openBookOfAnswers': openBookOfAnswers(); break;
+        case 'resetBookOfAnswers': resetBookOfAnswers(); break;
+        case 'setStatsPeriod': if (arg) setStatsPeriod(arg); break;
         case 'toggleCollapsible': if (arg) toggleCollapsible(arg); break;
         case 'switchAiMode': if (arg) switchAiMode(arg); break;
         case 'switchStatsTab': if (arg) switchStatsTab(arg); break;
@@ -699,4 +728,11 @@ document.addEventListener('keydown', function(e) {
     if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return;
     e.preventDefault();
     el.click();
+});
+
+// ========== ux-toggle change 이벤트 위임 ==========
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('ux-toggle')) {
+        toggleUxSetting(e.target.dataset.key, e.target.checked);
+    }
 });

@@ -4,7 +4,7 @@ const FILES = [
     './style.css', './analysis.js', './stats.js', './simulation.js', './ui.js',
     './features.js', './fun.js', './fun2.js', './fun3.js', './games.js',
     './script.js', './worker.js', './sw-register.js',
-    './manifest.json', './icon-192.png', './icon-512.png', './latest.json'
+    './manifest.json', './icon-192.png', './icon-512.png', './latest.json', './latest-brief.json'
 ];
 
 self.addEventListener('install', e => {
@@ -28,8 +28,8 @@ self.addEventListener('fetch', e => {
     // 쿼리스트링을 제외한 캐시 키 사용 (버전 파라미터 무시)
     const cacheKey = url.origin + url.pathname;
 
-    // latest.json은 항상 네트워크 우선 (실시간 데이터)
-    if (url.pathname.endsWith('/latest.json')) {
+    // latest.json, latest-brief.json은 항상 네트워크 우선 (실시간 데이터)
+    if (url.pathname.endsWith('/latest.json') || url.pathname.endsWith('/latest-brief.json')) {
         e.respondWith(
             fetch(e.request)
                 .then(resp => {

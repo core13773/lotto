@@ -31,6 +31,26 @@ document.addEventListener('DOMContentLoaded', () => {
 let lottoDb = null;
 
 async function loadLatestJson() {
+    // 1단계: 경량 브리프 파일로 최신 회차 즉시 표시
+    try {
+        const briefResp = await fetch('latest-brief.json', { cache: 'no-store' });
+        if (briefResp.ok) {
+            const briefData = await briefResp.json();
+            if (Array.isArray(briefData) && briefData.length > 0) {
+                const latest = briefData[briefData.length - 1];
+                const inputEl = document.getElementById('roundInput');
+                const initialRound = calculateLatestRound();
+                if (!inputEl.value || parseInt(inputEl.value) === initialRound) {
+                    inputEl.value = latest.round;
+                }
+                inputEl.max = latest.round;
+                setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB');
+                showStatus('success', `✅ 제 ${latest.round}회 당첨번호 로드 완료`);
+            }
+        }
+    } catch (e) { /* 브리프 실패는 무시, 전체 파일에서 재시도 */ }
+
+    // 2단계: 전체 DB 백그라운드 로드 (통계/분석용)
     try {
         const resp = await fetch('latest.json', { cache: 'no-store' });
         if (resp.ok) {
@@ -40,14 +60,11 @@ async function loadLatestJson() {
                 cachedNumberScores = null;
                 const latest = data[data.length - 1];
                 const inputEl = document.getElementById('roundInput');
-                const initialRound = calculateLatestRound();
-                // 사용자가 직접 입력한 경우 덮어쓰지 않음
-                if (!inputEl.value || parseInt(inputEl.value) === initialRound) {
+                if (!inputEl.value || parseInt(inputEl.value) === latest.round) {
                     inputEl.value = latest.round;
                 }
                 inputEl.max = latest.round;
-                setWinningNumbers(latest.numbers, latest.bonus, latest.round, '내장 DB (최신)');
-                showStatus('success', `✅ ${data.length}개 회차 DB 로드 완료! 제 ${latest.round}회 자동 적용`);
+                showStatus('success', `✅ ${data.length}개 회차 DB 로드 완료! 제 ${latest.round}회`);
                 if (typeof _hook === 'function') _hook('loadLatestJson');
                 return;
             }
@@ -58,6 +75,7 @@ async function loadLatestJson() {
             }
         }
     } catch (e) {
+        if (lottoDb) return; // 브리프로 이미 로드됨, 전체 파일 실패는 허용
         const msg = '⚠️ latest.json을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
         document.getElementById('statsNotReady').textContent = msg;
         showStatus('warning', msg + ' 수동 입력 모드로 전환됩니다.');
@@ -308,27 +326,6 @@ function extractLottoNumbersFromHtml(html) {
     return { numbers: nums.sort((a, b) => a - b), bonus };
 }
 
-const CORS_PROXIES = [];
-
-async function fetchLottoFromProxy(roundNo) {
-    const url = `https://search.naver.com/search.naver?where=nexearch&query=${roundNo}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8`;
-    for (const proxy of CORS_PROXIES) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
-        try {
-            const resp = await fetch(proxy + encodeURIComponent(url), { signal: controller.signal });
-            clearTimeout(timer);
-            if (resp.ok) {
-                const html = await resp.text();
-                const result = extractLottoNumbersFromHtml(html);
-                if (result) return result;
-            }
-        } catch (e) { continue; }
-        finally { clearTimeout(timer); }
-    }
-    return null;
-}
-
 async function fetchWinningNumbers() {
     if (isFetching) return;
     const roundNo = parseInt(document.getElementById('roundInput').value);
@@ -350,14 +347,6 @@ async function fetchWinningNumbers() {
         if (localResult) {
             setWinningNumbers(localResult.numbers, localResult.bonus, roundNo, '네이버 검색');
             showStatus('success', '✅ 조회 성공!');
-            return;
-        }
-        // 서버리스 CORS 프록시 폴백
-        showStatus('info', '🔍 CORS 프록시로 조회 중...');
-        const proxyResult = await fetchLottoFromProxy(roundNo);
-        if (proxyResult) {
-            setWinningNumbers(proxyResult.numbers, proxyResult.bonus, roundNo, 'CORS 프록시');
-            showStatus('success', '✅ 조회 성공! (프록시)');
             return;
         }
         showStatus('warning', '⚠️ DB에 없는 회차입니다. 아래에서 직접 번호를 선택해주세요.');
@@ -528,7 +517,6 @@ async function compareRounds() {
         return;
     }
     let result = await fetchFromLocalProxy(compareRound);
-    if (!result) { result = await fetchLottoFromProxy(compareRound); }
     if (!result) { showStatus('error', '❌ 비교 회차 조회에 실패했습니다. 내장 DB에 없는 회차입니다.'); return; }
     compareRoundData = { numbers: result.numbers, bonus: result.bonus, round: compareRound };
     renderComparison(result.numbers, result.bonus, compareRound);

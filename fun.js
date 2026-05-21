@@ -1360,6 +1360,8 @@ function initAllFunFeatures() {
         renderStatsSpotlight();
         renderAchievements();
         renderWheel();
+        const bookQ = document.getElementById('bookQuestion');
+        if (bookQ) bookQ.addEventListener('input', updateBookCharCount);
     }, { once: true });
 }
 

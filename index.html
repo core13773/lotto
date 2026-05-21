@@ -51,7 +51,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23ffd700'/><stop offset='100%25' style='stop-color:%2300f5ff'/></linearGradient></defs><rect width='100' height='100' rx='20' fill='%230a0a1a'/><circle cx='50' cy='50' r='42' fill='none' stroke='url(%23g)' stroke-width='4'/><text x='50' y='62' text-anchor='middle' font-size='30' font-weight='bold' fill='url(%23g)' font-family='sans-serif'>645</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23ffd700'/><stop offset='100%25' style='stop-color:%2300f5ff'/></linearGradient></defs><rect width='180' height='180' rx='36' fill='%230a0a1a'/><circle cx='90' cy='90' r='75' fill='none' stroke='url(%23g)' stroke-width='6'/><text x='90' y='110' text-anchor='middle' font-size='52' font-weight='bold' fill='url(%23g)' font-family='sans-serif'>645</text></svg>">
     <link rel="manifest" href="manifest.json">
-    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Dongle:wght@300;400;700&family=Gothic+A1:wght@400;500;700;900&family=Gowun+Dodum&family=Hi+Melody&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Jua&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&family=Orbitron:wght@400;700;900&family=Sunflower:wght@300;500;700&family=Yeon+Sung&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-3QLZDF9S2Z"></script>
     <script>
@@ -433,10 +433,10 @@
                     <button class="stats-tab" data-tab="distribution" data-action="switchStatsTab" data-arg="distribution">📊 분포표</button>
                 </div>
                 <div class="stats-period-bar">
-                    <button class="stats-period-btn" data-period="10" onclick="setStatsPeriod('10')">10회</button>
-                    <button class="stats-period-btn" data-period="50" onclick="setStatsPeriod('50')">50회</button>
-                    <button class="stats-period-btn" data-period="100" onclick="setStatsPeriod('100')">100회</button>
-                    <button class="stats-period-btn active" data-period="all" onclick="setStatsPeriod('all')">전체</button>
+                    <button class="stats-period-btn" data-action="setStatsPeriod" data-arg="10">10회</button>
+                    <button class="stats-period-btn" data-action="setStatsPeriod" data-arg="50">50회</button>
+                    <button class="stats-period-btn" data-action="setStatsPeriod" data-arg="100">100회</button>
+                    <button class="stats-period-btn active" data-action="setStatsPeriod" data-arg="all">전체</button>
                 </div>
                 <div class="stats-tab-content active" id="statsTabFrequency">
                     <div class="interpretation-box" style="margin-bottom:15px;">
@@ -589,19 +589,19 @@
                     </div>
                 </div>
                 <div class="book-input-area">
-                    <textarea id="bookQuestion" class="dream-textarea" placeholder="예: 지금 이직을 해도 괜찮을까요? / 오늘 로또를 사야 할까요? / 내 결정이 옳은 방향일까요?" rows="3" maxlength="120" oninput="updateBookCharCount()"></textarea>
+                    <textarea id="bookQuestion" class="dream-textarea" placeholder="예: 지금 이직을 해도 괜찮을까요? / 오늘 로또를 사야 할까요? / 내 결정이 옳은 방향일까요?" rows="3" maxlength="120"></textarea>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
                         <span id="bookCharCount" style="font-size:0.75rem;color:var(--text-secondary);">0 / 120자</span>
                     </div>
                 </div>
-                <button class="btn btn-gold" id="openBookBtn" onclick="openBookOfAnswers()" style="width:100%;justify-content:center;margin-top:10px;">📖 책 열어보기</button>
+                <button class="btn btn-gold" id="openBookBtn" data-action="openBookOfAnswers" style="width:100%;justify-content:center;margin-top:10px;">📖 책 열어보기</button>
                 <div class="book-answer hidden" id="bookAnswer">
                     <div class="book-answer-inner">
                         <div class="book-answer-icon" id="bookAnswerIcon">📖</div>
                         <p class="book-answer-text" id="bookAnswerText"></p>
                         <p class="book-answer-sub" id="bookAnswerSub"></p>
                     </div>
-                    <button class="btn btn-secondary" onclick="resetBookOfAnswers()" style="width:100%;margin-top:15px;justify-content:center;">🔄 다른 질문하기</button>
+                    <button class="btn btn-secondary" data-action="resetBookOfAnswers" style="width:100%;margin-top:15px;justify-content:center;">🔄 다른 질문하기</button>
                 </div>
             </div>
             <p style="color:var(--text-secondary);font-size:0.75rem;text-align:center;margin-top:15px;">⚠️ 답변의 책은 재미를 위한 콘텐츠입니다. 중요한 결정은 스스로 판단하세요.</p>
@@ -783,7 +783,7 @@
                     <div class="settings-desc">번호 선택/매칭 시 진동</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="vibration" checked onchange="toggleUxSetting('vibration', this.checked)" aria-label="진동 피드백">
+                    <input type="checkbox" class="ux-toggle" data-key="vibration" checked aria-label="진동 피드백">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -793,7 +793,7 @@
                     <div class="settings-desc">시뮬레이션 매칭 시 비프음</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="sound" onchange="toggleUxSetting('sound', this.checked)" aria-label="효과음">
+                    <input type="checkbox" class="ux-toggle" data-key="sound" aria-label="효과음">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -803,7 +803,7 @@
                     <div class="settings-desc">파티클 효과 및 전환 애니메이션</div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="ux-toggle" data-key="animation" checked onchange="toggleUxSetting('animation', this.checked)" aria-label="애니메이션">
+                    <input type="checkbox" class="ux-toggle" data-key="animation" checked aria-label="애니메이션">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
