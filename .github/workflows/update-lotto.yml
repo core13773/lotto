@@ -1,8 +1,8 @@
 name: 로또 당첨번호 자동 업데이트
 on:
   schedule:
-    # 매주 토요일 12:00 UTC (한국 시간 토요일 21:00)
-    - cron: '0 12 * * 6'
+    # 매주 토요일 13:00 UTC (한국 시간 토요일 22:00) — 당첨번호 공개 후 업데이트
+    - cron: '0 13 * * 6'
   workflow_dispatch:  # 수동 실행도 가능
 
 jobs:
@@ -15,6 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: 최신 당첨번호 가져오기
       - name: 최신 당첨번호 가져오기
         run: |
           # 최신 회차 계산 (한국 시간 기준 토요일 21시)
@@ -43,18 +44,29 @@ jobs:
           python3 -c "
           import re, json, os
           with open('/tmp/naver.html') as f:
-              text = re.sub('<[^>]+>', ' ', f.read())
-          m = re.search(r'(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})', text)
+              text = re.sub(r'<[^>]+>', ' ', f.read())
+              text = re.sub(r'&\w+;', ' ', text)
+              text = re.sub(r'\s+', ' ', text)
+              text = text.replace('\u2018', \"'\").replace('\u2019', \"'\")
+          m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
           if not m:
               print('번호를 찾을 수 없음')
               exit(1)
           nums = [int(m.group(i)) for i in range(1,7)]
           bonus = None
-          bm = re.search(r'보너스[^0-9]*(\d{1,2})', text[m.end():m.end()+200])
-          if bm:
-              bn = int(bm.group(1))
-              if 1 <= bn <= 45 and bn not in nums:
-                  bonus = bn
+          after = text[m.end():m.end()+300]
+          for pattern in [
+              r'볼너스\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+              r'bonus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+              r'plus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+              r'추가\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+          ]:
+              bm = re.search(pattern, after, re.IGNORECASE)
+              if bm:
+                  bn = int(bm.group(1))
+                  if 1 <= bn <= 45 and bn not in nums:
+                      bonus = bn
+                      break
           entry = {'round': int(os.environ['ROUND']), 'numbers': sorted(nums), 'bonus': bonus}
           # 기존 데이터 읽고 새 회차 추가
           try:
@@ -74,7 +86,7 @@ jobs:
           brief = data[-10:]
           with open('latest-brief.json', 'w') as f:
               json.dump(brief, f, ensure_ascii=False)
-          print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {sorted(nums)}, 보너스: {bonus}, 총 {len(data)}개')
+          print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {sorted(nums)}, 볼너스: {bonus}, 총 {len(data)}개')
           " 2>&1
 
       - name: 변경사항 커밋

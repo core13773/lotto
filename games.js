@@ -108,9 +108,10 @@ function initRaceGame() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🏇 12마리 말 중 <strong>6마리</strong>가 결승선을 통과하면 번호가 공개됩니다!</div>
-        <canvas id="raceCanvas" class="game-canvas" width="520" height="520"></canvas>
+        <canvas id="raceCanvas" class="game-canvas" style="width:100%;max-width:520px;height:auto;border-radius:12px;"></canvas>
         <div id="raceResult" class="hidden"></div>
         <button class="btn btn-gold" id="raceStartBtn" onclick="startRace()" style="width:100%;margin-top:8px;justify-content:center;">🏁 경주 시작!</button>
+        <p class="text-xs-secondary text-center" id="raceHint" style="margin-top:6px;">🏇 <strong>경주 중 화면을 터치/클릭</strong>하면 해당 레인의 말이 가속합니다!</p>
     `;
     initRaceCanvas();
 }
@@ -118,89 +119,123 @@ function initRaceGame() {
 function initRaceCanvas() {
     const canvas = document.getElementById('raceCanvas');
     if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const logicalW = 520, logicalH = 520;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
     const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = rect.width, h = rect.height;
 
-    // 12마리 말 (1~45 중 랜덤)
     const pool = Array.from({length: 45}, (_, i) => i + 1);
     for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
     }
+    const laneH = h / 12;
     const horses = pool.slice(0, 12).map((num, i) => ({
         num, lane: i,
-        x: 50, y: 42 + i * 38,
+        x: w * 0.08, y: laneH * i + laneH * 0.55,
         speed: 0, baseSpeed: 1.0 + Math.random() * 2.2,
         color: ['#ffd700','#60a5fa','#f87171','#9ca3af','#34d399','#f97316','#a78bfa','#fbbf24','#f472b6','#818cf8','#fb923c','#4ade80'][i],
-        finished: false, rank: 0
+        finished: false, rank: 0, boost: 0
     }));
 
-    raceState = { horses, running: false, finished: [], particles: [], startTime: 0 };
+    raceState = { horses, running: false, finished: [], particles: [], startTime: 0, w, h, laneH };
+
+    // 터치/클릭 인터랙션
+    function handlePointer(e) {
+        if (!raceState || !raceState.running) return;
+        e.preventDefault();
+        const r = canvas.getBoundingClientRect();
+        const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        const y = clientY - r.top;
+        const lane = Math.floor(y / raceState.laneH);
+        if (lane >= 0 && lane < 12 && raceState.horses[lane] && !raceState.horses[lane].finished) {
+            raceState.horses[lane].boost = 12; // 12프레임 동안 가속
+            // 파티클 폭발
+            for (let k = 0; k < 8; k++) {
+                raceState.particles.push({
+                    x: raceState.horses[lane].x + 10,
+                    y: raceState.horses[lane].y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 1, size: 2 + Math.random() * 3,
+                    color: raceState.horses[lane].color
+                });
+            }
+            if (typeof playBeep === 'function') playBeep(900, 0.06);
+            if (typeof vibrate === 'function') vibrate(15);
+        }
+    }
+    canvas.onclick = handlePointer;
+    canvas.ontouchstart = handlePointer;
 
     function draw() {
         ctx.clearRect(0, 0, w, h);
-        // 잔디
         ctx.fillStyle = '#2d5a1e';
         ctx.fillRect(0, 0, w, h);
 
-        // 트랙 레인
         const horses = raceState.horses;
         for (let i = 0; i < 12; i++) {
-            const y = 34 + i * 38;
+            const y = raceState.laneH * i + 2;
             ctx.fillStyle = 'rgba(255,255,255,0.04)';
-            ctx.fillRect(25, y, w - 40, 30);
+            ctx.fillRect(w * 0.03, y, w * 0.94, raceState.laneH - 4);
             ctx.strokeStyle = 'rgba(255,255,255,0.1)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(25, y, w - 40, 30);
+            ctx.strokeRect(w * 0.03, y, w * 0.94, raceState.laneH - 4);
             ctx.fillStyle = 'rgba(255,255,255,0.25)';
-            ctx.font = '9px sans-serif';
+            ctx.font = `${Math.max(8, w * 0.018)}px sans-serif`;
             ctx.textAlign = 'right';
-            ctx.fillText(`${i+1}`, 23, y + 18);
+            ctx.fillText(`${i+1}`, w * 0.025, y + raceState.laneH * 0.5);
         }
 
-        // 결승선
-        const finishX = w - 55;
+        const finishX = w * 0.88;
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(finishX, 30, 3, h - 40);
-        for (let yy = 34; yy < h - 10; yy += 8) {
-            ctx.fillStyle = (Math.floor(yy / 8) % 2 === 0) ? '#fff' : '#333';
-            ctx.fillRect(finishX - 2, yy, 5, 5);
+        ctx.fillRect(finishX, 2, 3, h - 4);
+        const checkSize = Math.max(4, h * 0.014);
+        for (let yy = 6; yy < h - 6; yy += checkSize * 1.6) {
+            ctx.fillStyle = (Math.floor(yy / (checkSize * 1.6)) % 2 === 0) ? '#fff' : '#333';
+            ctx.fillRect(finishX - checkSize * 0.4, yy, checkSize, checkSize);
         }
 
-        // 말 그리기
-        horses.forEach(h => {
-            drawHorseSprite(ctx, h);
-        });
+        horses.forEach(h => { drawHorseSprite(ctx, h, raceState.laneH); });
 
-        // 파티클
         raceState.particles = raceState.particles.filter(p => p.life > 0);
         raceState.particles.forEach(p => {
             p.x += p.vx; p.y += p.vy; p.life -= 0.03;
-            ctx.fillStyle = `rgba(180,150,100,${p.life})`;
+            ctx.fillStyle = p.color ? `${p.color.replace(')', ',').replace('rgb', 'rgba').replace('#','')}` : `rgba(180,150,100,${p.life})`;
+            if (p.color && p.color.startsWith('#')) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+            } else {
+                ctx.fillStyle = `rgba(180,150,100,${p.life})`;
+            }
             ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1;
         });
 
-        // 완주자 표시
         if (raceState.finished.length > 0) {
+            const panelW = Math.min(70, w * 0.18);
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(w - 70, 10, 65, raceState.finished.length * 22 + 10);
+            ctx.fillRect(w - panelW - 4, 4, panelW, raceState.finished.length * Math.max(18, h * 0.04) + 10);
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 11px sans-serif';
+            ctx.font = `bold ${Math.max(10, w * 0.022)}px sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText('도착', w - 38, 28);
+            ctx.fillText('도착', w - panelW / 2 - 4, 18);
             raceState.finished.forEach((h, i) => {
                 ctx.fillStyle = h.color;
-                ctx.font = 'bold 10px sans-serif';
-                ctx.fillText(`${i+1}위`, w - 38, 46 + i * 20);
+                ctx.font = `bold ${Math.max(9, w * 0.02)}px sans-serif`;
+                ctx.fillText(`${i+1}위`, w - panelW / 2 - 4, 32 + i * Math.max(18, h * 0.04));
             });
         }
 
-        // 출발 전
         if (!raceState.running && raceState.finished.length === 0) {
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 22px "Noto Sans KR"';
+            ctx.font = `bold ${Math.max(16, w * 0.05)}px "Noto Sans KR"`;
             ctx.textAlign = 'center';
             ctx.fillText('🏁 경주 시작! 버튼을 누르세요', w/2, h/2);
         }
@@ -208,29 +243,33 @@ function initRaceCanvas() {
     draw();
 }
 
-function drawHorseSprite(ctx, h) {
+function drawHorseSprite(ctx, h, laneH) {
     const {x, y, color} = h;
+    const s = Math.min(laneH * 0.35, 14);
     ctx.save();
-    ctx.translate(x, y + 3);
+    ctx.translate(x, y);
     // 몸통
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(6, 0, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s * 0.5, 0, s * 0.9, s * 0.5, 0, 0, Math.PI * 2); ctx.fill();
     // 머리
-    ctx.beginPath(); ctx.arc(18, -3, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s * 1.4, -s * 0.25, s * 0.45, 0, Math.PI * 2); ctx.fill();
     // 다리
     ctx.fillStyle = '#222';
-    ctx.fillRect(1, 5, 2, 7); ctx.fillRect(9, 5, 2, 7);
-    // ? 표시 (완주 전)
-    if (!h.finished) {
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('?', 6, 2);
-    } else {
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(h.num, 6, 2);
+    ctx.fillRect(s * 0.05, s * 0.4, s * 0.18, s * 0.6);
+    ctx.fillRect(s * 0.7, s * 0.4, s * 0.18, s * 0.6);
+    // ? 표시 또는 번호
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(8, s * 0.65)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(h.finished ? h.num : '?', s * 0.5, 0);
+    // boost 표시
+    if (h.boost > 0) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(s * 0.5, 0, s * 1.1, 0, Math.PI * 2);
+        ctx.stroke();
     }
     ctx.restore();
 }
@@ -238,26 +277,32 @@ function drawHorseSprite(ctx, h) {
 function startRace() {
     const canvas = document.getElementById('raceCanvas');
     const btn = document.getElementById('raceStartBtn');
+    const hint = document.getElementById('raceHint');
     if (!canvas || !btn || !raceState || raceState.running) return;
     stopGame();
 
     const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
-    const finishX = w - 70;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const finishX = w * 0.86;
 
     raceState.running = true;
     raceState.finished = [];
     raceState.particles = [];
     raceState.startTime = performance.now();
-    raceState.horses.forEach(h => { h.x = 50; h.finished = false; h.rank = 0; h.speed = 0; });
+    raceState.w = w; raceState.h = h;
+    const laneH = h / 12;
+    raceState.laneH = laneH;
+    raceState.horses.forEach(h => { h.x = w * 0.06; h.finished = false; h.rank = 0; h.speed = 0; h.boost = 0; });
     btn.disabled = true;
     btn.textContent = '🏇 경주 중...';
+    if (hint) hint.style.display = 'block';
 
-    function spawnParticles(x, y) {
+    function spawnParticles(x, y, color) {
         for (let i = 0; i < 4; i++) {
             raceState.particles.push({
                 x, y, vx: -Math.random() * 2 - 0.5, vy: (Math.random() - 0.5) * 2,
-                life: 1, size: 1 + Math.random() * 2
+                life: 1, size: 1 + Math.random() * 2, color
             });
         }
     }
@@ -268,37 +313,37 @@ function startRace() {
         ctx.fillStyle = '#2d5a1e';
         ctx.fillRect(0, 0, w, h);
 
-        // 트랙
         for (let i = 0; i < 12; i++) {
-            const y = 34 + i * 38;
+            const y = laneH * i + 2;
             ctx.fillStyle = 'rgba(255,255,255,0.04)';
-            ctx.fillRect(25, y, w - 40, 30);
+            ctx.fillRect(w * 0.03, y, w * 0.94, laneH - 4);
             ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-            ctx.strokeRect(25, y, w - 40, 30);
+            ctx.strokeRect(w * 0.03, y, w * 0.94, laneH - 4);
         }
 
-        // 결승선
+        const checkSize = Math.max(4, h * 0.014);
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(finishX, 30, 3, h - 40);
-        for (let yy = 34; yy < h - 10; yy += 8) {
-            ctx.fillStyle = (Math.floor(yy / 8) % 2 === 0) ? '#fff' : '#333';
-            ctx.fillRect(finishX - 2, yy, 5, 5);
+        ctx.fillRect(finishX, 2, 3, h - 4);
+        for (let yy = 6; yy < h - 6; yy += checkSize * 1.6) {
+            ctx.fillStyle = (Math.floor(yy / (checkSize * 1.6)) % 2 === 0) ? '#fff' : '#333';
+            ctx.fillRect(finishX - checkSize * 0.4, yy, checkSize, checkSize);
         }
 
-        // 말 이동 + 그리기
         raceState.horses.forEach(h => {
-            if (h.finished) { drawHorseSprite(ctx, h); return; }
+            if (h.finished) { drawHorseSprite(ctx, h, laneH); return; }
 
             const burst = Math.sin(elapsed * 2.7 + h.lane * 0.8) * 0.5 + Math.random() * 0.7;
-            h.speed = Math.max(0.4, Math.min(3.8, h.baseSpeed + burst));
+            h.speed = Math.max(w * 0.001, Math.min(w * 0.008, (h.baseSpeed / 520) * w + burst));
+            // 사용자 boost
+            if (h.boost > 0) { h.speed *= 2.5; h.boost--; }
             // 막판 스퍼트
-            if (h.x > finishX - 130) h.speed += Math.random() * 1.6;
+            if (h.x > finishX - w * 0.22) h.speed += Math.random() * (w * 0.004);
             // 긴장감: 갑작스런 둔화
-            if (h.x > finishX - 220 && h.x < finishX - 100 && Math.random() < 0.015) {
-                h.speed *= 0.3; spawnParticles(h.x + 15, h.y + 8);
+            if (h.x > finishX - w * 0.38 && h.x < finishX - w * 0.18 && Math.random() < 0.015) {
+                h.speed *= 0.3; spawnParticles(h.x + w * 0.02, h.y + laneH * 0.2);
             }
             h.x += h.speed;
-            if (Math.random() < 0.35) spawnParticles(h.x + 1, h.y + 10);
+            if (Math.random() < 0.35) spawnParticles(h.x + 1, h.y + laneH * 0.25, h.color);
 
             if (h.x >= finishX && !h.finished) {
                 h.finished = true; h.x = finishX;
@@ -306,30 +351,35 @@ function startRace() {
                 raceState.finished.push(h);
                 if (typeof playBeep === 'function') playBeep(350 + h.rank * 70, 0.1);
             }
-            drawHorseSprite(ctx, h);
+            drawHorseSprite(ctx, h, laneH);
         });
 
-        // 파티클
         raceState.particles = raceState.particles.filter(p => p.life > 0);
         raceState.particles.forEach(p => {
             p.x += p.vx; p.y += p.vy; p.life -= 0.03;
-            ctx.fillStyle = `rgba(180,150,100,${p.life})`;
+            if (p.color && p.color.startsWith('#')) {
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.fillStyle = p.color;
+            } else {
+                ctx.fillStyle = `rgba(180,150,100,${Math.max(0, p.life)})`;
+            }
             ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1;
         });
 
-        // 완주 순위판
         if (raceState.finished.length > 0) {
+            const panelW = Math.min(70, w * 0.18);
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(w - 75, 8, 72, Math.min(raceState.finished.length, 12) * 22 + 12);
+            ctx.fillRect(w - panelW - 4, 4, panelW, Math.min(raceState.finished.length, 12) * Math.max(18, h * 0.04) + 12);
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 11px sans-serif';
+            ctx.font = `bold ${Math.max(10, w * 0.022)}px sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText('순위', w - 38, 26);
+            ctx.fillText('순위', w - panelW / 2 - 4, 18);
             raceState.finished.forEach((h, i) => {
                 ctx.fillStyle = i < 6 ? '#ffd700' : '#888';
-                ctx.font = `bold ${i < 6 ? 11 : 9}px sans-serif`;
+                ctx.font = `bold ${i < 6 ? Math.max(10, w * 0.022) : Math.max(8, w * 0.018)}px sans-serif`;
                 const label = i < 6 ? `${['🥇','🥈','🥉','4','5','6'][i]} ${h.num}` : `${i+1}위`;
-                ctx.fillText(label, w - 38, 44 + i * 20);
+                ctx.fillText(label, w - panelW / 2 - 4, 32 + i * Math.max(18, h * 0.04));
             });
         }
 
@@ -337,6 +387,7 @@ function startRace() {
             raceState.running = false;
             btn.disabled = false;
             btn.textContent = '🔄 다시 경주';
+            if (hint) hint.style.display = 'none';
             showRaceResult();
             return;
         }
@@ -643,11 +694,23 @@ function flipMemoryCard(idx) {
             if (typeof vibrate === 'function') vibrate(30);
             // 매치된 번호 수집
             addCollected(card.num);
+            // 6개 수집 완료 시 즉시 종료
+            if (gameCollected.length >= GAME_TARGET) {
+                onGameComplete();
+                return;
+            }
         } else {
-            // 불일치 — 잠시 보여주고 뒤집기
+            // 불일치 — 흔들림 + 뒤집기
             memoryState.locked = true;
             renderMemoryCards();
-            if (typeof vibrate === 'function') vibrate([10, 30]);
+            // 흔들림 효과 적용
+            setTimeout(() => {
+                const c1 = document.querySelector(`.memory-card[data-idx="${memoryState.flippedIdx}"]`);
+                const c2 = document.querySelector(`.memory-card[data-idx="${idx}"]`);
+                if (c1) c1.classList.add('shake');
+                if (c2) c2.classList.add('shake');
+                if (typeof vibrate === 'function') vibrate([10, 30]);
+            }, 50);
             setTimeout(() => {
                 first.flipped = false;
                 card.flipped = false;
@@ -680,7 +743,9 @@ function initSlotGame() {
             </div>
             <div class="slot-info" id="slotInfo">레버를 당겨 돌려보세요!</div>
         </div>
-        <button class="btn btn-gold" id="slotSpinBtn" onclick="spinSlot()" style="width:100%;margin-top:12px;justify-content:center;">🎰 레버 당기기 (남은 횟수: 2)</button>
+        <button class="btn btn-gold" id="slotSpinBtn" onclick="spinSlot()" style="width:100%;margin-top:12px;justify-content:center;position:relative;overflow:hidden;">
+            <span style="position:relative;z-index:1;">🎰 레버 당기기 (남은 횟수: 2)</span>
+        </button>
         <div id="slotResult" class="hidden"></div>
     `;
 }
@@ -698,7 +763,13 @@ function spinSlot() {
     for (let i = 1; i <= 45; i++) {
         if (!gameCollected.includes(i)) available.push(i);
     }
-    if (available.length < 3) { stopGame(); return; }
+    if (available.length < 3) {
+        stopGame();
+        if (slotState) slotState.spinning = false;
+        const btn = document.getElementById('slotSpinBtn');
+        if (btn) { btn.disabled = false; btn.textContent = '🎉 조합 완료!'; }
+        return;
+    }
     // 3개 랜덤 선택
     for (let i = available.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -715,15 +786,18 @@ function spinSlot() {
         let allStopped = true;
 
         for (let i = 0; i < 3; i++) {
+            const reelEl = document.getElementById('slotReel' + i);
             if (slotState._stopped[i]) continue;
             if (elapsed >= slotState._durations[i]) {
                 slotState.reels[i] = slotState.targetReels[i];
                 slotState._stopped[i] = true;
+                if (reelEl) { reelEl.classList.remove('spinning'); reelEl.classList.add('stopped'); }
                 if (typeof playBeep === 'function') playBeep(600 + i * 200, 0.12);
                 if (typeof vibrate === 'function') vibrate(20);
             } else {
                 // 빠르게 회전하는 효과
                 slotState.reels[i] = Math.floor(Math.random() * 45) + 1;
+                if (reelEl) reelEl.classList.add('spinning');
                 allStopped = false;
             }
         }

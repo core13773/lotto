@@ -34,17 +34,13 @@ function fetchHtml(url, redirectCount = 0) {
 }
 
 function extractLottoNumbers(html) {
-    // HTML 태그/엔티티 제거 후 텍스트만 추출
-    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ');
-    // \'를 일반 따옴표로 정규화
-    const normalized = text.replace(/[‘’]/g, "'");
+    // HTML 태그/엔티티/공백 정규화
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ');
+    // 다양한 따옴표 정규화
+    const normalized = text.replace(/[\u2018\u2019\u201a\u201b\u2032\u2035`]/g, "'");
 
-    // 네이버 검색 결과 형식:
-    // "'17, 26, 29, 30, 31, 43' ... 보너스 숫자는 '12'"
-    // 또는 "17, 26, 29, 30, 31, 43 ... 보너스 ... 12"
-
-    // 1. 6개 번호 패턴 찾기 (따옴표 안 또는 일반 텍스트)
-    const num6Pattern = /(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})/;
+    // 1. 6개 번호 패턴 (쉼표 + 공백 변형 대응)
+    const num6Pattern = /(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})/;
     const num6Match = normalized.match(num6Pattern);
 
     if (!num6Match) return null;
@@ -54,13 +50,14 @@ function extractLottoNumbers(html) {
 
     if (!nums.every(n => n >= 1 && n <= 45) || new Set(nums).size !== 6) return null;
 
-    // 2. 보너스 번호 찾기 (번호 뒤쪽 텍스트에서)
-    const afterNumbers = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 200);
+    // 2. 볼너스 번호 찾기 (번호 뒤쪽 텍스트에서, 범위 확대)
+    const afterNumbers = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 300);
     let bonus = null;
     const bonusPatterns = [
-        /보너스[^0-9]*(\d{1,2})/,
-        /보너스[^0-9]*'(\d{1,2})'/,
-        /bonus[^0-9]*(\d{1,2})/i,
+        /볼너스\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
+        /bonus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /plus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /추가\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
     ];
     for (const bp of bonusPatterns) {
         const bm = afterNumbers.match(bp);
@@ -111,8 +108,9 @@ async function fetchLottoNumbers(round) {
 const startTime = Date.now();
 
 const server = http.createServer(async (req, res) => {
-    // Rate limiting
-    const ip = req.socket.remoteAddress || 'unknown';
+    // Rate limiting (X-Forwarded-For 지원)
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
     let rl = RATE_LIMIT.get(ip);
     if (!rl || now > rl.reset) {
@@ -137,8 +135,9 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // URL 파싱
-    const url = new URL(req.url, `http://localhost:${PORT}`);
+    // URL 파싱 (배포 환경에서도 실제 호스트 사용)
+    const host = req.headers.host || `localhost:${PORT}`;
+    const url = new URL(req.url, `http://${host}`);
     const path = url.pathname;
 
     if (path === '/api/lotto' || path === '/api/lotto/') {

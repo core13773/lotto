@@ -1,8 +1,6 @@
 // fun2.js - Fun Zone 2: 가상추첨, 상식퀴즈, 당첨금쇼핑, 번호궁합, 운세달력, 내번호기록, 공유카드
 // ========== 탭 전환 ==========
 function switchFun2Tab(tabName) {
-    // 이전 탭 정리
-    if (typeof stopSoundtrack === 'function') stopSoundtrack();
     if (drawAnimId) { cancelAnimationFrame(drawAnimId); drawAnimId = null; }
     const drawBtn = document.getElementById('drawBtn');
     if (drawBtn) { drawBtn.disabled = false; drawBtn.textContent = '🎱 추첨 시작!'; }
@@ -18,23 +16,42 @@ function switchFun2Tab(tabName) {
     switch (tabName) {
         case 'draw': initDrawMachine(); break;
         case 'history': renderMyHistory(); break;
-        case 'calendar': renderFortuneCalendar(); break;
+        case 'luckycolor': renderLuckyColor(); break;
+        case 'luckydraw': renderLuckyDraw(); break;
     }
 }
 
 // ========== 1. 가상 추첨 시뮬레이터 ==========
 let drawAnimId = null;
 
+function getDrawCanvasSize() {
+    const el = document.getElementById('drawMachineContent');
+    if (!el) return { w: 520, h: 440, dpr: 1 };
+    const containerW = el.clientWidth - 20;
+    const w = Math.min(containerW, 520);
+    const h = Math.round(w * (440 / 520));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    return { w, h, dpr };
+}
+
 function initDrawMachine() {
     const el = document.getElementById('drawMachineContent');
     if (!el) return;
+    const size = getDrawCanvasSize();
     el.innerHTML = `
         <div class="draw-machine">
-            <canvas id="drawCanvas" width="520" height="440" class="draw-canvas"></canvas>
+            <canvas id="drawCanvas" class="draw-canvas" style="width:100%;height:auto;max-width:520px;border-radius:16px;"></canvas>
             <div class="draw-result" id="drawResult"></div>
             <button class="btn btn-gold" onclick="startDraw()" id="drawBtn" style="width:100%;justify-content:center;">🎱 추첨 시작!</button>
         </div>
     `;
+    const canvas = document.getElementById('drawCanvas');
+    if (canvas) {
+        canvas.width = size.w * size.dpr;
+        canvas.height = size.h * size.dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+    }
     renderDrawBalls();
 }
 
@@ -42,25 +59,37 @@ function renderDrawBalls() {
     const canvas = document.getElementById('drawCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
     ctx.clearRect(0, 0, w, h);
 
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.roundRect(10, 10, w - 20, h - 20, 20); ctx.fill();
 
-    // 상단: 45개 공 (9×5 그리드)
+    // 상단: 45개 공 (9×5 그리드) — canvas 크기에 비례
+    const cols = 9, rows = 5;
+    const padX = Math.max(20, w * 0.04);
+    const padY = Math.max(16, h * 0.04);
+    const availW = w - padX * 2;
+    const availH = h * 0.55 - padY;
+    const cellW = availW / cols;
+    const cellH = availH / rows;
+    const r = Math.min(cellW, cellH) * 0.35;
+    const fontSize = Math.max(8, Math.min(11, r * 0.7));
+
     for (let i = 1; i <= 45; i++) {
-        const row = Math.floor((i - 1) / 9);
-        const col = (i - 1) % 9;
-        const x = 30 + col * 52, y = 25 + row * 50;
+        const row = Math.floor((i - 1) / cols);
+        const col = (i - 1) % cols;
+        const x = padX + col * cellW + cellW / 2;
+        const y = padY + row * cellH + cellH / 2;
         const cls = getBallClass(i);
         const colors = { yellow: ['#ffd700', '#b8860b'], blue: ['#60a5fa', '#1d4ed8'], red: ['#f87171', '#991b1b'], gray: ['#9ca3af', '#374151'], green: ['#34d399', '#065f46'] };
         const [c1, c2] = colors[cls] || colors.gray;
-        const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, 18);
+        const grad = ctx.createRadialGradient(x - r * 0.25, y - r * 0.25, 1, x, y, r);
         grad.addColorStop(0, c1); grad.addColorStop(1, c2);
-        ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${fontSize}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(i, x, y);
     }
 }
@@ -173,18 +202,20 @@ function startDraw() {
     drawAnimId = requestAnimationFrame(animate);
 }
 
-function drawBallAt(ctx, x, y, ball, highlight) {
-    const r = highlight ? 20 : 15;
+function drawBallAt(ctx, x, y, ball, rOrHighlight) {
+    let r = 15, highlight = false;
+    if (typeof rOrHighlight === 'number') { r = rOrHighlight; highlight = r > 18; }
+    else if (rOrHighlight) { r = 20; highlight = true; }
     const cls = ball.cls || 'gray';
     const colors = { yellow: ['#ffd700', '#b8860b'], blue: ['#60a5fa', '#1d4ed8'], red: ['#f87171', '#991b1b'], gray: ['#9ca3af', '#374151'], green: ['#34d399', '#065f46'] };
     const [c1, c2] = colors[cls] || colors.gray;
-    const grad = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, r);
+    const grad = ctx.createRadialGradient(x - r * 0.15, y - r * 0.15, 1, x, y, r);
     grad.addColorStop(0, c1); grad.addColorStop(1, c2);
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
     if (highlight) {
-        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = Math.max(2, r * 0.15); ctx.stroke();
     }
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${highlight ? 13 : 10}px sans-serif`;
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(8, r * 0.65)}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(ball.num, x, y);
 }
@@ -208,6 +239,33 @@ function startLottoQuiz() {
     let qi = 0, score = 0;
     const questions = [...LOTTO_QUIZ].sort(() => Math.random() - 0.5).slice(0, 5);
 
+    // 기존 리스너 중복 등록 방지
+    if (!el._quiz2ListenerAdded) {
+        el.addEventListener('click', function(e) {
+            const btn = e.target.closest('.quiz2-option');
+            if (!btn || btn.disabled) return;
+            const idx = parseInt(btn.getAttribute('data-idx'));
+            const correct = parseInt(btn.getAttribute('data-correct'));
+            const info = btn.getAttribute('data-info') || '';
+            if (isNaN(idx) || isNaN(correct)) return;
+            const feedback = document.getElementById('quiz2Feedback');
+            const isCorrect = idx === correct;
+            if (isCorrect) score++;
+            if (feedback) {
+                feedback.className = `quiz2-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+                feedback.innerHTML = `${isCorrect ? '✅ 정답!' : '❌ 오답!'} ${info}`;
+                feedback.classList.remove('hidden');
+            }
+            el.querySelectorAll('.quiz2-option').forEach((b, i) => {
+                b.disabled = true;
+                if (i === correct) b.style.background = 'rgba(16,185,129,0.3)';
+                if (i === idx && !isCorrect) b.style.background = 'rgba(239,68,68,0.3)';
+            });
+            setTimeout(() => { qi++; show(); }, 1500);
+        });
+        el._quiz2ListenerAdded = true;
+    }
+
     function show() {
         if (qi >= questions.length) {
             const pct = Math.round((score / questions.length) * 100);
@@ -217,7 +275,7 @@ function startLottoQuiz() {
                     <div style="font-size:3rem;">${grade.split(' ')[0]}</div>
                     <h3 style="color:var(--accent-gold);">${grade}</h3>
                     <p class="text-secondary">${score} / ${questions.length} 정답 (${pct}점)</p>
-                    <button class="btn btn-primary" onclick="startLottoQuiz()" style="width:100%;margin-top:15px;justify-content:center;">🔄 다시 도전</button>
+                    <button class="btn btn-primary" data-action="startLottoQuiz" style="width:100%;margin-top:15px;justify-content:center;">🔄 다시 도전</button>
                 </div>
             `;
             return;
@@ -229,28 +287,13 @@ function startLottoQuiz() {
                 <h3 class="quiz2-question">${q.q}</h3>
                 <div class="quiz2-options">
                     ${q.a.map((ans, i) => `
-                        <button class="quiz2-option" onclick="answerLottoQuiz(${i}, ${q.correct}, '${q.info.replace(/'/g, "\\'")}')">${ans}</button>
+                        <button class="quiz2-option" data-idx="${i}" data-correct="${q.correct}" data-info="${q.info.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">${ans}</button>
                     `).join('')}
                 </div>
                 <div id="quiz2Feedback" class="hidden" style="margin-top:12px;"></div>
             </div>
         `;
     }
-
-    window.answerLottoQuiz = function(idx, correct, info) {
-        const feedback = document.getElementById('quiz2Feedback');
-        const isCorrect = idx === correct;
-        if (isCorrect) score++;
-        feedback.className = `quiz2-feedback ${isCorrect ? 'correct' : 'wrong'}`;
-        feedback.innerHTML = `${isCorrect ? '✅ 정답!' : '❌ 오답!'} ${info}`;
-        feedback.classList.remove('hidden');
-        document.querySelectorAll('.quiz2-option').forEach((b, i) => {
-            b.disabled = true;
-            if (i === correct) b.style.background = 'rgba(16,185,129,0.3)';
-            if (i === idx && !isCorrect) b.style.background = 'rgba(239,68,68,0.3)';
-        });
-        setTimeout(() => { qi++; show(); }, 1500);
-    };
 
     show();
 }
@@ -359,135 +402,97 @@ function selectPrizeTier(amount, tier) {
     }
 }
 
-// ========== 4. 번호 궁합 테스트 ==========
-function renderCompatibility() {
-    const el = document.getElementById('compatibilityContent');
+// ========== 4. 오늘의 럭키 컬러 ==========
+function renderLuckyColor() {
+    const el = document.getElementById('luckycolorContent');
     if (!el) return;
-    el.innerHTML = `
-        <p class="text-secondary text-center mb-15">두 개의 번호 조합을 입력하면 궁합을 분석해드려요!</p>
-        <div class="compat-inputs">
-            <div class="compat-input-group">
-                <label class="compat-label">🔢 첫 번째 조합</label>
-                <input type="text" id="compatInput1" class="input-field" placeholder="예: 1,13,21,27,34,42">
-            </div>
-            <div class="compat-vs">VS</div>
-            <div class="compat-input-group">
-                <label class="compat-label">🔢 두 번째 조합</label>
-                <input type="text" id="compatInput2" class="input-field" placeholder="예: 7,14,22,28,35,43">
-            </div>
-        </div>
-        <button class="btn btn-primary" onclick="runCompatibility()" style="width:100%;margin-top:15px;justify-content:center;">💕 궁합 분석하기</button>
-        <div id="compatResult" style="margin-top:15px;"></div>
-    `;
-}
-
-function runCompatibility() {
-    const parse = str => {
-        const nums = (str || '').split(/[,·\s]+/).map(Number).filter(n => n >= 1 && n <= 45);
-        return nums.length === 6 && new Set(nums).size === 6 ? nums.sort((a, b) => a - b) : null;
-    };
-    const a = parse(document.getElementById('compatInput1').value);
-    const b = parse(document.getElementById('compatInput2').value);
-    const el = document.getElementById('compatResult');
-    if (!a || !b) { el.innerHTML = '<p class="text-secondary text-center">⚠️ 두 조합 모두 6개 번호를 올바르게 입력해주세요.</p>'; return; }
-
-    const common = a.filter(n => b.includes(n));
-    const sumA = a.reduce((s, n) => s + n, 0), sumB = b.reduce((s, n) => s + n, 0);
-    const oddA = a.filter(n => n % 2 === 1).length, oddB = b.filter(n => n % 2 === 1).length;
-    const lowA = a.filter(n => n <= 22).length, lowB = b.filter(n => n <= 22).length;
-
-    // 궁합 점수 (100점 만점)
-    let compatScore = 50; // 기본
-    if (common.length === 0) compatScore += 15; // 겹치는 번호 없음 = 다양성 ↑
-    else if (common.length === 1) compatScore += 5;
-    else compatScore -= common.length * 10;
-
-    const sumDiff = Math.abs(sumA - sumB);
-    if (sumDiff < 20) compatScore += 15; // 비슷한 합계
-    else if (sumDiff > 80) compatScore -= 10;
-
-    const oddDiff = Math.abs(oddA - oddB);
-    if (oddDiff <= 1) compatScore += 15; // 비슷한 홀짝 비율
-    else compatScore -= 5 * oddDiff;
-
-    const lowDiff = Math.abs(lowA - lowB);
-    if (lowDiff <= 1) compatScore += 10;
-    else compatScore -= 3 * lowDiff;
-
-    compatScore = Math.max(0, Math.min(100, compatScore));
-    const emoji = compatScore >= 80 ? '💖' : compatScore >= 60 ? '💛' : compatScore >= 40 ? '🤝' : '💔';
-    const label = compatScore >= 80 ? '환상의 궁합!' : compatScore >= 60 ? '잘 맞아요' : compatScore >= 40 ? '나쁘지 않아요' : '글쎄요...';
+    const today = new Date().toISOString().slice(0,10);
+    const colors = [
+        { name: '골드', hex: '#ffd700', range: [1,9], emoji: '🌟', desc: '부와 행운을 상징하는 색! 1~9번 구간에 행운이 깃들어 있어요.' },
+        { name: '블루', hex: '#3b82f6', range: [10,18], emoji: '💧', desc: '차분함 속에 강한 집중력! 10~18번 구간을 주목하세요.' },
+        { name: '레드', hex: '#ef4444', range: [19,27], emoji: '🔥', desc: '열정과 에너지가 폭발하는 날! 19~27번 구간에 주목.' },
+        { name: '그린', hex: '#10b981', range: [28,36], emoji: '🍀', desc: '성장과 희망의 색! 28~36번 구간이 오늘의 행운을 담고 있어요.' },
+        { name: '퍼플', hex: '#8b5cf6', range: [37,45], emoji: '🔮', desc: '신비로운 직감이 살아있는 날! 37~45번 구간을 믿어보세요.' },
+    ];
+    const seed = today.split('-').reduce((a,b)=>a+parseInt(b),0);
+    const idx = Math.floor(Math.abs(Math.sin(seed*127.1)*10000)) % colors.length;
+    const c = colors[idx];
+    const nums = [];
+    while(nums.length<6){ const n=c.range[0]+Math.floor(Math.random()*(c.range[1]-c.range[0]+1)); if(!nums.includes(n)) nums.push(n); }
+    nums.sort((a,b)=>a-b);
 
     el.innerHTML = `
-        <div class="compat-result-card">
-            <div style="font-size:3rem;">${emoji}</div>
-            <h3 style="color:var(--accent-gold);">궁합 점수: ${compatScore}점</h3>
-            <p class="text-secondary">${label}</p>
-            <div class="compat-details">
-                <div class="compat-detail-row"><span>겹치는 번호</span><span>${common.length > 0 ? common.join(', ') : '없음 (다양성 ↑)'}</span></div>
-                <div class="compat-detail-row"><span>합계 차이</span><span>${sumDiff} (A:${sumA} / B:${sumB})</span></div>
-                <div class="compat-detail-row"><span>홀짝 비율</span><span>A: 홀${oddA} 짝${6-oddA} / B: 홀${oddB} 짝${6-oddB}</span></div>
-                <div class="compat-detail-row"><span>저/고 비율</span><span>A: 저${lowA} 고${6-lowA} / B: 저${lowB} 고${6-lowB}</span></div>
+        <div style="text-align:center;padding:20px 0;">
+            <div style="font-size:4rem;margin-bottom:10px;">${c.emoji}</div>
+            <div style="width:80px;height:80px;border-radius:50%;background:${c.hex};margin:0 auto 15px;box-shadow:0 0 30px ${c.hex}66,0 4px 15px rgba(0,0,0,0.3);"></div>
+            <h3 style="color:${c.hex};margin-bottom:8px;">오늘의 행운 컬러: ${c.name}</h3>
+            <p class="text-secondary" style="max-width:320px;margin:0 auto 15px;font-size:0.9rem;">${c.desc}</p>
+            <div class="balls-container" style="gap:8px;margin-bottom:15px;">
+                ${nums.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:44px;height:44px;line-height:44px;font-size:1rem;">${n}</span>`).join('')}
             </div>
-            <div class="balls-container">
-                <div style="text-align:center;"><p class="text-xs-secondary">조합 A</p>${a.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
-            </div>
-            <div class="balls-container">
-                <div style="text-align:center;"><p class="text-xs-secondary">조합 B</p>${b.map(n => `<span class="ball ${getBallClass(n)}">${n}</span>`).join('')}</div>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="_applyFunNumbers([${nums}],'🌈 ${c.name} 럭키 컬러 번호','🌈 럭키 컬러 번호로 분석 완료!')" style="padding:8px 18px;font-size:0.85rem;">📊 분석하기</button>
+                <button class="btn btn-secondary" onclick="renderLuckyColor()" style="padding:8px 18px;font-size:0.85rem;">🔄 다른 색상</button>
             </div>
         </div>
     `;
 }
 
-// ========== 5. 운세 달력 ==========
-function renderFortuneCalendar() {
-    const el = document.getElementById('calendarContent');
+// ========== 5. 행운의 번호 뽑기 ==========
+function renderLuckyDraw() {
+    const el = document.getElementById('luckydrawContent');
     if (!el) return;
+    el.innerHTML = `
+        <p class="text-secondary text-center mb-15">🎲 버튼을 누르면 행운의 번호가 하나씩 공개됩니다!</p>
+        <div id="luckyDrawBalls" class="balls-container" style="gap:8px;min-height:60px;margin-bottom:15px;"></div>
+        <div style="text-align:center;">
+            <button class="btn btn-gold" id="luckyDrawBtn" onclick="startLuckyDraw()" style="padding:10px 28px;font-size:1rem;">🎲 행운 뽑기 시작!</button>
+            <div id="luckyDrawResult" style="margin-top:12px;"></div>
+        </div>
+    `;
+}
 
-    const now = new Date();
-    const year = now.getFullYear(), month = now.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    const today = now.getDate();
+function startLuckyDraw() {
+    const btn = document.getElementById('luckyDrawBtn');
+    const container = document.getElementById('luckyDrawBalls');
+    const resultEl = document.getElementById('luckyDrawResult');
+    if (!btn || !container) return;
+    btn.disabled = true;
+    btn.textContent = '🎲 뽑는 중...';
+    if (resultEl) resultEl.innerHTML = '';
 
-    // 결정론적 "행운도" (날짜 기반 시드)
-    function luckyScore(d) {
-        const seed = year * 10000 + (month + 1) * 100 + d;
-        let x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
-        return Math.abs(x - Math.floor(x));
+    const pool = Array.from({length:45}, (_,i)=>i+1);
+    for (let i = pool.length-1; i>0; i--) { const j = Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+    const selected = pool.slice(0,6).sort((a,b)=>a-b);
+    container.innerHTML = '';
+
+    let i = 0;
+    function revealNext() {
+        if (i >= selected.length) {
+            btn.disabled = false;
+            btn.textContent = '🎲 다시 뽑기';
+            if (resultEl) {
+                resultEl.innerHTML = `
+                    <div style="animation:answerReveal 0.5s ease-out;">
+                        <button class="btn btn-primary" onclick="_applyFunNumbers([${selected}],'🎲 행운 뽑기 번호','🎲 행운 뽑기 번호로 분석 완료!')" style="padding:8px 18px;font-size:0.85rem;">📊 분석하기</button>
+                    </div>
+                `;
+            }
+            if (typeof fireConfetti==='function') fireConfetti();
+            return;
+        }
+        const n = selected[i];
+        const ball = document.createElement('span');
+        ball.className = 'ball ' + (typeof getBallClass==='function'?getBallClass(n):'');
+        ball.textContent = n;
+        ball.style.cssText = 'width:48px;height:48px;line-height:48px;font-size:1.1rem;animation:popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);';
+        container.appendChild(ball);
+        if (typeof playBeep==='function') playBeep(500+i*80, 0.12);
+        if (typeof vibrate==='function') vibrate(25);
+        i++;
+        setTimeout(revealNext, 450);
     }
-
-    const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-    let html = '<div class="fortune-calendar">';
-    html += `<h4 style="color:var(--accent-gold);text-align:center;margin-bottom:10px;">📅 ${year}년 ${month + 1}월 행운 달력</h4>`;
-    html += '<div class="fortune-weekdays">' + weekDays.map(d => `<span>${d}</span>`).join('') + '</div>';
-
-    html += '<div class="fortune-grid">';
-    for (let i = 0; i < firstDay; i++) html += '<div class="fortune-day empty"></div>';
-    for (let d = 1; d <= lastDate; d++) {
-        const score = luckyScore(d);
-        const isToday = d === today;
-        const level = score >= 0.8 ? 'jackpot' : score >= 0.6 ? 'great' : score >= 0.4 ? 'good' : score >= 0.2 ? 'normal' : 'low';
-        const icons = { jackpot: '👑', great: '🌟', good: '🍀', normal: '😊', low: '🌧️' };
-        html += `<div class="fortune-day ${level} ${isToday ? 'today' : ''}" title="행운도: ${(score*100).toFixed(0)}%">
-            <span class="fortune-date">${d}</span>
-            <span class="fortune-icon">${icons[level]}</span>
-        </div>`;
-    }
-    html += '</div>';
-    html += '<div class="fortune-legend">';
-    ['jackpot', 'great', 'good', 'normal', 'low'].forEach(l => {
-        html += `<span class="fortune-legend-item"><span class="fortune-dot ${l}"></span> ${l === 'jackpot' ? '최고의 날' : l === 'great' ? '행운' : l === 'good' ? '좋음' : l === 'normal' ? '보통' : '주의'}</span>`;
-    });
-    html += '</div></div>';
-
-    // 오늘의 운세
-    const todayScore = luckyScore(today);
-    const todayLevel = todayScore >= 0.8 ? '👑 최고의 로또 운세! 꼭 구매하세요!' : todayScore >= 0.6 ? '🌟 행운이 함께하는 날! 기대해도 좋아요.' : todayScore >= 0.4 ? '🍀 무난한 날. 가볍게 한 장 어때요?' : todayScore >= 0.2 ? '😊 평범한 날. 기대는 접어두세요.' : '🌧️ 로또보다는 저축을 추천드려요.';
-
-    html += `<div class="fortune-today"><span>오늘의 로또 운세</span><strong>${todayLevel}</strong></div>`;
-
-    el.innerHTML = html;
+    revealNext();
 }
 
 // ========== 6. 나만의 번호 기록 ==========

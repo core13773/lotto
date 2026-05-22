@@ -131,13 +131,13 @@ function toggleFontMenu(e) {
     const isOpen = popup.classList.toggle('open');
     const fontBtn = document.getElementById('fontBtn');
     if (fontBtn) fontBtn.setAttribute('aria-expanded', String(isOpen));
+    // 중복 등록 방지: 먼저 기존 리스너 제거 후 조걵적으로 추가
+    document.removeEventListener('click', closeFontMenu);
+    document.removeEventListener('keydown', fontMenuKeyHandler);
     if (isOpen) {
         buildFontPopupItems(popup);
         document.addEventListener('click', closeFontMenu);
         document.addEventListener('keydown', fontMenuKeyHandler);
-    } else {
-        document.removeEventListener('click', closeFontMenu);
-        document.removeEventListener('keydown', fontMenuKeyHandler);
     }
 }
 
@@ -597,16 +597,16 @@ function scheduleNotification() {
     let nextSat = new Date(kst);
     if (day === 6 && hours < 20) {
         // 오늘 토요일이고 20:50 이전
-        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+        nextSat.setUTCHours(20, 50, 0, 0);
     } else if (day === 6 && hours >= 20 && minutes >= 50) {
         // 오늘 토요일이고 이미 20:50 이후 → 다음주
         nextSat.setUTCDate(nextSat.getUTCDate() + 7);
-        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+        nextSat.setUTCHours(20, 50, 0, 0);
     } else {
         // 평일 → 다음 토요일
         const daysUntil = day === 6 ? 0 : 6 - day;
         nextSat.setUTCDate(nextSat.getUTCDate() + (daysUntil === 0 ? 7 : daysUntil));
-        nextSat.setUTCHours(20, 50 - minutes, 0, 0);
+        nextSat.setUTCHours(20, 50, 0, 0);
     }
 
     const delay = nextSat.getTime() - kst.getTime();
@@ -628,7 +628,9 @@ function scheduleNotification() {
 // ========== 첫 방문 온보딩 ==========
 function initOnboarding() {
     try {
-        if (localStorage.getItem('lotto-onboarding-seen') === 'true') return;
+        try {
+            if (localStorage.getItem('lotto-onboarding-seen') === 'true') return;
+        } catch (e) { return; }
     } catch (e) { return; }
     const overlay = document.getElementById('onboardingOverlay');
     if (!overlay) return;
@@ -705,7 +707,6 @@ document.addEventListener('click', function(e) {
         case 'openPhotoToNumbers': openPhotoToNumbers(); break;
         case 'startPersonalityQuiz': startPersonalityQuiz(); break;
         case 'interpretDream': interpretDream(); break;
-        case 'openSoundtrack': openSoundtrack(); break;
         case 'startLottoQuiz': startLottoQuiz(); break;
         case 'openBookOfAnswers': openBookOfAnswers(); break;
         case 'resetBookOfAnswers': resetBookOfAnswers(); break;

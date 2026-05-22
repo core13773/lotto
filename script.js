@@ -59,6 +59,7 @@ async function loadLatestJson() {
             if (Array.isArray(data) && data.length > 0) {
                 lottoDb = data;
                 cachedNumberScores = null;
+                if (typeof _cachedCrossScores !== 'undefined') { _cachedCrossScores = null; _cachedCrossScoresDbLength = 0; }
                 const latest = data[data.length - 1];
                 const inputEl = document.getElementById('roundInput');
                 if (!inputEl.value || parseInt(inputEl.value) === latest.round) {

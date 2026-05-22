@@ -737,7 +737,8 @@ function initFortune() {
     const el = document.getElementById('diceContentFortune');
     if (!el) return;
     const today = new Date().toISOString().slice(0, 10);
-    const lastFortune = localStorage.getItem('dice-fortune-date');
+    let lastFortune = null;
+    try { lastFortune = localStorage.getItem('dice-fortune-date'); } catch (e) {}
     const usedToday = lastFortune === today;
     el.innerHTML = `
         <div class="game-info-box">🔮 주사위 3개를 굴려 오늘의 운세를 확인하세요! <strong>하루 1회</strong> 무료입니다.</div>
@@ -759,8 +760,10 @@ function initFortune() {
 
 function rollFortune() {
     const today = new Date().toISOString().slice(0, 10);
-    if (localStorage.getItem('dice-fortune-date') === today) return;
-    localStorage.setItem('dice-fortune-date', today);
+    try {
+        if (localStorage.getItem('dice-fortune-date') === today) return;
+        localStorage.setItem('dice-fortune-date', today);
+    } catch (e) { return; }
     const btn = document.getElementById('fortuneBtn');
     if (btn) { btn.disabled = true; btn.textContent = '🎲 굴리는 중...'; }
 
@@ -898,6 +901,11 @@ function renderGenDice() {
 }
 
 function rollGenerator() {
+    const btn = document.getElementById('genRollBtn');
+    const resultEl = document.getElementById('genResult');
+    if (btn) { btn.disabled = true; btn.textContent = '🎲 주사위 굴리는 중...'; }
+    if (resultEl) resultEl.innerHTML = '<div class="text-secondary text-center" style="padding:20px;"><div style="width:32px;height:32px;border:3px solid rgba(255,215,0,0.3);border-top-color:#ffd700;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 10px;"></div>행운의 주사위가 굴리고 있어요...</div>';
+
     const method = window._genMethod || 'd20';
     const numbers = [];
     while (numbers.length < 6) {
@@ -916,28 +924,50 @@ function rollGenerator() {
     numbers.sort((a, b) => a - b);
     window._genNumbers = numbers;
 
-    const resultEl = document.getElementById('genResult');
-    if (resultEl) resultEl.innerHTML = `
-        <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:15px;animation:answerReveal 0.5s ease-out;">
-            <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">🎲 ${method} 방식 생성 결과</div>
-            <div class="balls-container" style="gap:8px;">
-                ${numbers.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:44px;height:44px;line-height:44px;font-size:1rem;">${n}</span>`).join('')}
-            </div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn btn-primary" onclick="useGenNumbers([${numbers}])">🎱 분석하기</button>
-                <button class="btn btn-secondary" onclick="rollGenerator()">🔄 다시 굴리기</button>
-            </div>
-        </div>
-    `;
-    const histEl = document.getElementById('genHistory');
-    if (histEl) {
-        const balls = numbers.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:24px;height:24px;line-height:24px;font-size:0.6rem;">${n}</span>`).join('');
-        histEl.innerHTML = `<div style="margin-bottom:4px;">🕐 ${new Date().toLocaleTimeString('ko-KR')} [${method}] ${balls}</div>` + histEl.innerHTML;
-        const lines = histEl.querySelectorAll('div');
-        if (lines.length > 8) lines[lines.length - 1].remove();
+    // 순차 공개 애니메이션
+    let i = 0;
+    function revealNext() {
+        if (i === 0 && resultEl) {
+            resultEl.innerHTML = `<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:15px;">
+                <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">🎲 ${method} 방식 생성 결과</div>
+                <div class="balls-container" id="genRevealBalls" style="gap:8px;min-height:52px;"></div>
+            </div>`;
+        }
+        const container = document.getElementById('genRevealBalls');
+        if (container) {
+            const n = numbers[i];
+            const ball = document.createElement('span');
+            ball.className = 'ball ' + (typeof getBallClass==='function'?getBallClass(n):'');
+            ball.textContent = n;
+            ball.style.cssText = 'width:44px;height:44px;line-height:44px;font-size:1rem;animation:popIn 0.35s cubic-bezier(0.175,0.885,0.32,1.275);';
+            container.appendChild(ball);
+            if (typeof playBeep==='function') playBeep(500+i*70, 0.1);
+            if (typeof vibrate==='function') vibrate(20);
+        }
+        i++;
+        if (i < numbers.length) {
+            setTimeout(revealNext, 350);
+        } else {
+            // 완료
+            if (btn) { btn.disabled = false; btn.textContent = '🎲 주사위 굴리기'; }
+            const wrapper = resultEl ? resultEl.querySelector('div') : null;
+            if (wrapper) {
+                const actions = document.createElement('div');
+                actions.style.cssText = 'margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
+                actions.innerHTML = `<button class="btn btn-primary" onclick="useGenNumbers([${numbers}])">🎱 분석하기</button>
+                    <button class="btn btn-secondary" onclick="rollGenerator()">🔄 다시 굴리기</button>`;
+                wrapper.appendChild(actions);
+            }
+            const histEl = document.getElementById('genHistory');
+            if (histEl) {
+                const balls = numbers.map(n => `<span class="ball ${typeof getBallClass==='function'?getBallClass(n):''}" style="width:24px;height:24px;line-height:24px;font-size:0.6rem;">${n}</span>`).join('');
+                histEl.innerHTML = `<div style="margin-bottom:4px;">🕐 ${new Date().toLocaleTimeString('ko-KR')} [${method}] ${balls}</div>` + histEl.innerHTML;
+                const lines = histEl.querySelectorAll('div');
+                if (lines.length > 8) lines[lines.length - 1].remove();
+            }
+        }
     }
-    if (typeof playBeep === 'function') playBeep(700, 0.1);
-    if (typeof vibrate === 'function') vibrate(30);
+    setTimeout(revealNext, 500);
 }
 
 function useGenNumbers(numbers) {

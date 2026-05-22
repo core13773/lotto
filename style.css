@@ -201,11 +201,12 @@
         /* 도움말 툴팁 */
         .help-icon {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 22px; height: 22px; border-radius: 50%;
+            width: 28px; height: 28px; border-radius: 50%;
             background: rgba(255,255,255,0.1); color: var(--text-secondary);
-            font-size: 0.7rem; cursor: help; position: relative;
+            font-size: 0.75rem; cursor: pointer; position: relative;
+            -webkit-tap-highlight-color: transparent; user-select: none;
         }
-        .help-icon:hover .tooltip { display: block; }
+        .help-icon:hover .tooltip, .help-icon:focus .tooltip, .help-icon:active .tooltip { display: block; }
         .tooltip {
             display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
             background: #1e1e3f; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
@@ -266,6 +267,7 @@
         
         .number-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; margin: 20px 0; overflow: hidden; }
         @media (max-width: 600px) { .number-grid { gap: 4px; } }
+        @media (max-width: 480px) { .number-grid { grid-template-columns: repeat(7, 1fr); } }
         .number-btn { aspect-ratio: 1; width: 100%; height: auto; min-width: 0; border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-weight: 700; font-size: clamp(0.65rem, 2.5vw, 0.9rem); cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: rgba(139,92,246,0.4); touch-action: manipulation; }
         @media (max-width: 400px) { .number-btn { font-size: 0.6rem; border-width: 1px; } }
         .number-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
@@ -1542,6 +1544,8 @@
             animation: bannerSlideDown 0.3s ease-out;
         }
         @keyframes bannerSlideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-spinner { width: 28px; height: 28px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--accent-gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
         .sim-banner-spinner {
             width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4);
             border-top-color: #fff; border-radius: 50%;
@@ -1648,6 +1652,14 @@
         .memory-card-back.gray { background: var(--ball-gray); }
         .memory-card-back.green { background: var(--ball-green); }
         .memory-card.matched .memory-card-back { box-shadow: 0 0 12px rgba(16,185,129,0.5); border-color: #10b981; }
+        @keyframes cardShake {
+            0%,100% { transform: translateX(0); }
+            20% { transform: translateX(-6px) rotate(-3deg); }
+            40% { transform: translateX(6px) rotate(3deg); }
+            60% { transform: translateX(-4px) rotate(-2deg); }
+            80% { transform: translateX(4px) rotate(2deg); }
+        }
+        .memory-card.shake { animation: cardShake 0.4s ease-in-out; }
 
         /* ── 슬롯 머신 ── */
         .slot-machine { text-align: center; }
@@ -1660,8 +1672,11 @@
             width: 80px; height: 100px; background: rgba(0,0,0,0.4); border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; border: 2px solid rgba(255,255,255,0.1);
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s;
         }
-        .slot-item { font-size: 1.5rem; font-weight: 700; color: var(--text-secondary); }
+        .slot-reel.stopped { transform: scale(1.1); border-color: rgba(255,215,0,0.6); box-shadow: 0 0 15px rgba(255,215,0,0.25); }
+        .slot-reel.spinning .slot-item { filter: blur(2px); opacity: 0.8; }
+        .slot-item { font-size: 1.5rem; font-weight: 700; color: var(--text-secondary); transition: filter 0.1s; }
         .slot-info { font-size: 0.85rem; color: var(--accent-gold); min-height: 24px; margin-top: 6px; }
 
         @media (max-width: 480px) {

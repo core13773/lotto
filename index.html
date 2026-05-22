@@ -256,7 +256,7 @@
                         <option value="100000000">1억회 (정밀)</option>
                         <option value="120000000" selected>1억 2천만회 (매우 정밀)</option>
                     </select>
-                    <span class="help-icon">?
+                    <span class="help-icon" tabindex="0">?
                         <div class="tooltip">
                             <div class="tooltip-title">반복 횟수 안내</div>
                             반복 횟수가 많을수록 당첨번호와 일치하는 조합을 찾을 확률이 높아집니다.<br><br>
@@ -276,22 +276,22 @@
                 <div class="sim-tip" id="simTip">💡 로또 1등 확률은 1/8,145,060이에요. 시뮬레이션을 통해 패턴을 탐색 중...</div>
                 <div class="stats-row">
                     <div class="stat-item">
-                        <span class="help-icon stat-help">?<div class="tooltip"><div class="tooltip-title">시도 횟수</div>현재까지 생성된 로또 번호 조합의 총 개수입니다.</div></span>
+                        <span class="help-icon stat-help" tabindex="0">?<div class="tooltip"><div class="tooltip-title">시도 횟수</div>현재까지 생성된 로또 번호 조합의 총 개수입니다.</div></span>
                         <div class="stat-value" id="statAttempts">0</div>
                         <div class="stat-label">시도 횟수</div>
                     </div>
                     <div class="stat-item">
-                        <span class="help-icon stat-help">?<div class="tooltip"><div class="tooltip-title">처리 속도</div>1초당 생성되는 로또 번호 조합의 개수입니다.</div></span>
+                        <span class="help-icon stat-help" tabindex="0">?<div class="tooltip"><div class="tooltip-title">처리 속도</div>1초당 생성되는 로또 번호 조합의 개수입니다.</div></span>
                         <div class="stat-value" id="statSpeed">0</div>
                         <div class="stat-label">회/초</div>
                     </div>
                     <div class="stat-item">
-                        <span class="help-icon stat-help">?<div class="tooltip"><div class="tooltip-title">패턴 발견</div>당첨번호와 완전히 일치하는 조합을 찾은 횟수입니다.</div></span>
+                        <span class="help-icon stat-help" tabindex="0">?<div class="tooltip"><div class="tooltip-title">패턴 발견</div>당첨번호와 완전히 일치하는 조합을 찾은 횟수입니다.</div></span>
                         <div class="stat-value" id="statMatches">0</div>
                         <div class="stat-label">발견</div>
                     </div>
                     <div class="stat-item">
-                        <span class="help-icon stat-help">?<div class="tooltip"><div class="tooltip-title">경과 시간</div>시뮬레이션이 시작된 후 경과한 시간입니다.</div></span>
+                        <span class="help-icon stat-help" tabindex="0">?<div class="tooltip"><div class="tooltip-title">경과 시간</div>시뮬레이션이 시작된 후 경과한 시간입니다.</div></span>
                         <div class="stat-value" id="statTime">0s</div>
                         <div class="stat-label">경과 시간</div>
                     </div>
@@ -619,11 +619,10 @@
                 <button class="fun-tab" data-fun="dream" data-action="switchFunTab" data-arg="dream">💭 꿈</button>
                 <button class="fun-tab" data-fun="spotlight" data-action="switchFunTab" data-arg="spotlight">📊 인사이트</button>
                 <button class="fun-tab" data-fun="achievements" data-action="switchFunTab" data-arg="achievements">🏆 업적</button>
-                <button class="fun-tab" data-fun="soundtrack" data-action="switchFunTab" data-arg="soundtrack">🎵 BGM</button>
             </div>
             <!-- 출석 체크 -->
             <div class="fun-tab-content active" id="funContentCheckin">
-                <div id="checkinContent"><p class="text-secondary text-center">로딩 중...</p></div>
+                <div id="checkinContent"><div class="loading-spinner"></div><p class="text-secondary text-center">로딩 중...</p></div>
             </div>
             <!-- 오늘의 미션 -->
             <div class="fun-tab-content" id="funContentMissions">
@@ -631,7 +630,7 @@
             </div>
             <!-- 오늘의 행운 번호 -->
             <div class="fun-tab-content" id="funContentLucky">
-                <div id="dailyLuckyContent"><p class="text-secondary text-center">🎱 오늘만을 위한 특별한 번호</p></div>
+                <div id="dailyLuckyContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🎱 오늘만을 위한 특별한 번호</p></div>
             </div>
             <!-- 추첨 카운트다운 -->
             <div class="fun-tab-content" id="funContentCountdown">
@@ -650,7 +649,7 @@
             </div>
             <!-- 행운의 휠 -->
             <div class="fun-tab-content" id="funContentWheel">
-                <div id="wheelContent"><p class="text-secondary text-center">🎡 휠 로딩 중...</p></div>
+                <div id="wheelContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🎡 휠 로딩 중...</p></div>
             </div>
             <!-- 번호 성격 테스트 -->
             <div class="fun-tab-content" id="funContentQuiz">
@@ -668,18 +667,11 @@
             </div>
             <!-- 통계 인사이트 -->
             <div class="fun-tab-content" id="funContentSpotlight">
-                <div id="spotlightContent"><p class="text-secondary text-center">📊 데이터 로딩 중...</p></div>
+                <div id="spotlightContent"><div class="loading-spinner"></div><p class="text-secondary text-center">📊 데이터 로딩 중...</p></div>
             </div>
             <!-- 업적 -->
             <div class="fun-tab-content" id="funContentAchievements">
-                <div id="achievementsContent"><p class="text-secondary text-center">🏆 업적 로딩 중...</p></div>
-            </div>
-            <!-- 사운드트랙 -->
-            <div class="fun-tab-content" id="funContentSoundtrack">
-                <div id="soundtrackContent">
-                    <p class="text-secondary text-center mb-15">🎵 번호 고르며 듣기 좋은 음악을 골라보세요.</p>
-                    <button class="btn btn-primary" data-action="openSoundtrack" style="width:100%;justify-content:center;">🎵 사운드트랙 선택하기</button>
-                </div>
+                <div id="achievementsContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🏆 업적 로딩 중...</p></div>
             </div>
         </div>
         <div class="card" id="funZone2Card">
@@ -688,13 +680,13 @@
                 <button class="fun2-tab active" data-fun2="draw" data-action="switchFun2Tab" data-arg="draw">🎱 가상추첨</button>
                 <button class="fun2-tab" data-fun2="quiz" data-action="switchFun2Tab" data-arg="quiz">🧠 상식퀴즈</button>
                 <button class="fun2-tab" data-fun2="shopping" data-action="switchFun2Tab" data-arg="shopping">🛒 당첨금쇼핑</button>
-                <button class="fun2-tab" data-fun2="compatibility" data-action="switchFun2Tab" data-arg="compatibility">💕 번호궁합</button>
-                <button class="fun2-tab" data-fun2="calendar" data-action="switchFun2Tab" data-arg="calendar">📅 운세달력</button>
+                <button class="fun2-tab" data-fun2="luckydraw" data-action="switchFun2Tab" data-arg="luckydraw">🎲 행울뽑기</button>
+                <button class="fun2-tab" data-fun2="luckycolor" data-action="switchFun2Tab" data-arg="luckycolor">🌈 럭키컬러</button>
                 <button class="fun2-tab" data-fun2="history" data-action="switchFun2Tab" data-arg="history">📝 내번호</button>
                 <button class="fun2-tab" data-fun2="sharecard" data-action="switchFun2Tab" data-arg="sharecard">🖼️ 공유카드</button>
             </div>
             <div class="fun2-tab-content active" id="fun2ContentDraw">
-                <div id="drawMachineContent"><p class="text-secondary text-center">🎱 탭을 클릭하면 가상 추첨기가 시작됩니다.</p></div>
+                <div id="drawMachineContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🎱 탭을 클릭하면 가상 추첨기가 시작됩니다.</p></div>
             </div>
             <div class="fun2-tab-content" id="fun2ContentQuiz">
                 <div id="quiz2Content">
@@ -705,11 +697,11 @@
             <div class="fun2-tab-content" id="fun2ContentShopping">
                 <div id="shoppingContent"><p class="text-secondary text-center">🛒 로딩 중...</p></div>
             </div>
-            <div class="fun2-tab-content" id="fun2ContentCompatibility">
-                <div id="compatibilityContent"><p class="text-secondary text-center">💕 로딩 중...</p></div>
+            <div class="fun2-tab-content" id="fun2ContentLuckydraw">
+                <div id="luckydrawContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🎲 행운의 공을 뽑아보세요!</p></div>
             </div>
-            <div class="fun2-tab-content" id="fun2ContentCalendar">
-                <div id="calendarContent"><p class="text-secondary text-center">📅 로딩 중...</p></div>
+            <div class="fun2-tab-content" id="fun2ContentLuckycolor">
+                <div id="luckycolorContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🌈 오늘의 행운 컬러를 확인하세요!</p></div>
             </div>
             <div class="fun2-tab-content" id="fun2ContentHistory">
                 <div id="historyContent"><p class="text-secondary text-center">📝 로딩 중...</p></div>

@@ -18,9 +18,11 @@ def fetch_round(round_no):
     except Exception:
         return None
 
-    text = re.sub('<[^>]+>', ' ', text)
-    text = text.replace('&nbsp;', ' ').replace('&gt;', '>').replace('&lt;', '<')
-    m = re.search(r'(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})', text)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&\w+;', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
     if not m:
         return None
     nums = [int(m.group(i)) for i in range(1, 7)]
@@ -28,12 +30,19 @@ def fetch_round(round_no):
         return None
 
     bonus = None
-    after = text[m.end():m.end() + 200]
-    bm = re.search(r'보너스[^0-9]*(\d{1,2})', after)
-    if bm:
-        bn = int(bm.group(1))
-        if 1 <= bn <= 45 and bn not in nums:
-            bonus = bn
+    after = text[m.end():m.end() + 300]
+    for pattern in [
+        r'볼너스\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+        r'bonus\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+        r'plus\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+        r'추가\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+    ]:
+        bm = re.search(pattern, after, re.IGNORECASE)
+        if bm:
+            bn = int(bm.group(1))
+            if 1 <= bn <= 45 and bn not in nums:
+                bonus = bn
+                break
     return {'round': round_no, 'numbers': sorted(nums), 'bonus': bonus}
 
 # 최신 회차 동적 계산

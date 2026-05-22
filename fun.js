@@ -101,28 +101,95 @@ function renderCheckinUI() {
     if (typeof _hook === 'function') _hook('renderCheckinUI');
 }
 
-// ========== 데일리 미션 ==========
-function getDailyMissions() {
+// ========== 오늘의 번호 팁 (자동 생성) ==========
+function getDailyTips() {
     const today = getToday();
     const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
     function rng(s) { let x = Math.sin(s * 9301 + 49297) * 49297; return x - Math.floor(x); }
 
-    const missions = [
-        { type: 'sum', title: '합계 도전', icon: '➕', desc: `합계가 ${110 + Math.floor(rng(seed)*30)}~${130 + Math.floor(rng(seed+1)*30)} 사이인 번호 6개 찾기`, reward: 2 },
-        { type: 'odd_even', title: '홀짝 밸런스', icon: '⚖️', desc: `홀수 ${2+Math.floor(rng(seed+2)*3)}개 + 짝수 나머지로 조합 만들기`, reward: 2 },
-        { type: 'color', title: '색깔 도전', icon: '🎨', desc: `${['노랑(1~10)','파랑(11~20)','빨강(21~30)','회색(31~40)','초록(41~45)'][Math.floor(rng(seed+3)*5)]} 구간 번호를 3개 이상 포함`, reward: 3 },
-        { type: 'no_consec', title: '연속번호 금지', icon: '🚫', desc: '연속된 번호가 하나도 없는 조합 만들기', reward: 2 },
-        { type: 'high_low', title: '고저 믹스', icon: '📊', desc: `저번호(1~22) ${2+Math.floor(rng(seed+4)*3)}개 + 고번호(23~45) 나머지로 구성`, reward: 2 },
-        { type: 'game', title: '게임 도전', icon: '🎮', desc: '미니 게임존에서 번호 3개 모으기', reward: 3 },
-        { type: 'sim', title: '시뮬레이션 도전', icon: '🖥️', desc: '시뮬레이션 1회 실행하기', reward: 2 },
+    const tips = [
+        { type: 'sum', title: '합계 팁', icon: '➕', desc: `합계 ${120 + Math.floor(rng(seed)*25)}~${145 + Math.floor(rng(seed+1)*25)} 사이 조합`, action: 'auto' },
+        { type: 'odd_even', title: '홀짝 팁', icon: '⚖️', desc: `홀수 ${3+Math.floor(rng(seed+2)*2)}개 + 짝수 ${3-Math.floor(rng(seed+2)*2)}개 조합`, action: 'auto' },
+        { type: 'color', title: '색깔 팁', icon: '🎨', desc: `${['노랑(1~10)','파랑(11~20)','빨강(21~30)','회색(31~40)','초록(41~45)'][Math.floor(rng(seed+3)*5)]} 구간 3개 이상 포함`, action: 'auto' },
+        { type: 'no_consec', title: '연속 금지 팁', icon: '🚫', desc: '연속 번호가 없는 조합 만들기', action: 'auto' },
+        { type: 'high_low', title: '고저 팁', icon: '📊', desc: `저번호(1~22) ${2+Math.floor(rng(seed+4)*3)}개 + 고번호 나머지`, action: 'auto' },
     ];
+    const t1 = tips[Math.floor(rng(seed + 5) * tips.length)];
+    let t2 = tips[Math.floor(rng(seed + 6) * tips.length)];
+    while (t2.type === t1.type) t2 = tips[Math.floor(rng(seed + 7) * tips.length)];
+    return [t1, t2];
+}
 
-    // 오늘의 미션 2개 선택
-    const m1 = missions[Math.floor(rng(seed + 5) * missions.length)];
-    let m2 = missions[Math.floor(rng(seed + 6) * missions.length)];
-    while (m2.type === m1.type) m2 = missions[Math.floor(rng(seed + 7) * missions.length)];
+function generateTipNumbers(type, params) {
+    const nums = [];
+    let attempts = 0;
+    while (nums.length < 6 && attempts < 5000) {
+        attempts++;
+        const n = Math.floor(Math.random() * 45) + 1;
+        if (nums.includes(n)) continue;
+        nums.push(n);
+        nums.sort((a, b) => a - b);
+        if (nums.length < 6) continue;
 
-    return [m1, m2];
+        let ok = true;
+        const sum = nums.reduce((s, v) => s + v, 0);
+        const odd = nums.filter(v => v % 2 === 1).length;
+        const low = nums.filter(v => v <= 22).length;
+        const hasConsec = nums.some((v, i) => i > 0 && v === nums[i - 1] + 1);
+
+        switch (type) {
+            case 'sum': ok = sum >= (params?.min || 120) && sum <= (params?.max || 150); break;
+            case 'odd_even': ok = odd === (params?.odd || 3); break;
+            case 'color': {
+                const ranges = { yellow: [1,10], blue: [11,20], red: [21,30], gray: [31,40], green: [41,45] };
+                const r = ranges[params?.color] || [1,10];
+                ok = nums.filter(v => v >= r[0] && v <= r[1]).length >= 3;
+                break;
+            }
+            case 'no_consec': ok = !hasConsec; break;
+            case 'high_low': ok = low === (params?.low || 3); break;
+        }
+        if (!ok) nums.length = 0;
+    }
+    while (nums.length < 6) {
+        const n = Math.floor(Math.random() * 45) + 1;
+        if (!nums.includes(n)) { nums.push(n); nums.sort((a, b) => a - b); }
+    }
+    return nums;
+}
+
+function applyTipNumbers(idx, numbers) {
+    completeMission(idx);
+    const el = document.getElementById('tipResult' + idx);
+    if (el) {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+                ${numbers.map(n => `<span class="ball ${typeof getBallClass === 'function' ? getBallClass(n) : ''}" style="width:36px;height:36px;line-height:36px;font-size:0.85rem;">${n}</span>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+                <button class="btn btn-primary" onclick="_applyFunNumbers([${numbers}],'🎯 오늘의 팁 번호','🎯 팁 번호로 분석 완료!')" style="padding:6px 14px;font-size:0.8rem;">📊 분석하기</button>
+                <button class="btn btn-secondary" onclick="showTipResult(${idx})" style="padding:6px 14px;font-size:0.8rem;">🔄 다시</button>
+            </div>
+        `;
+    }
+}
+
+function showTipResult(idx) {
+    const tips = getDailyTips();
+    const t = tips[idx];
+    let params = {};
+    const today = getToday();
+    const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
+    function rng(s) { let x = Math.sin(s * 9301 + 49297) * 49297; return x - Math.floor(x); }
+    if (t.type === 'sum') { params = { min: 120 + Math.floor(rng(seed)*25), max: 145 + Math.floor(rng(seed+1)*25) }; }
+    else if (t.type === 'odd_even') { params = { odd: 3 + Math.floor(rng(seed+2)*2) }; }
+    else if (t.type === 'color') {
+        const colors = ['yellow','blue','red','gray','green'];
+        params = { color: colors[Math.floor(rng(seed+3)*5)] };
+    }
+    else if (t.type === 'high_low') { params = { low: 2 + Math.floor(rng(seed+4)*3) }; }
+    const nums = generateTipNumbers(t.type, params);
+    applyTipNumbers(idx, nums);
 }
 
 function getDailyMissionData() {
@@ -134,13 +201,11 @@ function completeMission(idx) {
     if (data.done.includes(idx)) return;
     data.done.push(idx);
     try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {}
-    const missions = getDailyMissions();
-    const m = missions[idx];
     const checkin = getCheckinData();
-    checkin.coins += m.reward;
+    checkin.coins += 3;
     saveCheckinData(checkin);
     trackMissionDone();
-    showStatus('success', `✅ 미션 완료! +${m.reward}코인 (보유: ${checkin.coins}🪙)`);
+    showStatus('success', `✅ 팁 완료! +3코인 (보유: ${checkin.coins}🪙)`);
     playBeep(800, 0.12); vibrate(50);
     renderDailyMissions();
 }
@@ -151,16 +216,20 @@ function renderDailyMissions() {
     const today = getToday();
     const data = getDailyMissionData();
     if (data.date !== today) { data.date = today; data.done = []; try { localStorage.setItem('lotto-daily-missions', JSON.stringify(data)); } catch (e) {} }
-    const missions = getDailyMissions();
-    el.innerHTML = missions.map((m, i) => {
+    const tips = getDailyTips();
+    el.innerHTML = `<p class="text-xs-secondary text-center mb-15">🎯 아래 팁을 확인하고 <strong>번호를 받아보세요!</strong></p>` + tips.map((t, i) => {
         const done = data.done.includes(i);
-        return `<div class="daily-mission-item ${done ? 'done' : ''}" onclick="${done ? '' : `completeMission(${i})`}">
-            <span class="daily-mission-icon">${m.icon}</span>
+        return `<div class="daily-mission-item ${done ? 'done' : ''}" style="cursor:default;">
+            <span class="daily-mission-icon">${t.icon}</span>
             <div class="daily-mission-info">
-                <span class="daily-mission-title">${m.title}</span>
-                <span class="daily-mission-desc">${m.desc}</span>
+                <span class="daily-mission-title">${t.title}</span>
+                <span class="daily-mission-desc">${t.desc}</span>
             </div>
-            <span class="daily-mission-reward">${done ? '✅' : '+' + m.reward + '🪙'}</span>
+            <span class="daily-mission-reward">${done ? '✅' : '+3🪙'}</span>
+        </div>
+        <div style="text-align:center;margin-bottom:12px;">
+            <button class="btn btn-gold" onclick="showTipResult(${i})" style="padding:6px 16px;font-size:0.85rem;" ${done ? 'disabled' : ''}>🎲 이 조건으로 번호 받기</button>
+            <div id="tipResult${i}"></div>
         </div>`;
     }).join('');
 }
@@ -267,21 +336,22 @@ function getNextDrawTime() {
 
     const drawTime = new Date(kst);
     if (day === 6 && hours < 20) {
-        // 오늘 토요일, 20:00 이전
-        drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+        // 오늘 토요일, 20:45 이전
+        drawTime.setUTCHours(20, 45, 0, 0);
     } else if (day === 6 && hours >= 20 && minutes >= 45) {
         // 토요일 20:45 이후 → 다음 주
         drawTime.setUTCDate(drawTime.getUTCDate() + 7);
-        drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+        drawTime.setUTCHours(20, 45, 0, 0);
     } else {
         const daysUntil = day === 6 ? 0 : (6 - day + 7) % 7;
         if (daysUntil === 0 && hours >= 20 && minutes >= 45) {
             drawTime.setUTCDate(drawTime.getUTCDate() + 7);
+            drawTime.setUTCHours(20, 45, 0, 0);
         } else if (daysUntil === 0) {
-            drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+            drawTime.setUTCHours(20, 45, 0, 0);
         } else {
             drawTime.setUTCDate(drawTime.getUTCDate() + daysUntil);
-            drawTime.setUTCHours(20, 45 - minutes, 0, 0);
+            drawTime.setUTCHours(20, 45, 0, 0);
         }
     }
 
@@ -638,7 +708,9 @@ function trackFontUse() {
 function trackRetroUse() { unlockAchievement('retro_used'); }
 function trackPhotoUse() { unlockAchievement('photo_numbers'); }
 function trackWheelSpin() {
-    const spins = (parseInt(localStorage.getItem('lotto-wheel-spins') || '0')) + 1;
+    let spins = 0;
+    try { spins = parseInt(localStorage.getItem('lotto-wheel-spins') || '0'); } catch (e) {}
+    spins++;
     try { localStorage.setItem('lotto-wheel-spins', spins); } catch (e) {}
     if (spins >= 10) unlockAchievement('wheel_spin_10');
 }
@@ -733,7 +805,8 @@ function renderAchievements() {
 
 // ========== 7. 스핀 더 휠 ==========
 function canSpinWheel() {
-    const lastSpin = localStorage.getItem('lotto-last-wheel-spin');
+    let lastSpin = null;
+    try { lastSpin = localStorage.getItem('lotto-last-wheel-spin'); } catch (e) {}
     if (!lastSpin) return true;
     return lastSpin !== getToday();
 }
@@ -854,6 +927,21 @@ function startPersonalityQuiz() {
     let qi = 0;
     const answers = [];
 
+    // 기존 리스너 중복 등록 방지
+    if (!el._quizListenerAdded) {
+        el.addEventListener('click', function(e) {
+            const btn = e.target.closest('.quiz-option');
+            if (!btn) return;
+            const aIdx = parseInt(btn.getAttribute('data-aidx'));
+            if (isNaN(aIdx)) return;
+            answers.push(aIdx);
+            qi++;
+            if (typeof playBeep === 'function') playBeep(500, 0.05);
+            showQuestion();
+        });
+        el._quizListenerAdded = true;
+    }
+
     function showQuestion() {
         if (qi >= questions.length) {
             showResult();
@@ -866,19 +954,12 @@ function startPersonalityQuiz() {
                 <h3 class="quiz-question">${q.q}</h3>
                 <div class="quiz-options">
                     ${q.options.map((o, i) => `
-                        <button class="quiz-option" onclick="answerQuiz(${qi}, ${i})">${o}</button>
+                        <button class="quiz-option" data-aidx="${i}">${o}</button>
                     `).join('')}
                 </div>
             </div>
         `;
     }
-
-    window.answerQuiz = function(qIdx, aIdx) {
-        answers.push(aIdx);
-        qi++;
-        if (typeof playBeep === 'function') playBeep(500, 0.05);
-        showQuestion();
-    };
 
     function showResult() {
         const score = answers.reduce((a, b) => a + b, 0);
@@ -1013,326 +1094,7 @@ function useDreamNumbers(numbers) {
     _applyFunNumbers(numbers, '💭 꿈해몽 추출 번호', '💭 꿈해몽 번호로 분석 완료!');
 }
 
-// ========== 10. 사운드트랙 모드 (Web Audio API) ==========
-let soundtrackCtx = null;
-let soundtrackNodes = [];
-let soundtrackType = null;
-
-const SOUNDTRACKS = [
-    { type: 'lofi', title: '로파이 힙합', icon: '🎧', desc: '부드러운 베이스 + 드리프트 패드 + 로파이 비트' },
-    { type: 'jazz', title: '재즈 카페', icon: '☕', desc: '따뜻한 재즈 코드 + 더블베이스 + 브러시 드럼' },
-    { type: 'piano', title: '클래식 피아노', icon: '🎹', desc: '잔잔한 아르페지오 + 공명 패드' },
-    { type: 'nature', title: '자연의 소리', icon: '🌿', desc: '빗소리 + 파도 + 바람 소리' },
-];
-
-function openSoundtrack() {
-    const el = document.getElementById('soundtrackContent');
-    if (!el) return;
-
-    el.innerHTML = `
-        <div class="soundtrack-grid">
-            ${SOUNDTRACKS.map((s, i) => `
-                <div class="soundtrack-card" onclick="playSoundtrack(${i})">
-                    <span class="soundtrack-icon">${s.icon}</span>
-                    <span class="soundtrack-title">${s.title}</span>
-                    <span class="soundtrack-desc">${s.desc}</span>
-                </div>
-            `).join('')}
-        </div>
-        <div id="soundtrackPlayer" class="hidden" style="margin-top:15px;"></div>
-    `;
-}
-
-function ensureAudioCtx() {
-    if (!soundtrackCtx) {
-        soundtrackCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (soundtrackCtx.state === 'suspended') {
-        soundtrackCtx.resume();
-    }
-    return soundtrackCtx;
-}
-
-function stopSoundtrack() {
-    soundtrackNodes.forEach(n => {
-        try {
-            if (typeof n.stop === 'function') n.stop();
-        } catch (e) {}
-        try {
-            if (typeof n.disconnect === 'function') n.disconnect();
-        } catch (e) {}
-    });
-    soundtrackNodes = [];
-    soundtrackType = null;
-
-    const player = document.getElementById('soundtrackPlayer');
-    if (player) { player.classList.add('hidden'); player.innerHTML = ''; }
-}
-
-function playSoundtrack(idx) {
-    stopSoundtrack();
-    const s = SOUNDTRACKS[idx];
-    const ctx = ensureAudioCtx();
-    soundtrackType = s.type;
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.3;
-    masterGain.connect(ctx.destination);
-    soundtrackNodes.push(masterGain);
-
-    switch (s.type) {
-        case 'nature': buildNatureSoundscape(ctx, masterGain); break;
-        case 'lofi': buildLofiSoundscape(ctx, masterGain); break;
-        case 'jazz': buildJazzSoundscape(ctx, masterGain); break;
-        case 'piano': buildPianoSoundscape(ctx, masterGain); break;
-    }
-
-    const player = document.getElementById('soundtrackPlayer');
-    player.classList.remove('hidden');
-    player.innerHTML = `
-        <div style="text-align:center;margin-bottom:10px;color:var(--accent-gold);">${s.icon} 현재 재생: ${s.title}</div>
-        <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:10px;">
-            ${[...Array(5)].map(() => `<span class="soundwave-bar"></span>`).join('')}
-        </div>
-        <button class="btn btn-secondary" onclick="stopSoundtrack()" style="width:100%;justify-content:center;">⏹️ 음악 중지</button>
-    `;
-    showStatus('success', `🎵 ${s.title} 재생 중...`);
-}
-
-// ── 공통: GainNode 생성 헬퍼 (항상 track하고, 0 아닌 값으로 시작) ──
-function createTrackedGain(ctx, value, dest) {
-    const g = ctx.createGain();
-    g.gain.value = value;
-    g.connect(dest);
-    soundtrackNodes.push(g);
-    return g;
-}
-
-// ── 자연의 소리 (빗소리 + 파도 + 바람) ──
-function buildNatureSoundscape(ctx, master) {
-    // 빗소리 (밴드패스 노이즈)
-    const rainGain = createTrackedGain(ctx, 0.22, master);
-    const rainNode = createNoiseNode(ctx, 4);
-    const rainF = ctx.createBiquadFilter();
-    rainF.type = 'bandpass'; rainF.frequency.value = 900; rainF.Q.value = 0.3;
-    rainNode.connect(rainF); rainF.connect(rainGain);
-    soundtrackNodes.push(rainNode, rainF);
-
-    const rainLow = createNoiseNode(ctx, 3);
-    const rainLowF = ctx.createBiquadFilter();
-    rainLowF.type = 'lowpass'; rainLowF.frequency.value = 500;
-    rainLow.connect(rainLowF); rainLowF.connect(rainGain);
-    soundtrackNodes.push(rainLow, rainLowF);
-
-    // 빗소리 약한 강도 변화 (LFO가 깊게 깎지 않게)
-    const rLfo = ctx.createOscillator();
-    rLfo.type = 'sine'; rLfo.frequency.value = 0.12;
-    const rLfoG = ctx.createGain();
-    rLfoG.gain.value = 0.06; // 작은 변조 — 0.22±0.06 = 0.16~0.28
-    rLfo.connect(rLfoG); rLfoG.connect(rainGain.gain);
-    rLfo.start();
-    soundtrackNodes.push(rLfo, rLfoG);
-
-    // 파도 (저역 노이즈)
-    const waveGain = createTrackedGain(ctx, 0.12, master);
-    const waveNode = createNoiseNode(ctx, 5);
-    const waveF = ctx.createBiquadFilter();
-    waveF.type = 'lowpass'; waveF.frequency.value = 180;
-    waveNode.connect(waveF); waveF.connect(waveGain);
-    soundtrackNodes.push(waveNode, waveF);
-
-    const wLfo = ctx.createOscillator();
-    wLfo.type = 'sine'; wLfo.frequency.value = 0.05;
-    const wLfoG = ctx.createGain();
-    wLfoG.gain.value = 0.04;
-    wLfo.connect(wLfoG); wLfoG.connect(waveGain.gain);
-    wLfo.start();
-    soundtrackNodes.push(wLfo, wLfoG);
-
-    // 바람 (저역 노이즈, 느린 변조)
-    const windGain = createTrackedGain(ctx, 0.06, master);
-    const windNode = createNoiseNode(ctx, 6);
-    const windF = ctx.createBiquadFilter();
-    windF.type = 'lowpass'; windF.frequency.value = 120; windF.Q.value = 0.5;
-    windNode.connect(windF); windF.connect(windGain);
-    soundtrackNodes.push(windNode, windF);
-
-    const wdLfo = ctx.createOscillator();
-    wdLfo.type = 'triangle'; wdLfo.frequency.value = 0.04;
-    const wdLfoG = ctx.createGain();
-    wdLfoG.gain.value = 0.02;
-    wdLfo.connect(wdLfoG); wdLfoG.connect(windGain.gain);
-    wdLfo.start();
-    soundtrackNodes.push(wdLfo, wdLfoG);
-}
-
-// ── 로파이 힙합 ──
-function buildLofiSoundscape(ctx, master) {
-    const chordFreqs = [130.81, 164.81, 196.00, 246.94];
-    chordFreqs.forEach(f => {
-        const osc = ctx.createOscillator();
-        osc.type = 'triangle'; osc.frequency.value = f;
-        osc.detune.value = Math.random() * 10 - 5;
-        const g = createTrackedGain(ctx, 0.05, master);
-        osc.connect(g); osc.start();
-        soundtrackNodes.push(osc);
-
-        const lfo = ctx.createOscillator();
-        lfo.type = 'sine'; lfo.frequency.value = 0.1 + Math.random() * 0.2;
-        const lfoG = ctx.createGain();
-        lfoG.gain.value = 0.015;
-        lfo.connect(lfoG); lfoG.connect(g.gain);
-        lfo.start();
-        soundtrackNodes.push(lfo, lfoG);
-    });
-
-    const bass = ctx.createOscillator();
-    bass.type = 'sine'; bass.frequency.value = 65.41;
-    const bassG = createTrackedGain(ctx, 0.08, master);
-    bass.connect(bassG); bass.start();
-    soundtrackNodes.push(bass);
-
-    const beatInterval = setInterval(() => {
-        if (soundtrackType !== 'lofi') { clearInterval(beatInterval); return; }
-        playNoiseClick(ctx, master, 60, 0.06, 0.08);
-        setTimeout(() => {
-            if (soundtrackType !== 'lofi') return;
-            playNoiseClick(ctx, master, 1500, 0.15, 0.05);
-        }, 400);
-    }, 1200);
-    soundtrackNodes.push({ stop: () => clearInterval(beatInterval), disconnect: () => {} });
-}
-
-// ── 재즈 카페 ──
-function buildJazzSoundscape(ctx, master) {
-    const jazzChords = [146.83, 174.61, 220.00, 261.63];
-    jazzChords.forEach((f, i) => {
-        const osc = ctx.createOscillator();
-        osc.type = 'sine'; osc.frequency.value = f;
-        osc.detune.value = (i % 2 === 0 ? -5 : 5);
-        const g = createTrackedGain(ctx, 0.06, master);
-        osc.connect(g); osc.start();
-        soundtrackNodes.push(osc);
-
-        const lfo = ctx.createOscillator();
-        lfo.type = 'sine'; lfo.frequency.value = 0.3 + i * 0.1;
-        const lfoG = ctx.createGain();
-        lfoG.gain.value = 0.015;
-        lfo.connect(lfoG); lfoG.connect(g.gain);
-        lfo.start();
-        soundtrackNodes.push(lfo, lfoG);
-    });
-
-    const dbass = ctx.createOscillator();
-    dbass.type = 'triangle'; dbass.frequency.value = 73.42;
-    const dbassG = createTrackedGain(ctx, 0.1, master);
-    dbass.connect(dbassG); dbass.start();
-    soundtrackNodes.push(dbass);
-
-    const brushInterval = setInterval(() => {
-        if (soundtrackType !== 'jazz') { clearInterval(brushInterval); return; }
-        playNoiseClick(ctx, master, 3000, 0.04, 0.025);
-        setTimeout(() => playNoiseClick(ctx, master, 4000, 0.03, 0.02), 200);
-        setTimeout(() => playNoiseClick(ctx, master, 3500, 0.03, 0.02), 500);
-        setTimeout(() => playNoiseClick(ctx, master, 4500, 0.03, 0.02), 700);
-    }, 1000);
-    soundtrackNodes.push({ stop: () => clearInterval(brushInterval), disconnect: () => {} });
-}
-
-// ── 클래식 피아노 ──
-function buildPianoSoundscape(ctx, master) {
-    const scaleFreqs = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
-    let noteIdx = 0;
-
-    function playNextNote() {
-        if (soundtrackType !== 'piano') return;
-        const freq = scaleFreqs[noteIdx % scaleFreqs.length];
-        noteIdx++;
-
-        const osc = ctx.createOscillator();
-        osc.type = 'sine'; osc.frequency.value = freq;
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.15, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-        osc.connect(g); g.connect(master);
-        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.8);
-        soundtrackNodes.push(osc, g);
-
-        const overtone = ctx.createOscillator();
-        overtone.type = 'sine'; overtone.frequency.value = freq * 2.01;
-        const og = ctx.createGain();
-        og.gain.setValueAtTime(0.04, ctx.currentTime);
-        og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-        overtone.connect(og); og.connect(master);
-        overtone.start(ctx.currentTime); overtone.stop(ctx.currentTime + 1.0);
-        soundtrackNodes.push(overtone, og);
-
-        setTimeout(playNextNote, 1500);
-    }
-    playNextNote();
-
-    const padOsc = ctx.createOscillator();
-    padOsc.type = 'sine'; padOsc.frequency.value = 130.81;
-    const padGain = createTrackedGain(ctx, 0.03, master);
-    padOsc.connect(padGain); padOsc.start();
-    soundtrackNodes.push(padOsc);
-
-    const padLfo = ctx.createOscillator();
-    padLfo.type = 'sine'; padLfo.frequency.value = 0.15;
-    const padLfoG = ctx.createGain();
-    padLfoG.gain.value = 0.01;
-    padLfo.connect(padLfoG); padLfoG.connect(padGain.gain);
-    padLfo.start();
-    soundtrackNodes.push(padLfo, padLfoG);
-}
-
-// ── 유틸: 노이즈 노드 생성 ──
-function createNoiseNode(ctx, bufferCount = 4) {
-    const bufferSize = 2 * ctx.sampleRate;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        let sample = 0;
-        for (let j = 0; j < bufferCount; j++) { sample += Math.random() * 2 - 1; }
-        data[i] = sample / bufferCount;
-    }
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.start();
-    return source;
-}
-
-// ── 유틸: 짧은 노이즈 클릭 (퍼커션) ──
-function playNoiseClick(ctx, master, freq, duration, vol) {
-    if (soundtrackNodes.length === 0) return;
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-    }
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass'; filter.frequency.value = freq; filter.Q.value = 0.8;
-    const g = ctx.createGain();
-    g.gain.value = vol;
-    source.connect(filter); filter.connect(g); g.connect(master);
-    source.start();
-    source.stop(ctx.currentTime + duration + 0.01);
-}
-
-// ── 탭 전환 시 사운드트랙 정리 ──
-const origSwitchFunTab = switchFunTab;
-switchFunTab = function(tabName) {
-    if (tabName !== 'soundtrack' && soundtrackType) {
-        stopSoundtrack();
-    }
-    origSwitchFunTab(tabName);
-};
-
-// ========== 탭 전환 ==========
+// ========== (사운드트랙 제거됨 — 효과음 설정은 설정 패널에서 관리) ==========
 function switchFunTab(tabName) {
     document.querySelectorAll('.fun-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.fun-tab-content').forEach(c => c.classList.remove('active'));
@@ -1364,6 +1126,7 @@ function initAllFunFeatures() {
         renderStatsSpotlight();
         renderAchievements();
         renderWheel();
+        renderDailyMissions();
         const bookQ = document.getElementById('bookQuestion');
         if (bookQ) bookQ.addEventListener('input', updateBookCharCount);
     }, { once: true });

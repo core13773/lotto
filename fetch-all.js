@@ -2,7 +2,8 @@ const https = require('https');
 const fs = require('fs');
 
 const LATEST_ROUND = (() => {
-    const firstDraw = new Date(2002, 11, 7, 21, 0, 0);
+    // KST 21:00 = UTC 12:00 (로또 추첨 시간)
+    const firstDraw = Date.UTC(2002, 11, 7, 12, 0, 0);
     const now = new Date();
     // KST = UTC+9
     const kstNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
@@ -10,11 +11,11 @@ const LATEST_ROUND = (() => {
     const hours = kstNow.getUTCHours();
     let lastDraw;
     if (dayOfWeek === 6 && hours >= 21) {
-        // 오늘(토요일) 오후 9시 이후 → 오늘 추첨이 최신
-        lastDraw = new Date(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), 21, 0, 0);
+        // 오늘(토요일) 오후 9시 이후 → 오늘 추첨이 최신 (UTC 12:00)
+        lastDraw = Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), 12, 0, 0);
     } else {
         const daysSinceSat = dayOfWeek === 6 ? 7 : dayOfWeek + 1;
-        lastDraw = new Date(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - daysSinceSat, 21, 0, 0);
+        lastDraw = Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - daysSinceSat, 12, 0, 0);
     }
     return Math.floor((lastDraw - firstDraw) / (7 * 24 * 60 * 60 * 1000)) + 1;
 })();
@@ -53,19 +54,27 @@ function fetchUrl(url, retries = 3) {
 }
 
 function extractLottoNumbers(html) {
-    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ');
-    const normalized = text.replace(/[''']/g, "'");
-    const num6Match = normalized.match(/(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})/);
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ');
+    const normalized = text.replace(/[\u2018\u2019\u201a\u201b\u2032\u2035`]/g, "'");
+    const num6Match = normalized.match(/(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})/);
     if (!num6Match) return null;
     const nums = [parseInt(num6Match[1]), parseInt(num6Match[2]), parseInt(num6Match[3]),
                   parseInt(num6Match[4]), parseInt(num6Match[5]), parseInt(num6Match[6])];
     if (!nums.every(n => n >= 1 && n <= 45) || new Set(nums).size !== 6) return null;
-    const after = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 200);
+    const after = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 300);
     let bonus = null;
-    const bm = after.match(/보너스[^0-9]*['"]?(\d{1,2})/);
-    if (bm) {
-        const bn = parseInt(bm[1]);
-        if (bn >= 1 && bn <= 45 && !nums.includes(bn)) bonus = bn;
+    const bPatterns = [
+        /볼너스\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
+        /bonus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /plus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /추가\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
+    ];
+    for (const bp of bPatterns) {
+        const bm = after.match(bp);
+        if (bm) {
+            const bn = parseInt(bm[1]);
+            if (bn >= 1 && bn <= 45 && !nums.includes(bn)) { bonus = bn; break; }
+        }
     }
     return { numbers: nums.sort((a, b) => a - b), bonus };
 }

@@ -238,23 +238,27 @@ function crossMatchAllHistory(nums) {
     return { results, totalCrossScore, totalMatches, statBreakdown };
 }
 
-// ========== 백분위 순위 계산 ==========
-function calculatePercentileRank(nums) {
-    if (!lottoDb || lottoDb.length === 0) return 0;
-    const numSet = new Set(nums);
-    const ownScore = crossMatchScore(nums);
+// ========== 교차 매칭 점수 캐싱 ==========
+let _cachedCrossScores = null;
+let _cachedCrossScoresDbLength = 0;
 
-    let lowerCount = 0;
+function getCachedCrossScores() {
+    if (!lottoDb || lottoDb.length === 0) return null;
+    if (_cachedCrossScores && _cachedCrossScoresDbLength === lottoDb.length) {
+        return _cachedCrossScores;
+    }
+    // 캐시 재생성: 각 회차의 교차 매칭 점수를 미리 계산
+    const scores = {};
     lottoDb.forEach(entry => {
         if (!entry.numbers) return;
-        const entryScore = crossMatchScore(entry.numbers);
-        if (entryScore < ownScore) lowerCount++;
+        scores[entry.round] = _computeCrossMatchScore(entry.numbers);
     });
-
-    return Math.round((1 - lowerCount / lottoDb.length) * 1000) / 10;
+    _cachedCrossScores = scores;
+    _cachedCrossScoresDbLength = lottoDb.length;
+    return scores;
 }
 
-function crossMatchScore(nums) {
+function _computeCrossMatchScore(nums) {
     if (!lottoDb || lottoDb.length === 0) return 0;
     const numSet = new Set(nums);
     let total = 0;
@@ -267,9 +271,51 @@ function crossMatchScore(nums) {
         else if (matchCount === 5) total += 4;
         else if (matchCount === 4) total += 3;
         else if (matchCount === 3) total += 2;
-        else total += 0;
     });
     return total;
+}
+
+// ========== 백분위 순위 계산 ==========
+function calculatePercentileRank(nums) {
+    if (!lottoDb || lottoDb.length === 0) return 0;
+    const ownScore = crossMatchScore(nums);
+    const cachedScores = getCachedCrossScores();
+
+    let lowerCount = 0;
+    if (cachedScores) {
+        Object.values(cachedScores).forEach(entryScore => {
+            if (entryScore < ownScore) lowerCount++;
+        });
+    } else {
+        lottoDb.forEach(entry => {
+            if (!entry.numbers) return;
+            const entryScore = crossMatchScore(entry.numbers);
+            if (entryScore < ownScore) lowerCount++;
+        });
+    }
+
+    return Math.round((1 - lowerCount / lottoDb.length) * 1000) / 10;
+}
+
+function crossMatchScore(nums) {
+    if (!lottoDb || lottoDb.length === 0) return 0;
+    // 현재 분석 중인 번호가 DB에 있는 회차라면 캐시 활용
+    const cachedScores = getCachedCrossScores();
+    if (cachedScores) {
+        // 입력 번호를 정렬해서 문자열 키로 만듦 (캐시 히트 확인용)
+        const sorted = [...nums].sort((a, b) => a - b);
+        // lottoDb에서 정확히 일치하는 회차가 있으면 캐시된 점수 반환
+        for (const entry of lottoDb) {
+            if (entry.numbers && entry.numbers.length === 6) {
+                const en = [...entry.numbers].sort((a, b) => a - b);
+                if (en[0] === sorted[0] && en[1] === sorted[1] && en[2] === sorted[2] &&
+                    en[3] === sorted[3] && en[4] === sorted[4] && en[5] === sorted[5]) {
+                    return cachedScores[entry.round] || 0;
+                }
+            }
+        }
+    }
+    return _computeCrossMatchScore(nums);
 }
 
 // ========== 유사 과거 회차 TOP3 ==========
@@ -512,7 +558,7 @@ function renderDetailedAnalysis(a) {
                 <div class="analysis-header">
                     <div class="analysis-label">
                         합계
-                        <span class="help-icon">?
+                        <span class="help-icon" tabindex="0">?
                             <div class="tooltip">
                                 <div class="tooltip-title">합계란?</div>
                                 6개 번호를 모두 더한 값입니다.<br><br>
@@ -535,7 +581,7 @@ function renderDetailedAnalysis(a) {
                 <div class="analysis-header">
                     <div class="analysis-label">
                         AC값
-                        <span class="help-icon">?
+                        <span class="help-icon" tabindex="0">?
                             <div class="tooltip">
                                 <div class="tooltip-title">AC값 (Arithmetic Complexity)</div>
                                 번호들 간의 차이값 다양성을 나타내는 지표입니다.<br><br>
@@ -559,7 +605,7 @@ function renderDetailedAnalysis(a) {
                 <div class="analysis-header">
                     <div class="analysis-label">
                         번호 범위
-                        <span class="help-icon">?
+                        <span class="help-icon" tabindex="0">?
                             <div class="tooltip">
                                 <div class="tooltip-title">번호 범위</div>
                                 가장 큰 번호와 가장 작은 번호의 차이입니다.<br><br>
@@ -582,7 +628,7 @@ function renderDetailedAnalysis(a) {
                 <div class="analysis-header">
                     <div class="analysis-label">
                         끝자리 종류
-                        <span class="help-icon">?
+                        <span class="help-icon" tabindex="0">?
                             <div class="tooltip">
                                 <div class="tooltip-title">끝자리 종류</div>
                                 6개 번호의 끝자리(일의 자리)가 몇 가지인지 나타냅니다.<br><br>
