@@ -120,9 +120,21 @@ function startDraw() {
     const bonusNum = selected[6];
 
     const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
-    const cx = 380, cy = 100;    // 기계 중심 (우측 상단)
-    const machineR = 90;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+
+    // DPR transform 보장
+    const size = getDrawCanvasSize();
+    ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+
+    // 캔버스 크기에 비례하는 기계 위치/크기
+    const machineR = Math.min(90, w * 0.18, h * 0.22);
+    const cx = w - machineR - Math.max(20, w * 0.06);
+    const cy = Math.max(machineR + 20, h * 0.3);
+    const tubeX = cx + machineR * 0.7;
+    const tubeY = cy + machineR * 0.7;
+    const ballR = Math.max(10, Math.min(16, machineR * 0.2));
+    const ballGap = ballR * 2.4;
 
     let t = 0;
     const drawn = [];
@@ -140,29 +152,29 @@ function startDraw() {
         ctx.beginPath(); ctx.arc(cx, cy, machineR, 0, Math.PI * 2); ctx.fill();
 
         // 나가는 통로 (우측 아래로)
-        const tubeX = cx + machineR - 15, tubeY = cy + machineR - 5;
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        ctx.fillRect(tubeX - 15, tubeY, 30, 60);
+        ctx.fillRect(tubeX - machineR * 0.15, tubeY, machineR * 0.3, machineR * 0.7);
         // 통로 화살표
-        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('▼', tubeX, tubeY + 50);
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.font = `${Math.max(12, machineR * 0.18)}px sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText('▼', tubeX, tubeY + machineR * 0.55);
 
         // 혼합 중인 공들
         const remaining = selected.filter(s => !drawnSet.has(s.num));
         const mixCount = remaining.length || 1;
         remaining.forEach((ball, i) => {
             const angle = (t * (0.5 + i * 0.3) + i * (Math.PI * 2 / mixCount)) % (Math.PI * 2);
-            const r = machineR * 0.55 + Math.sin(t * 1.3 + i) * 18;
+            const r = machineR * 0.55 + Math.sin(t * 1.3 + i) * (machineR * 0.2);
             ball.x = cx + Math.cos(angle) * r;
             ball.y = cy + Math.sin(angle) * r;
-            drawBallAt(ctx, ball.x, ball.y, ball);
+            drawBallAt(ctx, ball.x, ball.y, ball, ballR);
         });
 
         // 뽑힌 공들 (2열, 4+3 배열)
+        const startY = tubeY + machineR * 0.85;
         drawn.forEach((ball, i) => {
-            const bx = i < 4 ? tubeX - 20 : tubeX + 30;
-            const by = tubeY + 75 + (i < 4 ? i : i - 4) * 38;
-            drawBallAt(ctx, bx, by, ball, true);
+            const bx = i < 4 ? tubeX - ballR * 1.3 : tubeX + ballR * 1.3;
+            const by = startY + (i < 4 ? i : i - 4) * ballGap;
+            drawBallAt(ctx, bx, by, ball, ballR * 1.15);
         });
 
         // 결과에 공 추가
