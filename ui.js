@@ -2,9 +2,9 @@
 
 // ========== 테마 전환 ==========
 // ========== 테마 변경 (다중 스타일) ==========
-const THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset'];
-const THEME_ICONS = { dark: '🌑', light: '☀️', ocean: '🌊', forest: '🌿', sunset: '🌅' };
-const THEME_LABELS = { dark: '다크', light: '라이트', ocean: '오션', forest: '포레스트', sunset: '선셋' };
+const THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset', 'neon', 'coffee'];
+const THEME_ICONS = { dark: '🌑', light: '☀️', ocean: '🌊', forest: '🌿', sunset: '🌅', neon: '⚡', coffee: '☕' };
+const THEME_LABELS = { dark: '다크', light: '라이트', ocean: '오션', forest: '포레스트', sunset: '선셋', neon: '네온', coffee: '커피' };
 
 function cycleTheme() {
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
@@ -23,7 +23,7 @@ function updateThemeBtn(theme) {
     // theme-color 메타 태그 업데이트 (모바일 브라우저 UI 색상)
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-        const colors = { dark: '#0a0a1a', light: '#f0f2f5', ocean: '#0a1628', forest: '#0a1a0f', sunset: '#1a0f0a' };
+        const colors = { dark: '#0a0a1a', light: '#f0f2f5', ocean: '#0a1628', forest: '#0a1a0f', sunset: '#1a0f0a', neon: '#050505', coffee: '#1c1410' };
         meta.content = colors[theme] || '#0a0a1a';
     }
 }

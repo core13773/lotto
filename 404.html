@@ -7,10 +7,11 @@
     <meta name="robots" content="noindex, follow">
     <meta name="theme-color" content="#0a0a1a">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=2">
     <style>
-        :root { --bg-dark: #0a0a1a; --bg-card: #12122a; --text-primary: #ffffff; --text-secondary: #a0a0c0; --accent-gold: #ffd700; --accent-cyan: #00f5ff; }
+        :root {} /* 테마 변수는 style.css에서 관리 */
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg-dark); color: var(--text-primary); display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        body { color: var(--text-primary); display: flex; align-items: center; justify-content: center; padding: 20px; }
         .container { max-width: 600px; text-align: center; }
         .code { font-size: 6rem; font-weight: 900; background: linear-gradient(135deg, var(--accent-gold), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         h1 { font-size: 1.5rem; margin: 10px 0 20px; }
@@ -19,10 +20,18 @@
         .links a { color: var(--accent-cyan); text-decoration: none; padding: 10px 20px; border: 1px solid rgba(0,245,255,0.2); border-radius: 10px; font-size: 0.9rem; transition: all 0.2s; }
         .links a:hover { background: rgba(0,245,255,0.08); }
         .links a.home { color: var(--accent-gold); border-color: rgba(255,215,0,0.3); }
+        /* 테마 보정 */
+        [data-theme="light"] .container { color: var(--text-primary); }
+        [data-theme="light"] .links a { color: var(--accent-cyan); border-color: rgba(0,0,0,0.15); }
+        [data-theme="light"] .links a.home { color: var(--accent-gold); border-color: rgba(184,134,11,0.3); }
     </style>
 </head>
 <body>
 <div class="container">
+    <div style="display:flex;justify-content:flex-end;gap:8px;position:relative;margin-bottom:10px;">
+        <button id="fontBtn" onclick="toggleFontMenu(event)" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:var(--bg-card);color:var(--text-primary);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" aria-label="글꼴 변경" aria-expanded="false">🔤</button>
+        <button id="themeBtn" onclick="cycleTheme()" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:var(--bg-card);color:var(--text-primary);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" aria-label="테마 변경">🌑</button>
+    </div>
     <div class="code">404</div>
     <h1>페이지를 찾을 수 없습니다</h1>
     <p>요청하신 페이지가 삭제되었거나 주소가 변경되었을 수 있습니다.<br>아래 링크를 통해 원하는 정보를 찾아보세요.</p>
@@ -36,5 +45,47 @@
         <a href="faq.html">FAQ</a>
     </div>
 </div>
+<script>
+(function(){
+    const THEMES=['dark','light','ocean','forest','sunset','neon','coffee'];
+    const ICONS={dark:'🌑',light:'☀️',ocean:'🌊',forest:'🌿',sunset:'🌅',neon:'⚡',coffee:'☕'};
+    window.cycleTheme=function(){
+        const cur=document.documentElement.getAttribute('data-theme')||'dark';
+        const next=THEMES[(THEMES.indexOf(cur)+1)%THEMES.length];
+        document.documentElement.setAttribute('data-theme',next);
+        try{localStorage.setItem('lotto-theme',next);}catch(e){}
+        const btn=document.getElementById('themeBtn');
+        if(btn)btn.textContent=ICONS[next]||'🌑';
+        const meta=document.querySelector('meta[name="theme-color"]');
+        if(meta){
+            const c={dark:'#0a0a1a',light:'#f0f2f5',ocean:'#0a1628',forest:'#0a1a0f',sunset:'#1a0f0a',neon:'#050505',coffee:'#1c1410'};
+            meta.content=c[next]||'#0a0a1a';
+        }
+    };
+    let saved;
+    try{saved=localStorage.getItem('lotto-theme');}catch(e){saved=null;}
+    if(!saved||!THEMES.includes(saved)){
+        saved=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+    }
+    document.documentElement.setAttribute('data-theme',saved);
+    const btn=document.getElementById('themeBtn');
+    if(btn)btn.textContent=ICONS[saved]||'🌑';
+    // 글꼴
+    const FONT_OPTS={'Noto Sans KR':"'Noto Sans KR', sans-serif",'Noto Serif KR':"'Noto Serif KR', serif",'Nanum Gothic':"'Nanum Gothic', sans-serif",'Nanum Myeongjo':"'Nanum Myeongjo', serif",'IBM Plex Sans KR':"'IBM Plex Sans KR', sans-serif",'Gothic A1':"'Gothic A1', sans-serif",'Dongle':"'Dongle', sans-serif",'Sunflower':"'Sunflower', sans-serif",'Do Hyeon':"'Do Hyeon', sans-serif",'Jua':"'Jua', sans-serif",'Nanum Pen Script':"'Nanum Pen Script', cursive",'Hi Melody':"'Hi Melody', cursive",'Yeon Sung':"'Yeon Sung', cursive",'Black Han Sans':"'Black Han Sans', sans-serif",'Gowun Dodum':"'Gowun Dodum', sans-serif"};
+    const FONT_LABS={'Noto Sans KR':'Noto Sans KR','Noto Serif KR':'Noto Serif KR','Nanum Gothic':'나눔고딕','Nanum Myeongjo':'나눔명조','IBM Plex Sans KR':'IBM Plex Sans KR','Gothic A1':'고딕 A1','Dongle':'동글','Sunflower':'핵바라기','Do Hyeon':'도현','Jua':'주아','Nanum Pen Script':'나눔손글씨','Hi Melody':'Hi Melody','Yeon Sung':'연성','Black Han Sans':'검은고딕','Gowun Dodum':'고울돋움'};
+    const FONT_ORD=['Noto Sans KR','Noto Serif KR','Nanum Gothic','Nanum Myeongjo','IBM Plex Sans KR','Gothic A1','Dongle','Sunflower','Do Hyeon','Jua','Nanum Pen Script','Hi Melody','Yeon Sung','Black Han Sans','Gowun Dodum'];
+    const FONT_WG={'Noto Sans KR':'wght@300;400;500;700;900','Noto Serif KR':'wght@400;500;700;900','Nanum Gothic':'wght@400;700;800','Nanum Myeongjo':'wght@400;700;800','IBM Plex Sans KR':'wght@400;500;700','Gothic A1':'wght@400;500;700;900','Dongle':'wght@300;400;700','Sunflower':'wght@300;500;700'};
+    const LOADED=new Set(['Noto Sans KR','Noto Serif KR']);
+    function loadGF(name){if(LOADED.has(name))return;LOADED.add(name);const fam=name.replace(/ /g,'+');const w=FONT_WG[name]||'';const href='https://fonts.googleapis.com/css2?family='+fam+(w?':'+w:'')+'&display=swap';const link=document.createElement('link');link.rel='stylesheet';link.href=href;document.head.appendChild(link);}
+    function setFont(name){loadGF(name);document.body.style.fontFamily=FONT_OPTS[name]||FONT_OPTS['Noto Sans KR'];try{localStorage.setItem('lotto-font',name);}catch(e){}}
+    function curFont(){let n;try{n=localStorage.getItem('lotto-font');}catch(e){n=null;}return n&&FONT_OPTS[n]?n:'Noto Sans KR';}
+    window.toggleFontMenu=function(e){e.stopPropagation();let p=document.getElementById('fontPopup');if(!p){p=document.createElement('div');p.id='fontPopup';p.className='font-popup';document.getElementById('fontBtn').parentElement.appendChild(p);buildFP(p);}const open=p.classList.toggle('open');const b=document.getElementById('fontBtn');if(b)b.setAttribute('aria-expanded',String(open));document.removeEventListener('click',closeFP);document.removeEventListener('keydown',fpKey);if(open){buildFP(p);document.addEventListener('click',closeFP);document.addEventListener('keydown',fpKey);}};
+    function fpKey(e){if(e.key==='Escape'){const p=document.getElementById('fontPopup');const b=document.getElementById('fontBtn');if(p)p.classList.remove('open');if(b){b.setAttribute('aria-expanded','false');b.focus();}document.removeEventListener('click',closeFP);document.removeEventListener('keydown',fpKey);}}
+    function closeFP(e){const p=document.getElementById('fontPopup');const b=document.getElementById('fontBtn');if(p&&!p.contains(e.target)&&e.target!==b){p.classList.remove('open');b.setAttribute('aria-expanded','false');document.removeEventListener('click',closeFP);document.removeEventListener('keydown',fpKey);b.focus();}}
+    function buildFP(popup){const c=curFont();popup.innerHTML=FONT_ORD.map(f=>{const a=f===c?' active':'';const fs=FONT_OPTS[f];return '<button class="font-popup-item'+a+'" style="font-family:'+fs+'" onclick="event.stopPropagation();selFont(\''+f+'\')">'+FONT_LABS[f]+'<span class="font-preview" style="font-family:'+fs+'">1234567890 가나다ABC</span></button>';}).join('');}
+    window.selFont=function(name){setFont(name);const p=document.getElementById('fontPopup');const b=document.getElementById('fontBtn');if(p)p.classList.remove('open');if(b)b.setAttribute('aria-expanded','false');document.removeEventListener('click',closeFP);document.removeEventListener('keydown',fpKey);if(b)b.focus();};
+    const cf=curFont();loadGF(cf);document.body.style.fontFamily=FONT_OPTS[cf];
+})();
+</script>
 </body>
 </html>
