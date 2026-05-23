@@ -36,23 +36,25 @@ def draw_rounded_rect(draw, xy, radius, fill, outline=None, width=1):
 def draw_lotto_ball(draw, center, radius, number, font, shadow=True):
     """Draw a lottery ball with number."""
     x, y = center
-    # Shadow
+    # Soft shadow for transparent bg
     if shadow:
-        draw.ellipse([x-radius+3, y-radius+3, x+radius+3, y+radius+3], fill="#00000055")
-    # Ball body (gradient-like via concentric circles)
+        draw.ellipse([x-radius+3, y-radius+3, x+radius+3, y+radius+3], fill="#00000033")
+    # Ball body
     draw.ellipse([x-radius, y-radius, x+radius, y+radius], fill=GOLD, outline=CYAN, width=3)
     # Highlight
     hl_r = radius * 0.35
     draw.ellipse([x-radius*0.6, y-radius*0.6, x-radius*0.6+hl_r*2, y-radius*0.6+hl_r*2], fill="#ffffff44")
-    # Number
+    # Number with dark outline for contrast on any bg
     bbox = draw.textbbox((0, 0), str(number), font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-    draw.text((x - tw/2, y - th/2 - radius*0.05), str(number), font=font, fill=DARK_TEXT, anchor="mm")
+    draw.text((x, y - radius*0.05), str(number), font=font, fill=DARK_TEXT, anchor="mm",
+              stroke_width=2, stroke_fill="#000000")
 
-def create_logo(width=800, height=300):
+def create_logo(width=800, height=300, transparent=True):
     """Create a wide logo image."""
-    img = Image.new("RGBA", (width, height), BG)
+    bg = (0, 0, 0, 0) if transparent else BG
+    img = Image.new("RGBA", (width, height), bg)
     draw = ImageDraw.Draw(img)
     
     # Three lotto balls on the left
@@ -74,9 +76,9 @@ def create_logo(width=800, height=300):
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
     
-    # Slight cyan glow/shadow
-    draw.text((text_x + 3, ball_y - th/2 + 3), "lotto", font=lotto_font, fill="#00E5FF44")
-    draw.text((text_x, ball_y - th/2), "lotto", font=lotto_font, fill=WHITE)
+    # White text with black outline so it pops on ANY background
+    draw.text((text_x, ball_y - th/2), "lotto", font=lotto_font, fill=WHITE,
+              stroke_width=3, stroke_fill="#000000")
     
     return img
 
