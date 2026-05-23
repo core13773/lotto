@@ -5,12 +5,11 @@ import time
 import sys
 import random
 
-def fetch_round(round_no):
-    url = f'https://search.naver.com/search.naver?where=nexearch&query={round_no}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8'
+def extract_from_daum(round_no):
+    url = f'https://search.daum.net/search?w=tot&q={round_no}%ED%9A%8C%EB%A1%9C%EB%98%90'
     req = urllib.request.Request(url, headers={
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
     })
     try:
         with urllib.request.urlopen(req, timeout=10) as f:
@@ -28,6 +27,52 @@ def fetch_round(round_no):
     nums = [int(m.group(i)) for i in range(1, 7)]
     if not all(1 <= n <= 45 for n in nums) or len(set(nums)) != 6:
         return None
+
+    bonus = None
+    after = text[m.end():m.end() + 300]
+    bm = re.search(r'번\s*\+\s*(\d{1,2})\s*번', after)
+    if bm:
+        bn = int(bm.group(1))
+        if 1 <= bn <= 45 and bn not in nums:
+            bonus = bn
+    if bonus is None:
+        for pattern in [
+            r'볼너스\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+            r'bonus\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+            r'plus\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+            r'추가\s*[:：]?\s*\'?"?(\d{1,2})\'?"?',
+        ]:
+            bm = re.search(pattern, after, re.IGNORECASE)
+            if bm:
+                bn = int(bm.group(1))
+                if 1 <= bn <= 45 and bn not in nums:
+                    bonus = bn
+                    break
+    return {'round': round_no, 'numbers': sorted(nums), 'bonus': bonus}
+
+def fetch_round(round_no):
+    url = f'https://search.naver.com/search.naver?where=nexearch&query={round_no}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8'
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as f:
+            text = f.read().decode('utf-8', errors='replace')
+    except Exception:
+        return extract_from_daum(round_no)
+
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&\w+;', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
+    if not m:
+        return extract_from_daum(round_no)
+    nums = [int(m.group(i)) for i in range(1, 7)]
+    if not all(1 <= n <= 45 for n in nums) or len(set(nums)) != 6:
+        return extract_from_daum(round_no)
 
     bonus = None
     after = text[m.end():m.end() + 300]

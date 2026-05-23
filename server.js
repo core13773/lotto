@@ -73,6 +73,34 @@ function extractLottoNumbers(html) {
     return { numbers: nums.sort((a, b) => a - b), bonus };
 }
 
+function extractLottoNumbersFromDaum(html) {
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ');
+    const normalized = text.replace(/[\u2018\u2019\u201a\u201b\u2032\u2035`]/g, "'");
+    const num6Pattern = /(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})/;
+    const num6Match = normalized.match(num6Pattern);
+    if (!num6Match) return null;
+    const nums = [parseInt(num6Match[1]), parseInt(num6Match[2]), parseInt(num6Match[3]),
+                  parseInt(num6Match[4]), parseInt(num6Match[5]), parseInt(num6Match[6])];
+    if (!nums.every(n => n >= 1 && n <= 45) || new Set(nums).size !== 6) return null;
+    const afterNumbers = normalized.substring(num6Match.index + num6Match[0].length, num6Match.index + num6Match[0].length + 300);
+    let bonus = null;
+    const bonusPatterns = [
+        /번\s*\+\s*(\d{1,2})\s*번/,
+        /볼너스\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
+        /bonus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /plus\s*[:：]?\s*'?"?(\d{1,2})'?"?/i,
+        /추가\s*[:：]?\s*'?"?(\d{1,2})'?"?/,
+    ];
+    for (const bp of bonusPatterns) {
+        const bm = afterNumbers.match(bp);
+        if (bm) {
+            const bn = parseInt(bm[1]);
+            if (bn >= 1 && bn <= 45 && !nums.includes(bn)) { bonus = bn; break; }
+        }
+    }
+    return { numbers: nums.sort((a, b) => a - b), bonus };
+}
+
 async function fetchLottoNumbers(round) {
     // 캐시 확인
     const cached = CACHE.get(round);
@@ -82,13 +110,22 @@ async function fetchLottoNumbers(round) {
 
     // 네이버 검색에서 가져오기
     const url = `https://search.naver.com/search.naver?where=nexearch&query=${round}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8`;
-    const html = await fetchHtml(url);
+    let html = await fetchHtml(url);
+    let result = null;
 
-    if (!html) {
-        return { error: '네이버 검색 결과를 가져올 수 없습니다.' };
+    if (html) {
+        result = extractLottoNumbers(html);
     }
 
-    const result = extractLottoNumbers(html);
+    // 네이버 실패 시 다음 검색 fallback
+    if (!result) {
+        const daumUrl = `https://search.daum.net/search?w=tot&q=${round}%ED%9A%8C%EB%A1%9C%EB%98%90`;
+        html = await fetchHtml(daumUrl);
+        if (html) {
+            result = extractLottoNumbersFromDaum(html);
+        }
+    }
+
     if (!result) {
         return { error: `${round}회차 당첨번호를 찾을 수 없습니다.` };
     }

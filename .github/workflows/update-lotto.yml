@@ -35,38 +35,113 @@ jobs:
           ")
 
           echo "조회할 회차: $ROUND"
-          curl -sL -H "User-Agent: Mozilla/5.0" \
-            "https://search.naver.com/search.naver?where=nexearch&query=${ROUND}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8" \
-            > /tmp/naver.html
 
-          # 번호 추출하여 기존 배열에 추가
+          # 네이버 검색 (retry 3회)
+          for i in 1 2 3; do
+            curl -sL \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+              -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+              -H "Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7" \
+              -H "Referer: https://www.naver.com/" \
+              "https://search.naver.com/search.naver?where=nexearch&query=${ROUND}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8" \
+              > /tmp/source.html && break
+            echo "네이버 시도 $i 실패, 5초 후 재시도..."
+            sleep 5
+          done
+
+          # 네이버 결과에서 번호 추출 시도
           python3 -c "
-          import re, json, os
-          with open('/tmp/naver.html') as f:
-              text = re.sub(r'<[^>]+>', ' ', f.read())
-              text = re.sub(r'&\w+;', ' ', text)
-              text = re.sub(r'\s+', ' ', text)
-              text = text.replace('\u2018', \"'\").replace('\u2019', \"'\")
-          m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
-          if not m:
-              print('번호를 찾을 수 없음')
-              exit(1)
-          nums = [int(m.group(i)) for i in range(1,7)]
-          bonus = None
-          after = text[m.end():m.end()+300]
-          for pattern in [
-              r'볼너스\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-              r'bonus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-              r'plus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-              r'추가\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-          ]:
-              bm = re.search(pattern, after, re.IGNORECASE)
+          import re, json, os, sys
+
+          def extract_from_html(path):
+              with open(path) as f:
+                  text = re.sub(r'<[^>]+>', ' ', f.read())
+                  text = re.sub(r'&\w+;', ' ', text)
+                  text = re.sub(r'\s+', ' ', text)
+                  text = text.replace('\u2018', \"'\").replace('\u2019', \"'\")
+              m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
+              if not m:
+                  return None
+              nums = [int(m.group(i)) for i in range(1,7)]
+              if not all(1 <= n <= 45 for n in nums) or len(set(nums)) != 6:
+                  return None
+              bonus = None
+              after = text[m.end():m.end()+500]
+              for pattern in [
+                  r'볼너스\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                  r'bonus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                  r'plus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                  r'추가\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+              ]:
+                  bm = re.search(pattern, after, re.IGNORECASE)
+                  if bm:
+                      bn = int(bm.group(1))
+                      if 1 <= bn <= 45 and bn not in nums:
+                          bonus = bn
+                          break
+              return {'round': int(os.environ['ROUND']), 'numbers': sorted(nums), 'bonus': bonus}
+
+          def extract_from_daum_html(path):
+              with open(path) as f:
+                  text = re.sub(r'<[^>]+>', ' ', f.read())
+                  text = re.sub(r'&\w+;', ' ', text)
+                  text = re.sub(r'\s+', ' ', text)
+                  text = text.replace('\u2018', \"'\").replace('\u2019', \"'\")
+              # 다음 형식: 8,9,19,25,41,42번+33번
+              m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
+              if not m:
+                  return None
+              nums = [int(m.group(i)) for i in range(1,7)]
+              if not all(1 <= n <= 45 for n in nums) or len(set(nums)) != 6:
+                  return None
+              bonus = None
+              after = text[m.end():m.end()+500]
+              bm = re.search(r'번\s*\+\s*(\d{1,2})\s*번', after)
               if bm:
                   bn = int(bm.group(1))
                   if 1 <= bn <= 45 and bn not in nums:
                       bonus = bn
-                      break
-          entry = {'round': int(os.environ['ROUND']), 'numbers': sorted(nums), 'bonus': bonus}
+              if bonus is None:
+                  for pattern in [
+                      r'볼너스\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                      r'bonus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                      r'plus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                      r'추가\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
+                  ]:
+                      bm = re.search(pattern, after, re.IGNORECASE)
+                      if bm:
+                          bn = int(bm.group(1))
+                          if 1 <= bn <= 45 and bn not in nums:
+                              bonus = bn
+                              break
+              return {'round': int(os.environ['ROUND']), 'numbers': sorted(nums), 'bonus': bonus}
+
+          entry = extract_from_html('/tmp/source.html')
+
+          # 네이버 실패 시 다음 검색 fallback
+          if entry is None:
+              print('네이버에서 번호를 찾을 수 없음. 다음 검색 시도...')
+              import subprocess, time
+              for i in range(3):
+                  result = subprocess.run([
+                      'curl', '-sL',
+                      '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                      '-H', 'Accept-Language: ko-KR,ko;q=0.9',
+                      f'https://search.daum.net/search?w=tot&q={os.environ[\"ROUND\"]}%ED%9A%8C%EB%A1%9C%EB%98%90'
+                  ], capture_output=True, text=True)
+                  if result.returncode == 0 and result.stdout:
+                      with open('/tmp/daum.html', 'w') as f:
+                          f.write(result.stdout)
+                      entry = extract_from_daum_html('/tmp/daum.html')
+                      if entry:
+                          print('다음 검색 성공')
+                          break
+                  time.sleep(3)
+
+          if entry is None:
+              print('번호를 찾을 수 없음')
+              exit(1)
+
           # 기존 데이터 읽고 새 회차 추가
           try:
               with open('latest.json') as f:
@@ -85,7 +160,7 @@ jobs:
           brief = data[-10:]
           with open('latest-brief.json', 'w') as f:
               json.dump(brief, f, ensure_ascii=False)
-          print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {sorted(nums)}, 볼너스: {bonus}, 총 {len(data)}개')
+          print(f'저장됨: 회차 {os.environ[\"ROUND\"]}, {entry[\"numbers\"]}, 볼너스: {entry[\"bonus\"]}, 총 {len(data)}개')
           " 2>&1
 
       - name: 변경사항 커밋
