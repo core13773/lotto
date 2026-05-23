@@ -4,7 +4,7 @@
 
 ## GitHub Pages
 
-https://<username>.github.io/<repo> 에서 바로 사용 가능합니다.
+https://core13773.github.io/lotto 에서 바로 사용 가능합니다.
 
 - 내장 DB(`latest.json`)에서 과거 당첨번호를 빠르게 조회합니다.
 - DB에 없는 회차는 **수동 입력** 탭에서 직접 번호를 입력하세요.
