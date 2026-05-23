@@ -166,6 +166,19 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
             animation: titleGlow 3s ease-in-out infinite;
         }
+        .site-logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .site-logo-img {
+            height: clamp(2rem, 6vw, 3.5rem);
+            width: auto;
+            border-radius: 8px;
+            display: block;
+        }
         @keyframes titleGlow {
             0%, 100% { filter: drop-shadow(0 0 20px rgba(255,215,0,0.4)); }
             50% { filter: drop-shadow(0 0 30px rgba(0,245,255,0.6)); }
