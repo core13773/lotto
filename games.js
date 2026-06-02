@@ -340,7 +340,7 @@ function startRace() {
             if (h.x > finishX - w * 0.22) h.speed += Math.random() * (w * 0.004);
             // 긴장감: 갑작스런 둔화
             if (h.x > finishX - w * 0.38 && h.x < finishX - w * 0.18 && Math.random() < 0.015) {
-                h.speed *= 0.3; spawnParticles(h.x + w * 0.02, h.y + laneH * 0.2);
+                h.speed *= 0.3; spawnParticles(h.x + w * 0.02, h.y + laneH * 0.2, '#ff6b6b');
             }
             h.x += h.speed;
             if (Math.random() < 0.35) spawnParticles(h.x + 1, h.y + laneH * 0.25, h.color);

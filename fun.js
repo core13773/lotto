@@ -3,8 +3,8 @@
 // 업적/뱃지, 스핀 더 휠, 번호 성격 테스트, 꿈해몽, 사운드트랙
 
 // ========== 1. 출석 체크 + 연속 보상 ==========
-function getToday() { return new Date().toISOString().slice(0, 10); }
-function getYesterday(d) { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().slice(0, 10); }
+function getToday() { const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); return now.toISOString().slice(0, 10); }
+function getYesterday(d) { const dt = new Date(d); dt.setDate(dt.getDate() - 1); dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset()); return dt.toISOString().slice(0, 10); }
 
 function getCheckinData() {
     try { return JSON.parse(localStorage.getItem('lotto-checkin') || '{"lastDate":"","streak":0,"total":0,"coins":0,"history":[]}'); } catch (e) { return { lastDate: '', streak: 0, total: 0, coins: 0, history: [] }; }

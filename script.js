@@ -332,10 +332,10 @@ async function fetchWinningNumbers() {
     if (isFetching) return;
     const roundNo = parseInt(document.getElementById('roundInput').value);
     if (!roundNo || roundNo < 1) { showStatus('error', '올바른 회차를 입력해주세요.'); return; }
-    isFetching = true;
     const btn = document.querySelector('#fetchBtn');
+    if (!btn) return;
+    isFetching = true;
     try {
-        if (!btn) return;
         btn.disabled = true;
         btn.textContent = '⏳ 조회 중...';
         const dbResult = findRoundInDb(roundNo);

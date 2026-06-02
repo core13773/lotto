@@ -179,9 +179,9 @@ def fetch_round(round_no):
 
 
 # 최신 회차 동적 계산
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 first_draw = datetime(2002, 12, 7, 21, 0, 0)  # KST
-now = datetime.utcnow() + timedelta(hours=9)   # UTC → KST
+now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))   # KST
 dow = now.weekday()  # 0=월, 6=일
 hours = now.hour
 if dow == 5 and hours >= 21:  # 토요일 21시 이후

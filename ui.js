@@ -131,7 +131,7 @@ function toggleFontMenu(e) {
     const isOpen = popup.classList.toggle('open');
     const fontBtn = document.getElementById('fontBtn');
     if (fontBtn) fontBtn.setAttribute('aria-expanded', String(isOpen));
-    // 중복 등록 방지: 먼저 기존 리스너 제거 후 조걵적으로 추가
+    // 중복 등록 방지: 먼저 기존 리스너 제거 후 조건적으로 추가
     document.removeEventListener('click', closeFontMenu);
     document.removeEventListener('keydown', fontMenuKeyHandler);
     if (isOpen) {

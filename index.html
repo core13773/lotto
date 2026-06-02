@@ -166,7 +166,7 @@
         <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(0,245,255,0.08));">
             <h2 style="color:var(--accent-gold);font-size:1.2rem;margin-bottom:12px;text-align:center;">📚 로또 6/45 종합 정보 센터</h2>
             <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.8;text-align:center;margin-bottom:12px;">
-                로또645는 대한민국 로또 6/45의 당첨번호 조회, 역대 통계 분석, 번호 선택 전략을 제공하는 물음 정보 포털입니다.<br>
+                로또645는 대한민국 로또 6/45의 당첨번호 조회, 역대 통계 분석, 번호 선택 전략을 제공하는 종합 정보 포털입니다.<br>
                 1,100회 이상의 역대 데이터를 기반으로 한 빅데이터 분석과 몬테카를로 시뮬레이션으로 통계적 인사이트를 확인하세요.
             </p>
             <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
@@ -210,7 +210,7 @@
             </div>
             <div id="fetchStatus" class="hidden"></div>
             <div class="collapsible" id="manualInputSection">
-                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="manualInputContent" data-action="toggleCollapsible" data-arg="manualInputSection"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
+                <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="manualInputSection"><span>✋ 수동으로 번호 입력 (조회 실패 시 사용)</span><span class="collapsible-icon">▼</span></div>
                 <div class="collapsible-content">
                     <p class="text-secondary mb-15">6개의 번호를 선택하세요</p>
                     <div class="number-grid" id="numberGrid"></div>
@@ -291,7 +291,7 @@
                 </div>
                 <button class="btn btn-primary" data-action="startSimulation" id="startSimBtn" style="width:100%;">🚀 AI 분석 시작</button>
                 <button class="btn btn-secondary hidden" data-action="stopSimulation" id="stopSimBtn" style="width:100%;">⏹️ 중지</button>
-            </div>
+                </div>
             <div id="simProgress" class="hidden">
                 <div class="progress-container"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
                 <div class="progress-text" id="progressText">준비 중...</div>
@@ -442,7 +442,7 @@
         </div>
         <div id="statsCallout" class="hidden" style="max-width:900px;margin:0 auto 15px;padding:0 20px;"></div>
         <div class="card collapsible" id="statsDashboard">
-            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" aria-controls="statsDashboardContent" data-action="toggleCollapsible" data-arg="statsDashboard" style="cursor:pointer;width:100%;"><div class="card-icon gold" style="flex-shrink:0;">📊</div><h2 class="card-title">전체 통계 분석</h2><span class="collapsible-icon" style="margin-left:auto;">▼</span></div>
+            <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" data-action="toggleCollapsible" data-arg="statsDashboard" style="cursor:pointer;width:100%;"><div class="card-icon gold" style="flex-shrink:0;">📊</div><h2 class="card-title">전체 통계 분석</h2><span class="collapsible-icon" style="margin-left:auto;">▼</span></div>
             <div class="collapsible-content">
             <div id="statsNotReady" class="status warning">⚠️ DB 데이터를 불러오는 중입니다...</div>
             <div id="statsReady" class="hidden">
@@ -702,7 +702,7 @@
                 <button class="fun2-tab active" data-fun2="draw" data-action="switchFun2Tab" data-arg="draw">🎱 가상추첨</button>
                 <button class="fun2-tab" data-fun2="quiz" data-action="switchFun2Tab" data-arg="quiz">🧠 상식퀴즈</button>
                 <button class="fun2-tab" data-fun2="shopping" data-action="switchFun2Tab" data-arg="shopping">🛒 당첨금쇼핑</button>
-                <button class="fun2-tab" data-fun2="luckydraw" data-action="switchFun2Tab" data-arg="luckydraw">🎲 행울뽑기</button>
+                <button class="fun2-tab" data-fun2="luckydraw" data-action="switchFun2Tab" data-arg="luckydraw">🎲 행운뽑기</button>
                 <button class="fun2-tab" data-fun2="luckycolor" data-action="switchFun2Tab" data-arg="luckycolor">🌈 럭키컬러</button>
                 <button class="fun2-tab" data-fun2="history" data-action="switchFun2Tab" data-arg="history">📝 내번호</button>
                 <button class="fun2-tab" data-fun2="sharecard" data-action="switchFun2Tab" data-arg="sharecard">🖼️ 공유카드</button>
@@ -762,7 +762,7 @@
             <div class="dice-content" id="diceContentBoard"><p class="text-secondary text-center">🏃 게임 로딩 중...</p></div>
             <div class="dice-content" id="diceContentFortune"><p class="text-secondary text-center">🔮 게임 로딩 중...</p></div>
             <div class="dice-content" id="diceContentGenerator"><p class="text-secondary text-center">🎱 게임 로딩 중...</p></div>
-            <div class="dice-content" id="diceContentChallenge"><p class="text-secondary text-center">🍀 게임 로딩 중...</p></div>
+            <div class="dice-content" id="diceContentChallenge"><p class="text-secondary text-center">🔥 게임 로딩 중...</p></div>
         </div>
         <div class="card ad-container">
             <ins class="adsbygoogle" style="display:block;text-align:center;min-height:100px;"

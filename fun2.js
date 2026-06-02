@@ -812,6 +812,13 @@ async function copyShareCard() {
     }
 }
 
+// ========== 궁합 분석 (Compatibility) ==========
+function renderCompatibility() {
+    const el = document.getElementById('compatibilityContent');
+    if (!el) return;
+    // TODO: 궁합 분석 기능 구현
+}
+
 // ========== 초기화 ==========
 document.addEventListener('DOMContentLoaded', () => {
     renderShoppingSim();

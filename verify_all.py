@@ -131,7 +131,7 @@ for idx, rec in enumerate(existing):
                 'round': round_no,
                 'old': rec['numbers'],
                 'new': fetched['numbers'],
-                'source': 'naver' if naver else 'daum'
+                'source': 'naver'
             })
             old_nums = rec['numbers']
             rec['numbers'] = fetched['numbers']
@@ -149,7 +149,7 @@ for idx, rec in enumerate(existing):
                     'round': round_no,
                     'old': rec.get('bonus'),
                     'new': fetched['bonus'],
-                    'source': 'naver' if naver else 'daum'
+                    'source': 'naver'
                 })
                 old_bonus = rec.get('bonus')
                 rec['bonus'] = fetched['bonus']

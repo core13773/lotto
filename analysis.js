@@ -444,10 +444,10 @@ function computeNumberScores() {
     }
     cachedNumberScores = scores;
     return scores;
+}
 
-    function recent5Count(n) {
-        return lottoDb.slice(-5).filter(e => e.numbers && e.numbers.includes(n)).length;
-    }
+function recent5Count(n) {
+    return (lottoDb || []).slice(-5).filter(e => e.numbers && e.numbers.includes(n)).length;
 }
 
 // ========== 필터 결과 렌더링 ==========

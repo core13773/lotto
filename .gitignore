@@ -3,4 +3,9 @@ node_modules/
 .DS_Store
 *.log
 *.xlsx
+*.pyc
 __pycache__/
+.env
+*.tmp
+.vscode/
+.idea/
