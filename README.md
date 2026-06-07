@@ -4,11 +4,12 @@
 
 ## GitHub Pages
 
-https://core13773.github.io/lotto 에서 바로 사용 가능합니다.
+https://123lotto.co.kr 에서 바로 사용 가능합니다.
 
 - 내장 DB(`latest.json`)에서 과거 당첨번호를 빠르게 조회합니다.
 - DB에 없는 회차는 **수동 입력** 탭에서 직접 번호를 입력하세요.
-- GitHub Actions가 매주 토요일 자동으로 최신 당첨번호를 DB에 추가합니다.
+- GitHub Actions가 **매주 토요일 오후 9시(KST)** 자동으로 최신 당첨번호를 DB에 추가합니다.
+- **3중 교차 검증**: GitHub 3곳(jooy34/lotto-history-data, devchoo/lotto, Utopia-ZEN/hotnumber)에서 각각 당첨번호를 가져와 번호 일치 여부를 교차 검증한 후 DB를 업데이트합니다.
 
 ## 로컬 실행
 

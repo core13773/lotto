@@ -1,8 +1,8 @@
-name: 로또 당첨번호 자동 업데이트
+name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크)
 on:
   schedule:
-    # 매주 토요일 13:00 UTC (한국 시간 토요일 22:00) — 당첨번호 공개 후 업데이트
-    - cron: '0 13 * * 6'
+    # 매주 토요일 12:00 UTC = 한국 시간 토요일 21:00 (오후 9시)
+    - cron: '0 12 * * 6'
   workflow_dispatch:  # 수동 실행도 가능
 
 env:
@@ -15,9 +15,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+
       - name: 최신 회차 계산
         id: round
         run: |
@@ -31,141 +29,277 @@ jobs:
             if (dow === 6 && hours >= 21) {
               lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), 12, 0, 0));
             } else {
-              const daysSinceSat = dow === 6 ? 7 : dow + 1;
-              lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - daysSinceSat, 12, 0, 0));
+              const daysSinceSat = dow === 6 ? 7 : (dow + 1) % 7;
+              lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - (daysSinceSat === 0 ? 7 : daysSinceSat), 12, 0, 0));
             }
             console.log(Math.floor((lastDraw.getTime() - first.getTime()) / (7*24*3600000)) + 1);
           ")
           echo "round=$ROUND" >> "$GITHUB_OUTPUT"
-          echo "조회할 회차: $ROUND"
+          echo "대상 회차: $ROUND"
 
-      - name: 네이버 검색 (retry 3회)
-        id: naver
+      # ============================================================
+      # 소스 1: jooy34/lotto-history-data (보너스 있음)
+      # ============================================================
+      - name: 소스1 - jooy34/lotto-history-data Raw 조회
+        id: source1
         run: |
           ROUND="${{ steps.round.outputs.round }}"
-          for i in 1 2 3; do
-            echo "네이버 시도 $i..."
-            HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/naver.html \
-              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-              -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
-              -H "Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7" \
-              -H "Referer: https://www.naver.com/" \
-              "https://search.naver.com/search.naver?where=nexearch&query=${ROUND}%ED%9A%8C%20%EB%A1%9C%EB%98%90%20%EB%8B%B9%EC%B2%A8%EB%B2%88%ED%98%B8")
-            echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/naver.html)"
-            if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/naver.html ]; then
-              echo "naver_ok=true" >> "$GITHUB_OUTPUT"
-              break
+          echo "[소스1] jooy34/lotto-history-data 조회: ${ROUND}회"
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source1.json \
+            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
+            "https://raw.githubusercontent.com/jooy34/lotto-history-data/main/lotto_draws.json")
+          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source1.json)"
+          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source1.json ]; then
+            RESULT=$(node -e "
+              const d=JSON.parse(require('fs').readFileSync('/tmp/source1.json','utf8'));
+              const arr=Array.isArray(d)?d:[];
+              const found=arr.find(r=>r.drawNo===$ROUND);
+              if(found) {
+                const nums=found.numbers.sort((a,b)=>a-b);
+                const bonus=found.bonusNumber||null;
+                console.log(JSON.stringify({numbers:nums,bonus:bonus,round:found.drawNo,date:found.drawDate}));
+              } else {
+                console.log('NOT_FOUND');
+              }
+            ")
+            if [ "$RESULT" != "NOT_FOUND" ]; then
+              echo "$RESULT" > /tmp/source1_parsed.json
+              echo "source1_ok=true" >> "$GITHUB_OUTPUT"
+              echo "  ✅ 소스1 성공: $(cat /tmp/source1_parsed.json)"
+            else
+              echo "  ⚠️ 소스1: ${ROUND}회 데이터 없음"
+              echo "source1_ok=false" >> "$GITHUB_OUTPUT"
             fi
-            echo "  실패, 5초 후 재시도..."
-            sleep 5
-          done
-          if [ "$HTTP_CODE" != "200" ] || [ ! -s /tmp/naver.html ]; then
-            echo "naver_ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "  ❌ 소스1 HTTP 실패"
+            echo "source1_ok=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 다음 검색 (fallback)
-        id: daum
-        if: steps.naver.outputs.naver_ok != 'true'
+      # ============================================================
+      # 소스 2: devchoo/lotto (보너스 없음, 번호 검증용)
+      # ============================================================
+      - name: 소스2 - devchoo/lotto Raw 조회
+        id: source2
         run: |
           ROUND="${{ steps.round.outputs.round }}"
-          for i in 1 2 3; do
-            echo "다음 시도 $i..."
-            HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/daum.html \
-              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-              -H "Accept-Language: ko-KR,ko;q=0.9" \
-              "https://search.daum.net/search?w=tot&q=${ROUND}%ED%9A%8C%EB%A1%9C%EB%98%90")
-            echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/daum.html)"
-            if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/daum.html ]; then
-              echo "daum_ok=true" >> "$GITHUB_OUTPUT"
-              break
+          echo "[소스2] devchoo/lotto 조회: ${ROUND}회"
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source2.json \
+            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
+            "https://raw.githubusercontent.com/devchoo/lotto/main/lotto_data.json")
+          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source2.json)"
+          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source2.json ]; then
+            RESULT=$(node -e "
+              const d=JSON.parse(require('fs').readFileSync('/tmp/source2.json','utf8'));
+              const arr=Array.isArray(d)?d:[];
+              const found=arr.find(r=>r.round===$ROUND);
+              if(found) {
+                const nums=found.numbers.sort((a,b)=>a-b);
+                console.log(JSON.stringify({numbers:nums,bonus:null,round:found.round}));
+              } else {
+                console.log('NOT_FOUND');
+              }
+            ")
+            if [ "$RESULT" != "NOT_FOUND" ]; then
+              echo "$RESULT" > /tmp/source2_parsed.json
+              echo "source2_ok=true" >> "$GITHUB_OUTPUT"
+              echo "  ✅ 소스2 성공: $(cat /tmp/source2_parsed.json)"
+            else
+              echo "  ⚠️ 소스2: ${ROUND}회 데이터 없음"
+              echo "source2_ok=false" >> "$GITHUB_OUTPUT"
             fi
-            sleep 3
-          done
-          if [ "$HTTP_CODE" != "200" ] || [ ! -s /tmp/daum.html ]; then
-            echo "daum_ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "  ❌ 소스2 HTTP 실패"
+            echo "source2_ok=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 번호 추출 및 저장
+      # ============================================================
+      # 소스 3: Utopia-ZEN/hotnumber (보너스 있음, 개별 .lotto 파일)
+      # ============================================================
+      - name: 소스3 - Utopia-ZEN/hotnumber Raw 조회
+        id: source3
         run: |
-          cat > /tmp/extract.py << 'PYEOF'
-          import re, json, os, sys
+          ROUND="${{ steps.round.outputs.round }}"
+          echo "[소스3] Utopia-ZEN/hotnumber 조회: ${ROUND}회"
+
+          # 해당 회차 파일 경로 결정 (1-1000 또는 1001-2000)
+          if [ "$ROUND" -le 1000 ]; then
+            SUBDIR="1-1000"
+          else
+            SUBDIR="1001-2000"
+          fi
+
+          URL="https://raw.githubusercontent.com/Utopia-ZEN/hotnumber/main/lotto_data/${SUBDIR}/${ROUND}.lotto"
+          echo "  URL: $URL"
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source3.json \
+            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 "$URL")
+          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source3.json)"
+          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source3.json ]; then
+            RESULT=$(node -e "
+              const d=JSON.parse(require('fs').readFileSync('/tmp/source3.json','utf8'));
+              const nums=d.numbers.sort((a,b)=>a-b);
+              const bonus=d.bonus||null;
+              console.log(JSON.stringify({numbers:nums,bonus:bonus,round:d.round,winners:d.winners}));
+            ")
+            echo "$RESULT" > /tmp/source3_parsed.json
+            echo "source3_ok=true" >> "$GITHUB_OUTPUT"
+            echo "  ✅ 소스3 성공: $(cat /tmp/source3_parsed.json)"
+          else
+            echo "  ❌ 소스3 실패"
+            echo "source3_ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ============================================================
+      # 3중 교차 검증 및 DB 업데이트
+      # ============================================================
+      - name: 3중 교차 검증 및 DB 업데이트
+        env:
+          ROUND: ${{ steps.round.outputs.round }}
+          S1: ${{ steps.source1.outputs.source1_ok }}
+          S2: ${{ steps.source2.outputs.source2_ok }}
+          S3: ${{ steps.source3.outputs.source3_ok }}
+        run: |
+          cat > /tmp/validate_and_update.py << 'PYEOF'
+          import json, os, sys
 
           ROUND = int(os.environ.get('ROUND', 0))
           if not ROUND:
-              print("ROUND 환경변수가 설정되지 않음")
+              print("ROUND 환경변수 미설정")
               sys.exit(1)
 
-          def extract_from_html(path, is_daum=False):
-              if not os.path.exists(path) or os.path.getsize(path) == 0:
-                  return None
-              with open(path, encoding='utf-8', errors='replace') as f:
-                  text = re.sub(r'<[^>]+>', ' ', f.read())
-                  text = re.sub(r'&\w+;', ' ', text)
-                  text = re.sub(r'\s+', ' ', text)
-                  text = text.replace('\u2018', "'").replace('\u2019', "'")
-              m = re.search(r'(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*[,，]\s*(\d{1,2})', text)
-              if not m:
-                  print(f"  [extract] 6개 번호 매치 실패 (source={'daum' if is_daum else 'naver'})")
-                  return None
-              nums = [int(m.group(i)) for i in range(1, 7)]
-              if not all(1 <= n <= 45 for n in nums) or len(set(nums)) != 6:
-                  print(f"  [extract] 번호 범위/중복 오류: {nums}")
-                  return None
-              bonus = None
-              after = text[m.end():m.end() + 500]
-              # 다음 특수 형식: 8,9,19,25,41,42번+33번
-              if is_daum:
-                  bm = re.search(r'번\s*\+\s*(\d{1,2})\s*번', after)
-                  if bm:
-                      bn = int(bm.group(1))
-                      if 1 <= bn <= 45 and bn not in nums:
-                          bonus = bn
-                          print(f"  [extract] 다음 볼너스 패턴 매치: {bonus}")
-              if bonus is None:
-                  for pattern in [
-                      r'볼너스\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-                      r'bonus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-                      r'plus\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-                      r'추가\s*[:：]?\s*\'?\"?(\d{1,2})\'?\"?',
-                  ]:
-                      bm = re.search(pattern, after, re.IGNORECASE)
-                      if bm:
-                          bn = int(bm.group(1))
-                          if 1 <= bn <= 45 and bn not in nums:
-                              bonus = bn
-                              print(f"  [extract] 볼너스 패턴 매치: {bonus}")
-                              break
-              return {'round': ROUND, 'numbers': sorted(nums), 'bonus': bonus}
+          s1_ok = os.environ.get('S1') == 'true'
+          s2_ok = os.environ.get('S2') == 'true'
+          s3_ok = os.environ.get('S3') == 'true'
+          ok_count = sum([s1_ok, s2_ok, s3_ok])
 
-          entry = None
-          if os.path.exists('/tmp/naver.html') and os.path.getsize('/tmp/naver.html') > 0:
-              entry = extract_from_html('/tmp/naver.html', is_daum=False)
+          print(f"\n{'='*60}")
+          print(f"  🔍 회차 {ROUND} — GitHub 3중 교차 검증")
+          print(f"  {'='*60}")
+          print(f"  소스1 (jooy34/lotto-history-data):  {'✅' if s1_ok else '❌'} (보너스 O)")
+          print(f"  소스2 (devchoo/lotto):              {'✅' if s2_ok else '❌'} (보너스 X, 번호만)")
+          print(f"  소스3 (Utopia-ZEN/hotnumber):      {'✅' if s3_ok else '❌'} (보너스 O)")
+          print(f"  {'='*60}")
+          print(f"  가용 소스: {ok_count}/3")
+          print()
 
-          if entry is None:
-              print("네이버 실패, 다음 시도...")
-              if os.path.exists('/tmp/daum.html') and os.path.getsize('/tmp/daum.html') > 0:
-                  entry = extract_from_html('/tmp/daum.html', is_daum=True)
-
-          if entry is None:
-              print("번호를 찾을 수 없음")
+          if ok_count == 0:
+              print("❌ 모든 GitHub 소스에서 데이터를 가져오지 못했습니다.")
+              print("   다음 실행 시 재시도됩니다.")
               sys.exit(1)
 
-          print(f"추출 성공: {entry}")
+          # 각 소스에서 번호 추출
+          entries = []
+          labels = []
 
-          # 기존 데이터 읽고 새 회차 추가
+          if s1_ok:
+              with open('/tmp/source1_parsed.json', 'r', encoding='utf-8') as f:
+                  d = json.load(f)
+              nums = d['numbers']
+              bonus = d.get('bonus')
+              if all(1 <= n <= 45 for n in nums) and len(set(nums)) == 6:
+                  entries.append({'source': 'jooy34', 'numbers': nums, 'bonus': bonus})
+                  labels.append(f"소스1(jooy34): {nums} + {bonus}")
+
+          if s2_ok:
+              with open('/tmp/source2_parsed.json', 'r', encoding='utf-8') as f:
+                  d = json.load(f)
+              nums = d['numbers']
+              bonus = d.get('bonus')
+              if all(1 <= n <= 45 for n in nums) and len(set(nums)) == 6:
+                  entries.append({'source': 'devchoo', 'numbers': nums, 'bonus': bonus})
+                  labels.append(f"소스2(devchoo): {nums}")
+
+          if s3_ok:
+              with open('/tmp/source3_parsed.json', 'r', encoding='utf-8') as f:
+                  d = json.load(f)
+              nums = d['numbers']
+              bonus = d.get('bonus')
+              if all(1 <= n <= 45 for n in nums) and len(set(nums)) == 6:
+                  entries.append({'source': 'hotnumber', 'numbers': nums, 'bonus': bonus})
+                  labels.append(f"소스3(hotnumber): {nums} + {bonus}")
+
+          for lbl in labels:
+              print(f"  📥 {lbl}")
+
+          # 번호 교차 검증
+          num_groups = {}
+          for e in entries:
+              key = ','.join(str(n) for n in e['numbers'])
+              if key not in num_groups:
+                  num_groups[key] = []
+              num_groups[key].append(e)
+
+          print(f"\n  🔬 번호 일치 그룹: {len(num_groups)}개")
+
+          if len(num_groups) == 1:
+              key, group = list(num_groups.items())[0]
+              sources = [g['source'] for g in group]
+              print(f"  ✅ 모든 소스({len(sources)}개) 번호 일치! [{key}]")
+              best = group[0]
+          else:
+              print("  ⚠️ 번호 불일치 감지!")
+              for key, group in num_groups.items():
+                  sources = [g['source'] for g in group]
+                  print(f"      [{key}] ← {', '.join(sources)} ({len(sources)}개)")
+              # 다수결: 가장 많은 소스가 동의하는 번호 선택
+              best_group = max(num_groups.values(), key=len)
+              best = best_group[0]
+              vote_count = len(best_group)
+              print(f"  → 다수결 채택: {best['numbers']} ({vote_count}/{ok_count}개 소스 동의)")
+
+          final_nums = best['numbers']
+
+          # 보너스 번호 결정 (소스1,3 중 보너스 있는 소스 기준)
+          bonus_entries = [e for e in entries if e.get('bonus') is not None]
+          final_bonus = None
+
+          if bonus_entries:
+              bonus_groups = {}
+              for e in bonus_entries:
+                  bk = str(e['bonus'])
+                  if bk not in bonus_groups:
+                      bonus_groups[bk] = []
+                  bonus_groups[bk].append(e)
+              if len(bonus_groups) == 1:
+                  final_bonus = bonus_entries[0]['bonus']
+                  print(f"  ✅ 보너스 번호 일치: {final_bonus}")
+              else:
+                  # 가장 많은 소스가 동의하는 보너스 선택
+                  best_bonus_group = max(bonus_groups.values(), key=len)
+                  final_bonus = best_bonus_group[0]['bonus']
+                  sources = [g['source'] for g in best_bonus_group]
+                  print(f"  ⚠️ 보너스 불일치 → {len(best_bonus_group)}개 소스 동의 채택: {final_bonus} ({', '.join(sources)})")
+          else:
+              print(f"  ⚠️ 보너스 번호 정보 없음 (소스2만 성공)")
+
+          # 연속성 검증: 이전 회차와 중복 확인
           try:
-              with open('latest.json', encoding='utf-8') as f:
+              with open('latest.json', 'r', encoding='utf-8') as f:
                   data = json.load(f)
               if not isinstance(data, list):
                   data = []
           except Exception as e:
-              print(f"latest.json 로드 실패: {e}, 빈 배열로 시작")
+              print(f"  latest.json 로드 실패: {e}, 빈 배열로 시작")
               data = []
 
+          # 이전 회차와 중복 체크
+          prev_same = [d for d in data if d['round'] == ROUND]
+          if prev_same:
+              print(f"  ℹ️ {ROUND}회차 이미 DB에 존재 → 업데이트")
+
           # 중복 제거 후 추가
-          data = [d for d in data if d.get('round') != entry['round']]
-          data.append(entry)
+          data = [d for d in data if d.get('round') != ROUND]
+          new_entry = {'round': ROUND, 'numbers': final_nums, 'bonus': final_bonus}
+          data.append(new_entry)
           data.sort(key=lambda x: x['round'])
+
+          # 유효성 최종 검증
+          print(f"\n  {'='*50}")
+          print(f"  📋 최종 확정:")
+          print(f"     회차: {ROUND}")
+          print(f"     번호: {final_nums}")
+          print(f"     보너스: {final_bonus}")
+          print(f"     총 DB: {len(data)}회차")
+          print(f"  {'='*50}")
 
           with open('latest.json', 'w', encoding='utf-8') as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
@@ -175,17 +309,32 @@ jobs:
           with open('latest-brief.json', 'w', encoding='utf-8') as f:
               json.dump(brief, f, ensure_ascii=False, indent=2)
 
-          print(f"저장 완료: 회차 {entry['round']}, {entry['numbers']}, 볼너스: {entry['bonus']}, 총 {len(data)}개 회차")
+          print(f"\n  ✅ GitHub 3중 체크 완료 — DB 업데이트됨!")
           PYEOF
 
-          export ROUND="${{ steps.round.outputs.round }}"
-          python3 /tmp/extract.py
+          python3 /tmp/validate_and_update.py
 
-      - name: 변경사항 커밋
+      - name: 변경사항 커밋 및 푸시
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          S1: ${{ steps.source1.outputs.source1_ok }}
+          S2: ${{ steps.source2.outputs.source2_ok }}
+          S3: ${{ steps.source3.outputs.source3_ok }}
         run: |
+          ROUND="${{ steps.round.outputs.round }}"
+          OK_COUNT=$(node -e "
+            const s1=process.env.S1==='true'?1:0;
+            const s2=process.env.S2==='true'?1:0;
+            const s3=process.env.S3==='true'?1:0;
+            console.log(s1+s2+s3);
+          ")
           git config user.name "lotto-bot"
           git config user.email "bot@example.com"
           git add latest.json latest-brief.json
-          git diff --staged --quiet || (git commit -m "최신 당첨번호 업데이트" && git push)
+          if git diff --staged --quiet; then
+            echo "변경사항 없음 (이미 최신 상태)"
+          else
+            git commit -m "fix: ${ROUND}회 당첨번호 업데이트 (GitHub 3중 체크, ${OK_COUNT}/3 일치)"
+            git push
+            echo "✅ ${ROUND}회 당첨번호 커밋 완료!"
+          fi

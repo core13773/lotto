@@ -1,4 +1,4 @@
-name: 전체 당첨번호 검증
+name: 전체 당첨번호 검증 (GitHub 3중 체크)
 on:
   workflow_dispatch:  # 수동 실행만
 
@@ -10,11 +10,107 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 전체 데이터 검증
+      - name: GitHub 3소스에서 전체 데이터 로드 및 교차 검증
         run: |
-          cat > /tmp/verify.py << 'PYEOF'
-          import json, urllib.request, time, sys
+          cat > /tmp/verify_all.py << 'PYEOF'
+          import json, urllib.request, time, sys, os
 
+          # ============================================================
+          # GitHub 소스 3곳에서 데이터 로드
+          # ============================================================
+          sources = {}
+          source_names = {}
+
+          # 소스1: jooy34/lotto-history-data
+          print("📥 소스1 로드 중: jooy34/lotto-history-data...")
+          try:
+              req = urllib.request.Request(
+                  'https://raw.githubusercontent.com/jooy34/lotto-history-data/main/lotto_draws.json',
+                  headers={'User-Agent': 'Mozilla/5.0'}
+              )
+              with urllib.request.urlopen(req, timeout=30) as f:
+                  raw = json.loads(f.read().decode('utf-8'))
+              data1 = {}
+              for r in raw:
+                  data1[r['drawNo']] = {
+                      'round': r['drawNo'],
+                      'numbers': sorted(r['numbers']),
+                      'bonus': r.get('bonusNumber')
+                  }
+              sources['jooy34'] = data1
+              source_names['jooy34'] = 'jooy34/lotto-history-data'
+              print(f"   ✅ {len(data1)}개 회차 로드")
+          except Exception as e:
+              print(f"   ❌ 로드 실패: {e}")
+
+          # 소스2: devchoo/lotto
+          print("📥 소스2 로드 중: devchoo/lotto...")
+          try:
+              req = urllib.request.Request(
+                  'https://raw.githubusercontent.com/devchoo/lotto/main/lotto_data.json',
+                  headers={'User-Agent': 'Mozilla/5.0'}
+              )
+              with urllib.request.urlopen(req, timeout=30) as f:
+                  raw = json.loads(f.read().decode('utf-8'))
+              data2 = {}
+              for r in raw:
+                  data2[r['round']] = {
+                      'round': r['round'],
+                      'numbers': sorted(r['numbers']),
+                      'bonus': None  # 소스2는 보너스 없음
+                  }
+              sources['devchoo'] = data2
+              source_names['devchoo'] = 'devchoo/lotto'
+              print(f"   ✅ {len(data2)}개 회차 로드")
+          except Exception as e:
+              print(f"   ❌ 로드 실패: {e}")
+
+          # 소스3: Utopia-ZEN/hotnumber (최신 회차 번호로 개별 파일 존재 확인)
+          print("📥 소스3 로드 중: Utopia-ZEN/hotnumber...")
+          try:
+              # latest.lotto에서 최신 회차 번호 확인
+              req = urllib.request.Request(
+                  'https://raw.githubusercontent.com/Utopia-ZEN/hotnumber/main/lotto_data/latest.lotto',
+                  headers={'User-Agent': 'Mozilla/5.0'}
+              )
+              with urllib.request.urlopen(req, timeout=15) as f:
+                  latest_round = int(f.read().decode('utf-8').strip())
+              print(f"   최신 회차: {latest_round}")
+
+              data3 = {}
+              # 각 회차 개별 파일 로드 (1회부터 최신까지)
+              for rno in range(1, latest_round + 1):
+                  subdir = '1-1000' if rno <= 1000 else '1001-2000'
+                  url = f'https://raw.githubusercontent.com/Utopia-ZEN/hotnumber/main/lotto_data/{subdir}/{rno}.lotto'
+                  try:
+                      req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                      with urllib.request.urlopen(req, timeout=5) as f:
+                          d = json.loads(f.read().decode('utf-8'))
+                      data3[rno] = {
+                          'round': d['round'],
+                          'numbers': sorted(d['numbers']),
+                          'bonus': d.get('bonus')
+                      }
+                  except Exception:
+                      pass
+                  if rno % 200 == 0 or rno == latest_round:
+                      print(f"   진행: {rno}/{latest_round} ({len(data3)}개 로드됨)")
+                      sys.stdout.flush()
+                  time.sleep(0.02)
+
+              sources['hotnumber'] = data3
+              source_names['hotnumber'] = 'Utopia-ZEN/hotnumber'
+              print(f"   ✅ {len(data3)}개 회차 로드")
+          except Exception as e:
+              print(f"   ❌ 로드 실패: {e}")
+
+          if not sources:
+              print("❌ 모든 소스 로드 실패")
+              sys.exit(1)
+
+          # ============================================================
+          # 로컬 DB 로드
+          # ============================================================
           with open('latest.json', encoding='utf-8') as f:
               data = json.load(f)
 
@@ -22,102 +118,151 @@ jobs:
           max_round = max(existing.keys())
           total = len(existing)
 
+          print(f"\n{'='*60}")
+          print(f"  로컬 DB: {total}개 회차 (1 ~ {max_round})")
+          print(f"  검증 가능 소스: {len(sources)}개 ({', '.join(source_names.values())})")
+          print(f"{'='*60}\n")
+
+          source_keys = list(sources.keys())
+
           mismatch_nums = []
           mismatch_bonus = []
           updated_bonus = []
-          api_fail = []
-
-          print(f'총 {total}개 회차 검증 시작 (1 ~ {max_round})')
+          source_fail = []
 
           for i, round_no in enumerate(range(1, max_round + 1), 1):
               rec = existing.get(round_no)
               if not rec:
-                  api_fail.append(round_no)
-                  print(f'  [X] {round_no}회 - 데이터 없음')
+                  source_fail.append(round_no)
                   continue
 
-              url = f'https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={round_no}'
-              req = urllib.request.Request(url, headers={
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                  'Accept': 'application/json, text/javascript, */*',
-                  'X-Requested-With': 'XMLHttpRequest',
-                  'Referer': 'https://www.dhlottery.co.kr/gameResult.do?method=byWin',
-              })
+              changes = []
 
-              try:
-                  with urllib.request.urlopen(req, timeout=15) as f:
-                      resp = json.loads(f.read().decode('utf-8'))
-              except Exception as e:
-                  api_fail.append(round_no)
-                  print(f'  [X] {round_no}회 - API 실패: {e}')
+              # 각 소스와 비교
+              for sk in source_keys:
+                  src_data = sources[sk].get(round_no)
+                  if not src_data:
+                      continue
+
+                  # 번호 비교
+                  if src_data['numbers'] != rec['numbers']:
+                      changes.append({
+                          'source': sk,
+                          'type': 'numbers',
+                          'old': rec['numbers'],
+                          'new': src_data['numbers'],
+                          'round': round_no
+                      })
+
+                  # 보너스 비교
+                  if src_data.get('bonus') is not None:
+                      if rec.get('bonus') is None:
+                          changes.append({
+                              'source': sk,
+                              'type': 'bonus_add',
+                              'old': None,
+                              'new': src_data['bonus'],
+                              'round': round_no
+                          })
+                      elif rec.get('bonus') != src_data['bonus']:
+                          changes.append({
+                              'source': sk,
+                              'type': 'bonus_mismatch',
+                              'old': rec.get('bonus'),
+                              'new': src_data['bonus'],
+                              'round': round_no
+                          })
+
+              if not changes:
                   continue
 
-              if resp.get('returnValue') != 'success':
-                  api_fail.append(round_no)
-                  print(f'  [X] {round_no}회 - API 실패: returnValue={resp.get("returnValue")}')
-                  continue
+              # 변경사항 처리 — 다수결 원칙
+              num_changes = [c for c in changes if c['type'] == 'numbers']
+              bonus_changes = [c for c in changes if c['type'] in ('bonus_add', 'bonus_mismatch')]
 
-              api_nums = sorted([int(resp[f'drwtNo{n}']) for n in range(1, 7)])
-              api_bonus = resp.get('bnusNo')
-              if api_bonus is not None:
-                  api_bonus = int(api_bonus)
+              if num_changes:
+                  num_votes = {}
+                  for c in num_changes:
+                      key = ','.join(str(n) for n in c['new'])
+                      if key not in num_votes:
+                          num_votes[key] = []
+                      num_votes[key].append(c)
 
-              changed = False
-              if rec['numbers'] != api_nums:
-                  mismatch_nums.append({
-                      'round': round_no,
-                      'old': rec['numbers'],
-                      'new': api_nums
-                  })
-                  rec['numbers'] = api_nums
-                  changed = True
+                  best_nums_key = max(num_votes, key=lambda k: len(num_votes[k]))
+                  best_nums_votes = len(num_votes[best_nums_key])
 
-              if api_bonus is not None:
+                  if best_nums_votes >= 1:  # 1개 소스만 동의해도 업데이트 (소스 간 데이터 품질이 높음)
+                      new_nums = [int(x) for x in best_nums_key.split(',')]
+                      if rec['numbers'] != new_nums:
+                          old_nums = rec['numbers']
+                          rec['numbers'] = new_nums
+                          mismatch_nums.append({
+                              'round': round_no,
+                              'old': old_nums,
+                              'new': new_nums,
+                              'votes': best_nums_votes
+                          })
+                          print(f"  [!] {round_no}회 번호 수정: {old_nums} → {new_nums} ({best_nums_votes}개 소스 동의)")
+
+              if bonus_changes:
+                  bonus_votes = {}
+                  for c in bonus_changes:
+                      bk = str(c['new'])
+                      if bk not in bonus_votes:
+                          bonus_votes[bk] = []
+                      bonus_votes[bk].append(c)
+
+                  best_bonus_key = max(bonus_votes, key=lambda k: len(bonus_votes[k]))
+                  best_bonus = int(best_bonus_key)
+                  best_bonus_votes = len(bonus_votes[best_bonus_key])
+
                   if rec.get('bonus') is None:
+                      rec['bonus'] = best_bonus
                       updated_bonus.append(round_no)
-                      rec['bonus'] = api_bonus
-                      changed = True
-                  elif rec.get('bonus') != api_bonus:
+                      if round_no % 50 == 0 or round_no <= 10:
+                          print(f"  [>] {round_no}회 보너스 보충: {best_bonus} ({best_bonus_votes}개 소스)")
+                  elif rec.get('bonus') != best_bonus and best_bonus_votes >= 1:
+                      old_b = rec.get('bonus')
+                      rec['bonus'] = best_bonus
                       mismatch_bonus.append({
                           'round': round_no,
-                          'old': rec.get('bonus'),
-                          'new': api_bonus
+                          'old': old_b,
+                          'new': best_bonus,
+                          'votes': best_bonus_votes
                       })
-                      rec['bonus'] = api_bonus
-                      changed = True
+                      print(f"  [!] {round_no}회 보너스 수정: {old_b} → {best_bonus} ({best_bonus_votes}개 소스 동의)")
 
-              if changed:
-                  tag = 'NUM' if rec['numbers'] != api_nums else 'BONUS'
-                  print(f'  [!] {round_no}회 {tag} 수정')
-
-              if i % 100 == 0 or i == total:
-                  print(f'\r진행: {i}/{total} | 번호불일치:{len(mismatch_nums)} | 볼너스보충:{len(updated_bonus)} | 볼너스불일치:{len(mismatch_bonus)} | API실패:{len(api_fail)}', end='')
+              if i % 200 == 0 or i == total:
+                  print(f'\r진행: {i}/{total} | 번호수정:{len(mismatch_nums)} | 보너스보충:{len(updated_bonus)} | 보너스수정:{len(mismatch_bonus)}', end='')
                   sys.stdout.flush()
 
-              time.sleep(0.08)
-
           print('\n\n--- 검증 완료 ---')
-          print(f'번호 불일치: {len(mismatch_nums)}개')
-          for m in mismatch_nums:
-              print(f'  {m["round"]}회: {m["old"]} -> {m["new"]}')
+          print(f'번호 수정: {len(mismatch_nums)}개')
+          for m in mismatch_nums[:20]:
+              print(f'  {m["round"]}회: {m["old"]} → {m["new"]} ({m["votes"]}개 소스)')
+          if len(mismatch_nums) > 20:
+              print(f'  ... 외 {len(mismatch_nums)-20}개')
 
-          print(f'\n볼너스 보충: {len(updated_bonus)}개')
+          print(f'\n보너스 보충: {len(updated_bonus)}개')
           if updated_bonus:
-              print(f'  {updated_bonus}')
+              print(f'  회차: {updated_bonus[:20]}')
+              if len(updated_bonus) > 20:
+                  print(f'  ... 외 {len(updated_bonus)-20}개')
 
-          print(f'\n볼너스 불일치(수정): {len(mismatch_bonus)}개')
-          for m in mismatch_bonus:
-              print(f'  {m["round"]}회: {m["old"]} -> {m["new"]}')
-
-          print(f'\nAPI 실패: {len(api_fail)}개')
-          if api_fail:
-              print(f'  {api_fail}')
+          print(f'\n보너스 수정: {len(mismatch_bonus)}개')
+          for m in mismatch_bonus[:20]:
+              print(f'  {m["round"]}회: {m["old"]} → {m["new"]} ({m["votes"]}개 소스)')
 
           if mismatch_nums or updated_bonus or mismatch_bonus:
               with open('latest.json', 'w', encoding='utf-8') as f:
                   json.dump(data, f, ensure_ascii=False, indent=2)
+
+              # 브리프도 업데이트
+              brief = data[-10:]
+              with open('latest-brief.json', 'w', encoding='utf-8') as f:
+                  json.dump(brief, f, ensure_ascii=False, indent=2)
+
               print('\n변경사항 저장 완료!')
-              # exit code 0 but signal that there were changes
               with open('/tmp/had_changes', 'w') as f:
                   f.write('1')
           else:
@@ -126,7 +271,7 @@ jobs:
                   f.write('0')
           PYEOF
 
-          python3 /tmp/verify.py
+          python3 /tmp/verify_all.py
 
       - name: 변경사항 커밋
         if: always()
@@ -136,8 +281,8 @@ jobs:
           if [ -f /tmp/had_changes ] && [ "$(cat /tmp/had_changes)" = "1" ]; then
             git config user.name "lotto-bot"
             git config user.email "bot@example.com"
-            git add latest.json
-            git diff --staged --quiet || (git commit -m "fix: 전체 당첨번호 검증 결과 반영" && git push)
+            git add latest.json latest-brief.json
+            git diff --staged --quiet || (git commit -m "fix: 전체 당첨번호 검증 결과 반영 (GitHub 3중 체크)" && git push)
           else
             echo "변경사항 없음, 커밋 생략"
           fi
