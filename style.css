@@ -1565,9 +1565,6 @@
             font-weight: 700; margin-top: 10px;
         }
 
-        /* ── 광고 컨테이너 ── */
-        .ad-container { text-align: center; padding: 15px; min-height: 120px; display: flex; align-items: center; justify-content: center; }
-        .ad-container ins { display: block; width: 100%; }
 
         /* ── Onboarding Overlay ── */
         .onboarding-overlay {
