@@ -153,7 +153,7 @@ function initYacht() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🎲 주사위 5개를 <strong>최대 3회</strong> 굴려 같은 숫자를 많이 만드세요!<br>같은 눈이 많을수록 좋은 번호를 받습니다. 연속 고득점 시 <strong style="color:#ffd700;">콤보 보너스</strong>!</div>
-        <canvas id="yachtCanvas" width="440" height="130"></canvas>
+        <canvas id="yachtCanvas" role="img" aria-label="주사위 매치 게임 화면. 주사위를 굴려 6개 번호를 모으세요." width="440" height="130"></canvas>
         <div id="yachtRollInfo" style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin:5px 0;">주사위를 터치해서 킵(유지)할 수 있어요 · 남은 굴림: 3회</div>
         <div id="matchResult" style="text-align:center;min-height:30px;font-weight:700;font-size:1rem;margin:5px 0;"></div>
         <div id="matchCombo" style="text-align:center;min-height:20px;font-size:0.85rem;color:var(--accent-gold);"></div>
@@ -317,14 +317,14 @@ function initBattle() {
         <div id="battleArena" style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;text-align:center;margin:15px 0;">
             <div id="playerSide">
                 <h4 style="color:var(--accent-cyan);">🙋 당신</h4>
-                <canvas id="playerDiceCanvas" width="280" height="70"></canvas>
+                <canvas id="playerDiceCanvas" role="img" aria-label="내 주사위" width="280" height="70"></canvas>
                 <div id="playerHandLabel" style="font-size:0.8rem;color:var(--text-secondary);">-</div>
                 <div style="font-size:0.85rem;color:var(--accent-gold);" id="playerScore">0승</div>
             </div>
             <div style="font-size:2rem;font-weight:900;color:var(--accent-pink);" id="battleVS">⚡</div>
             <div id="cpuSide">
                 <h4 style="color:var(--accent-pink);">🤖 AI</h4>
-                <canvas id="cpuDiceCanvas" width="280" height="70"></canvas>
+                <canvas id="cpuDiceCanvas" role="img" aria-label="컴퓨터 주사위" width="280" height="70"></canvas>
                 <div id="cpuHandLabel" style="font-size:0.8rem;color:var(--text-secondary);">-</div>
                 <div style="font-size:0.85rem;color:var(--accent-gold);" id="cpuScore">0승</div>
             </div>
@@ -490,7 +490,7 @@ function initBoard() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🏃 주사위 2개를 굴려 말을 이동! <strong>6개</strong> 모으면 완료!<br>🎁×2✨🔄=이득 · <strong style="color:#ef4444;">💥⬅️=손해</strong> — 행운을 빌어요!</div>
-        <canvas id="boardCanvas" width="440" height="380"></canvas>
+        <canvas id="boardCanvas" role="img" aria-label="주사위 보드 게임 화면. 주사위를 굴려 말을 이동시키며 6개 번호를 모으세요." width="440" height="380"></canvas>
         <div id="boardInfo" style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin:5px 0;">주사위를 굴려보세요!</div>
         <button class="btn btn-gold" onclick="rollBoardDice()" id="boardRollBtn" style="width:100%;">🎲 주사위 굴리기</button>
         <div id="boardLog" style="margin-top:8px;max-height:80px;overflow-y:auto;font-size:0.75rem;color:var(--text-secondary);"></div>
@@ -742,7 +742,7 @@ function initFortune() {
     const usedToday = lastFortune === today;
     el.innerHTML = `
         <div class="game-info-box">🔮 주사위 3개를 굴려 오늘의 운세를 확인하세요! <strong>하루 1회</strong> 무료입니다.</div>
-        <canvas id="fortuneCanvas" width="300" height="120"></canvas>
+        <canvas id="fortuneCanvas" role="img" aria-label="주사위 점괘 화면" width="300" height="120"></canvas>
         <div id="fortuneResult" style="text-align:center;min-height:60px;"></div>
         <button class="btn btn-gold" onclick="rollFortune()" id="fortuneBtn" style="width:100%;" ${usedToday?'disabled':''}>
             ${usedToday ? '✅ 오늘 점괘 완료 (내일 다시!)' : '🎲 주사위 굴려 운세 보기'}
@@ -860,7 +860,7 @@ function initGenerator() {
                 <div class="gen-method" onclick="selectGenMethod('multiply')"><span>✖️ 곱셈 모드</span><span style="font-size:0.7rem;">d10×d6으로 범위 생성</span></div>
                 <div class="gen-method" onclick="selectGenMethod('percentile')"><span>💯 백분위</span><span style="font-size:0.7rem;">2d10 백분위 → 1~45 매핑</span></div>
             </div>
-            <canvas id="genDiceCanvas" width="440" height="100"></canvas>
+            <canvas id="genDiceCanvas" role="img" aria-label="주사위 번호 생성기 화면" width="440" height="100"></canvas>
             <div id="genResult" style="text-align:center;min-height:40px;margin:10px 0;"></div>
             <button class="btn btn-gold" onclick="rollGenerator()" id="genRollBtn" style="width:100%;">🎲 주사위 굴리기</button>
             <div id="genHistory" style="margin-top:12px;max-height:120px;overflow-y:auto;font-size:0.75rem;color:var(--text-secondary);"></div>
@@ -987,7 +987,7 @@ function initChallenge() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🎲 주사위 2개를 굴려 점수를 쌓으세요!<br>언제든 <strong>멈추면</strong> 번호를 받지만, <strong style="color:#ef4444;">1</strong>이 나오면 이번 판은 무효!</div>
-        <canvas id="challengeCanvas" width="260" height="130"></canvas>
+        <canvas id="challengeCanvas" role="img" aria-label="주사위 푸시 게임 화면" width="260" height="130"></canvas>
         <div id="challengeRiskMeter" style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;margin:10px 0;overflow:hidden;">
             <div id="challengeRiskFill" style="height:100%;width:0%;border-radius:3px;transition:width 0.3s ease;background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444);"></div>
         </div>

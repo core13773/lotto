@@ -18,6 +18,7 @@ function switchFun2Tab(tabName) {
         case 'history': renderMyHistory(); break;
         case 'luckycolor': renderLuckyColor(); break;
         case 'luckydraw': renderLuckyDraw(); break;
+        case 'compat': renderCompatibility(); break;
     }
 }
 
@@ -815,7 +816,94 @@ async function copyShareCard() {
 function renderCompatibility() {
     const el = document.getElementById('compatibilityContent');
     if (!el) return;
-    // TODO: 궁합 분석 기능 구현
+    el.innerHTML = `
+        <div class="interpretation-box" style="margin-bottom:15px;">
+            <div class="interpretation-title">💕 번호 궁합 테스트</div>
+            <div class="interpretation-content">두 사람의 이름이나 단어를 입력하면 결정론적 알고리즘으로 궁합 점수와 두 분만의 행운 번호를 만들어드려요. (재미용 콘텐츠)</div>
+        </div>
+        <div class="compat-inputs">
+            <div class="compat-input-group">
+                <label class="compat-label" for="compatA">첫 번째 (이름/단어)</label>
+                <input type="text" id="compatA" class="input-field" placeholder="예: 홍길동" maxlength="20" autocomplete="off">
+            </div>
+            <span class="compat-vs">VS</span>
+            <div class="compat-input-group">
+                <label class="compat-label" for="compatB">두 번째 (이름/단어)</label>
+                <input type="text" id="compatB" class="input-field" placeholder="예: 임꺽정" maxlength="20" autocomplete="off">
+            </div>
+        </div>
+        <button class="btn btn-primary" data-action="calcCompatibility" style="width:100%;margin-top:15px;">💕 궁합 보기</button>
+        <div id="compatResult" style="margin-top:15px;"></div>
+    `;
+}
+
+function _compatEscape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function _compatHash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+}
+
+function calcCompatibility() {
+    const resultEl = document.getElementById('compatResult');
+    if (!resultEl) return;
+    const a = (document.getElementById('compatA').value || '').trim();
+    const b = (document.getElementById('compatB').value || '').trim();
+    if (!a || !b) { showStatus('warning', '두 입력 모두 채워주세요.'); return; }
+
+    // 결정론적 시드 → LCG 난수 (같은 입력은 항상 같은 결과)
+    let s = (_compatHash(a) ^ _compatHash(b)) >>> 0;
+    if (s === 0) s = 1;
+    const rng = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+
+    // 점수: 60~99 분포 (입력 순서/대소문자 무관하게 안정)
+    const score = 60 + Math.floor(rng() * 40);
+
+    // 두 분만의 행운 번호 6개
+    const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+    const lucky = [];
+    for (let i = 0; i < 6; i++) {
+        const idx = Math.floor(rng() * pool.length);
+        lucky.push(pool.splice(idx, 1)[0]);
+    }
+    lucky.sort((x, y) => x - y);
+
+    let emoji, msg;
+    if (score >= 90) { emoji = '💞'; msg = '환상의 궁합! 천생연분이에요.'; }
+    else if (score >= 80) { emoji = '💖'; msg = '아주 좋은 궁합이에요!'; }
+    else if (score >= 70) { emoji = '💝'; msg = '무난하고 좋은 사이예요.'; }
+    else { emoji = '💛'; msg = '서로 다른 점을 맞춰가면 더 좋아져요.'; }
+
+    const scoreColor = score >= 80 ? 'var(--grade-excellent)' : 'var(--accent-gold)';
+    resultEl.innerHTML = `
+        <div class="compat-result-card">
+            <div style="font-size:3rem;margin:10px 0;">${emoji}</div>
+            <div style="font-size:2.4rem;font-weight:900;color:${scoreColor};">${score}<span style="font-size:1rem;font-weight:500;">점</span></div>
+            <p style="color:var(--text-secondary);margin:8px 0;">${msg}</p>
+            <div class="compat-details">
+                <div class="compat-detail-row"><span>첫 번째</span><span>${_compatEscape(a)}</span></div>
+                <div class="compat-detail-row"><span>두 번째</span><span>${_compatEscape(b)}</span></div>
+                <div class="compat-detail-row"><span>행운 번호</span><span>${lucky.join(', ')}</span></div>
+            </div>
+            <div class="balls-container" style="justify-content:center;padding:10px 0;">
+                ${lucky.map(n => `<span class="ball ${getBallClass(n)}" style="width:40px;height:40px;line-height:40px;">${n}</span>`).join('')}
+            </div>
+            <button class="btn btn-secondary" onclick="useCompatNumbers([${lucky.join(',')}])" style="margin-top:10px;">🎯 이 번호로 분석하기</button>
+        </div>
+    `;
+    if (typeof playBeep === 'function') playBeep(700, 0.1);
+    if (typeof vibrate === 'function') vibrate(30);
+}
+
+function useCompatNumbers(numbers) {
+    if (typeof _applyFunNumbers === 'function') {
+        _applyFunNumbers(numbers, '궁합 행운 번호', '💕 궁합 번호를 불러왔어요!');
+        const card = document.getElementById('predictionResult');
+        if (card && card.closest) card.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 // ========== 초기화 ==========

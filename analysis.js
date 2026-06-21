@@ -1042,6 +1042,34 @@ function renderCompactAnalysis(a, score, matching) {
 
 function generateRandomNumbers() { const pool = Array.from({length: 45}, (_, i) => i + 1); for (let i = pool.length - 1; i > 0; i--) { const randomArray = new Uint32Array(1); crypto.getRandomValues(randomArray); const j = randomArray[0] % (i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; } return pool.slice(0, 6).sort((a, b) => a - b); }
 
+// 통계 가중 무작위 생성 — 시뮬레이션 패턴 미발견 폴백용.
+// 추천점수(recScore)가 낮을수록, Z-score가 높을수록(평균회귀) 가중치 부여.
+// lottoDb가 없으면 순수 무작위로 동작(안전한 폴백).
+function generateSmartFallback() {
+    const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+    const numScores = (typeof computeNumberScores === 'function') ? computeNumberScores() : null;
+    let weights = pool.map(n => {
+        let w = 1;
+        if (numScores && numScores[n]) {
+            w += (4 - numScores[n].recScore) * 2;
+            if (numScores[n].zScore > 1.0) w += 4;
+            else if (numScores[n].zScore > 0.5) w += 2;
+        }
+        return Math.max(w, 1);
+    });
+    const selected = [];
+    const p = pool.slice(), w = weights.slice();
+    while (selected.length < 6 && p.length > 0) {
+        const total = w.reduce((a, b) => a + b, 0);
+        const rand = new Uint32Array(1); crypto.getRandomValues(rand);
+        let r = rand[0] / 4294967296 * total, idx = 0;
+        while (idx < w.length - 1 && r > w[idx]) { r -= w[idx]; idx++; }
+        selected.push(p[idx]);
+        p.splice(idx, 1); w.splice(idx, 1);
+    }
+    return selected.sort((a, b) => a - b);
+}
+
 function weightedRandomPick(pool, weights) {
     const totalWeight = weights.reduce((a, b) => a + b, 0);
     const rand = new Uint32Array(1);

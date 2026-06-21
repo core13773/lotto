@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -287,4 +288,21 @@ jobs:
             git diff --staged --quiet || (git commit -m "fix: 전체 당첨번호 검증 결과 반영 (GitHub 3중 체크)" && git push)
           else
             echo "변경사항 없음, 커밋 생략"
+          fi
+
+      - name: 실패 시 알림 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="🚨 전체 당첨번호 검증 실패"
+          LOG_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EXISTING=$(gh issue list --state open --search "in:title $TITLE" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" \
+              --body "전체 당첨번호 검증 워크플로가 실패했습니다.
+
+          🔗 [실행 로그](${LOG_URL})"
+          else
+            gh issue comment "$EXISTING" --body "⚠️ 재실패 — [로그](${LOG_URL})" 2>/dev/null || true
           fi

@@ -308,6 +308,65 @@ function toggleCollapsible(id) {
 // ========== 숫자 포맷 ==========
 function formatNumber(num) { if (num >= 100000000) return (num / 100000000).toFixed(1) + '억'; if (num >= 10000) return (num / 10000).toFixed(0) + '만'; return num.toLocaleString(); }
 
+// ========== localStorage 백업 / 복원 ==========
+// lotto- 접두사를 가진 모든 키(예측·도감·미션·내번호·설정 등)를 보존
+function _collectLottoBackup() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('lotto-') === 0) data[k] = localStorage.getItem(k);
+    }
+    return { app: 'lotto645', version: 1, exportedAt: new Date().toISOString(), data };
+}
+
+function exportBackup() {
+    try {
+        const payload = _collectLottoBackup();
+        const json = JSON.stringify(payload, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lotto645-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        const count = Object.keys(payload.data).length;
+        showStatus('success', `💾 백업 파일이 다운로드됐어요! (${count}개 항목)`);
+    } catch (e) {
+        showStatus('error', '❌ 백업 생성에 실패했어요.');
+    }
+}
+
+function importBackup() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = function (e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            try {
+                const payload = JSON.parse(ev.target.result);
+                if (!payload || payload.app !== 'lotto645' || !payload.data || typeof payload.data !== 'object') {
+                    throw new Error('invalid');
+                }
+                if (!confirm('백업 파일 데이터로 현재 데이터를 덮어쓸까요?\n(현재 저장된 데이터는 교체됩니다.)')) return;
+                let n = 0;
+                Object.keys(payload.data).forEach(function (k) {
+                    if (k.indexOf('lotto-') === 0) { localStorage.setItem(k, payload.data[k]); n++; }
+                });
+                showStatus('success', `✅ ${n}개 항목을 복원했어요! 잠시 후 새로고침됩니다.`);
+                setTimeout(function () { location.reload(); }, 1300);
+            } catch (err) {
+                showStatus('error', '❌ 올바른 123lotto 백업 파일이 아니에요.');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
 // ========== 클립보드 복사 ==========
 async function copyToClipboard(text) {
     try {
@@ -557,7 +616,8 @@ async function toggleNotifications() {
         updateNotifyBtn();
         if (notificationEnabled) {
             scheduleNotification();
-            showStatus('success', '🔔 토요일 추첨 알림이 켜졌습니다!');
+            checkDrawTimeNotification();
+            showStatus('success', '🔔 추첨 알림이 켜졌어요! 이 화면을 켜두면 토요일 오후 8:50에 알려드려요.');
         } else {
             showStatus('info', '🔕 알림이 꺼졌습니다.');
         }
@@ -569,7 +629,8 @@ async function toggleNotifications() {
             notificationEnabled = true;
             updateNotifyBtn();
             scheduleNotification();
-            showStatus('success', '🔔 알림이 활성화되었습니다!');
+            checkDrawTimeNotification();
+            showStatus('success', '🔔 알림이 활성화되었어요! 추첨 시간에 이 화면을 켜두면 알림이 울려요.');
             playBeep(800, 0.1);
         } else {
             showStatus('info', '알림이 거부되었습니다.');
@@ -623,6 +684,27 @@ function scheduleNotification() {
             }
         }, delay);
     }
+}
+
+// 사이트 방문 시점 보조 알림 — setTimeout 스케줄러는 탭을 닫으면 동작하지 않으므로,
+// 알림이 켜져 있고 방문 시각이 추첨 시간대(토요일 20:45 이후)면 즉시 알림(세션당 1회)
+function checkDrawTimeNotification() {
+    if (!notificationEnabled || Notification.permission !== 'granted') return;
+    try {
+        const now = new Date();
+        const kst = new Date(now.getTime() + 9 * 3600000);
+        const day = kst.getUTCDay();
+        const hours = kst.getUTCHours();
+        const minutes = kst.getUTCMinutes();
+        const isDrawWindow = day === 6 && (hours > 20 || (hours === 20 && minutes >= 45));
+        if (isDrawWindow && !sessionStorage.getItem('lotto-draw-notified')) {
+            sessionStorage.setItem('lotto-draw-notified', '1');
+            new Notification('🎰 로또 645 추첨 시간!', {
+                body: '추첨 시간이에요! 123lotto에서 당첨번호를 확인하세요.',
+                requireInteraction: false
+            });
+        }
+    } catch (e) {}
 }
 
 // ========== 첫 방문 온보딩 ==========
@@ -704,10 +786,13 @@ document.addEventListener('click', function(e) {
         case 'copyAccount': copyAccount(); break;
         case 'openTossPay': openTossPay(); break;
         case 'copyEmail': copyEmail(); break;
+        case 'exportBackup': exportBackup(); break;
+        case 'importBackup': importBackup(); break;
         case 'openPhotoToNumbers': openPhotoToNumbers(); break;
         case 'startPersonalityQuiz': startPersonalityQuiz(); break;
         case 'interpretDream': interpretDream(); break;
         case 'startLottoQuiz': startLottoQuiz(); break;
+        case 'calcCompatibility': calcCompatibility(); break;
         case 'openBookOfAnswers': openBookOfAnswers(); break;
         case 'resetBookOfAnswers': resetBookOfAnswers(); break;
         case 'setStatsPeriod': if (arg) setStatsPeriod(arg); break;

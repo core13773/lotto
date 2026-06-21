@@ -109,7 +109,7 @@ function initRaceGame() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🏇 12마리 말 중 <strong>6마리</strong>가 결승선을 통과하면 번호가 공개됩니다!</div>
-        <canvas id="raceCanvas" class="game-canvas" style="width:100%;max-width:520px;height:auto;border-radius:12px;"></canvas>
+        <canvas id="raceCanvas" class="game-canvas" role="img" aria-label="번호 경마 게임 화면. 시작 버튼을 누르면 6개의 말이 달리고 도착 순서대로 번호를 모읍니다." style="width:100%;max-width:520px;height:auto;border-radius:12px;"></canvas>
         <div id="raceResult" class="hidden"></div>
         <button class="btn btn-gold" id="raceStartBtn" onclick="startRace()" style="width:100%;margin-top:8px;justify-content:center;">🏁 경주 시작!</button>
         <p class="text-xs-secondary text-center" id="raceHint" style="margin-top:6px;">🏇 <strong>경주 중 화면을 터치/클릭</strong>하면 해당 레인의 말이 가속합니다!</p>
@@ -446,7 +446,7 @@ function initFishingGame() {
     if (!el) return;
     el.innerHTML = `
         <div class="game-info-box">🎣 물고기를 터치해서 낚으세요! <strong>6마리</strong>를 낚으면 번호가 공개됩니다.<br><span style="color:#ffd700;">✨ 황금 물고기</span>는 <strong>2마리</strong>로 계산돼요! 빠르게 연속 낚으면 <strong style="color:#ff6b35;">콤보</strong>!</div>
-        <canvas id="fishCanvas" class="game-canvas" width="400" height="380"></canvas>
+        <canvas id="fishCanvas" class="game-canvas" role="img" aria-label="번호 낚시 게임 화면. 헤엄치는 물고기를 클릭해 6개 번호를 모으세요." width="400" height="380"></canvas>
     `;
     const canvas = document.getElementById('fishCanvas');
     const ctx = canvas.getContext('2d');

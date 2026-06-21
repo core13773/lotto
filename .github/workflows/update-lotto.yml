@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -337,4 +338,28 @@ jobs:
             git commit -m "fix: ${ROUND}회 당첨번호 업데이트 (GitHub 3중 체크, ${OK_COUNT}/3 일치)"
             git push
             echo "✅ ${ROUND}회 당첨번호 커밋 완료!"
+          fi
+
+      # ============================================================
+      # 실패 시 GitHub Issue 자동 생성 (조용한 실패 방지)
+      # ============================================================
+      - name: 실패 시 알림 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ROUND: ${{ steps.round.outputs.round }}
+        run: |
+          TITLE="🚨 로또 자동 업데이트 실패"
+          LOG_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EXISTING=$(gh issue list --state open --search "in:title $TITLE" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" \
+              --body "예정된 로또 자동 업데이트 워크플로가 실패했습니다. 대상 회차: \`${ROUND:-알수없음}\`
+
+          🔗 [실행 로그](${LOG_URL})
+
+          해결 후 이 이슈를 닫으면 다음 실패 시 다시 알림이 생성됩니다."
+          else
+            echo "열린 알림 이슈 #$EXISTING 이 있어 새 이슈 대신 코멘트 추가"
+            gh issue comment "$EXISTING" --body "⚠️ 재실패 — [로그](${LOG_URL})" 2>/dev/null || true
           fi

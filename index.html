@@ -696,6 +696,7 @@
                 <button class="fun2-tab" data-fun2="luckycolor" data-action="switchFun2Tab" data-arg="luckycolor">🌈 럭키컬러</button>
                 <button class="fun2-tab" data-fun2="history" data-action="switchFun2Tab" data-arg="history">📝 내번호</button>
                 <button class="fun2-tab" data-fun2="sharecard" data-action="switchFun2Tab" data-arg="sharecard">🖼️ 공유카드</button>
+                <button class="fun2-tab" data-fun2="compat" data-action="switchFun2Tab" data-arg="compat">💕 궁합</button>
             </div>
             <div class="fun2-tab-content active" id="fun2ContentDraw">
                 <div id="drawMachineContent"><div class="loading-spinner"></div><p class="text-secondary text-center">🎱 탭을 클릭하면 가상 추첨기가 시작됩니다.</p></div>
@@ -720,6 +721,9 @@
             </div>
             <div class="fun2-tab-content" id="fun2ContentSharecard">
                 <div id="sharecardContent"><p class="text-secondary text-center">🖼️ 로딩 중...</p></div>
+            </div>
+            <div class="fun2-tab-content" id="fun2ContentCompat">
+                <div id="compatibilityContent"><p class="text-secondary text-center">💕 로딩 중...</p></div>
             </div>
         </div>
         <div class="card" id="gameZoneCard">
@@ -821,6 +825,14 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.08);">
+                <div class="settings-label" style="margin-bottom:6px;">💾 데이터 백업 / 복원</div>
+                <div class="settings-desc" style="margin-bottom:10px;">저장된 예측·도감·미션·내번호를 파일로 보관하거나 불러옵니다.</div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" data-action="exportBackup" style="flex:1;font-size:0.8rem;padding:10px;">📤 내보내기</button>
+                    <button class="btn btn-secondary" data-action="importBackup" style="flex:1;font-size:0.8rem;padding:10px;">📥 가져오기</button>
+                </div>
+            </div>
             <button class="btn btn-secondary" data-action="toggleSettings" style="width:100%;margin-top:20px;">닫기</button>
         </div>
     </div>
@@ -838,15 +850,15 @@
     </footer>
     <script src="features.js?v=4"></script>
     <script src="fun.js?v=2"></script>
-    <script src="fun2.js?v=2"></script>
-    <script src="games.js?v=2"></script>
-    <script src="dice.js?v=2"></script>
-    <script src="analysis.js?v=4"></script>
+    <script src="fun2.js?v=3"></script>
+    <script src="games.js?v=3"></script>
+    <script src="dice.js?v=3"></script>
+    <script src="analysis.js?v=5"></script>
     <script src="stats.js?v=3"></script>
-    <script src="simulation.js?v=3"></script>
+    <script src="simulation.js?v=4"></script>
     <script src="fun3.js?v=1"></script>
-    <script src="ui.js?v=4"></script>
-    <script src="script.js?v=5"></script>
+    <script src="ui.js?v=5"></script>
+    <script src="script.js?v=6"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
     <script src="sw-register.js"></script>
 </body>

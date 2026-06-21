@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
     if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
     updateNotifyBtn();
+    if (typeof checkDrawTimeNotification === 'function') checkDrawTimeNotification();
 });
 
 let lottoDb = null;

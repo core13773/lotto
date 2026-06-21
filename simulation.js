@@ -110,7 +110,7 @@ function handleComplete(data) {
     document.getElementById('progressBar').style.width = '100%';
     const { attempts, matchCount, elapsed } = data;
     if (matchCount > 0) showStatus('success', `🎉 완료! ${formatNumber(attempts)}회 분석, ${matchCount}회 패턴 발견 (${elapsed.toFixed(1)}초)`);
-    else { showStatus('info', `✅ 완료! ${formatNumber(attempts)}회 분석, 패턴 미발견 (${elapsed.toFixed(1)}초)`); showPredictionResult(generateRandomNumbers(), attempts, elapsed, true); }
+    else { showStatus('info', `✅ 완료! ${formatNumber(attempts)}회 분석, 패턴 미발견 (${elapsed.toFixed(1)}초)`); const fb = (typeof generateSmartFallback === 'function') ? generateSmartFallback() : generateRandomNumbers(); showPredictionResult(fb, attempts, elapsed, true); }
     if (simulationWorker) { simulationWorker.terminate(); simulationWorker = null; }
 
     // 퍼널: 시뮬레이션 완료 → 통계 대시보드 유도
@@ -133,7 +133,7 @@ function handleComplete(data) {
 function showPredictionResult(prediction, attempts, elapsed, isRandom = false) {
     if (typeof _hook === 'function') _hook('showPredictionResult', prediction);
     renderBalls(prediction, 'predictionBalls');
-    document.getElementById('predictionMeta').textContent = isRandom ? `랜덤 생성 | ${formatNumber(attempts)}회 분석 (패턴 미발견)` : `제 ${currentRound}회 기준 | ${formatNumber(attempts)}회에서 발견 (${elapsed.toFixed(1)}초)`;
+    document.getElementById('predictionMeta').textContent = isRandom ? `통계 가중 생성 | ${formatNumber(attempts)}회 분석 (패턴 미발견)` : `제 ${currentRound}회 기준 | ${formatNumber(attempts)}회에서 발견 (${elapsed.toFixed(1)}초)`;
 
     const analysis = analyzeNumbers(prediction);
     const score = calculateQualityScore(analysis);
