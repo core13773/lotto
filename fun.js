@@ -927,20 +927,19 @@ function startPersonalityQuiz() {
     let qi = 0;
     const answers = [];
 
-    // 기존 리스너 중복 등록 방지
-    if (!el._quizListenerAdded) {
-        el.addEventListener('click', function(e) {
-            const btn = e.target.closest('.quiz-option');
-            if (!btn) return;
-            const aIdx = parseInt(btn.getAttribute('data-aidx'));
-            if (isNaN(aIdx)) return;
-            answers.push(aIdx);
-            qi++;
-            if (typeof playBeep === 'function') playBeep(500, 0.05);
-            showQuestion();
-        });
-        el._quizListenerAdded = true;
-    }
+    // 이전 호출의 리스너를 제거 후 재바인딩 — 재시작 시 stale 클로저(과거 qi/answers)를 잡지 않도록
+    if (el._quizHandler) el.removeEventListener('click', el._quizHandler);
+    el._quizHandler = function(e) {
+        const btn = e.target.closest('.quiz-option');
+        if (!btn) return;
+        const aIdx = parseInt(btn.getAttribute('data-aidx'));
+        if (isNaN(aIdx)) return;
+        answers.push(aIdx);
+        qi++;
+        if (typeof playBeep === 'function') playBeep(500, 0.05);
+        showQuestion();
+    };
+    el.addEventListener('click', el._quizHandler);
 
     function showQuestion() {
         if (qi >= questions.length) {

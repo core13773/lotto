@@ -251,32 +251,31 @@ function startLottoQuiz() {
     let qi = 0, score = 0;
     const questions = [...LOTTO_QUIZ].sort(() => Math.random() - 0.5).slice(0, 5);
 
-    // 기존 리스너 중복 등록 방지
-    if (!el._quiz2ListenerAdded) {
-        el.addEventListener('click', function(e) {
-            const btn = e.target.closest('.quiz2-option');
-            if (!btn || btn.disabled) return;
-            const idx = parseInt(btn.getAttribute('data-idx'));
-            const correct = parseInt(btn.getAttribute('data-correct'));
-            const info = btn.getAttribute('data-info') || '';
-            if (isNaN(idx) || isNaN(correct)) return;
-            const feedback = document.getElementById('quiz2Feedback');
-            const isCorrect = idx === correct;
-            if (isCorrect) score++;
-            if (feedback) {
-                feedback.className = `quiz2-feedback ${isCorrect ? 'correct' : 'wrong'}`;
-                feedback.innerHTML = `${isCorrect ? '✅ 정답!' : '❌ 오답!'} ${info}`;
-                feedback.classList.remove('hidden');
-            }
-            el.querySelectorAll('.quiz2-option').forEach((b, i) => {
-                b.disabled = true;
-                if (i === correct) b.style.background = 'rgba(16,185,129,0.3)';
-                if (i === idx && !isCorrect) b.style.background = 'rgba(239,68,68,0.3)';
-            });
-            setTimeout(() => { qi++; show(); }, 1500);
+    // 이전 호출의 리스너를 제거 후 재바인딩 — 재시작 시 stale 클로저(과거 qi/score)를 잡지 않도록
+    if (el._quiz2Handler) el.removeEventListener('click', el._quiz2Handler);
+    el._quiz2Handler = function(e) {
+        const btn = e.target.closest('.quiz2-option');
+        if (!btn || btn.disabled) return;
+        const idx = parseInt(btn.getAttribute('data-idx'));
+        const correct = parseInt(btn.getAttribute('data-correct'));
+        const info = btn.getAttribute('data-info') || '';
+        if (isNaN(idx) || isNaN(correct)) return;
+        const feedback = document.getElementById('quiz2Feedback');
+        const isCorrect = idx === correct;
+        if (isCorrect) score++;
+        if (feedback) {
+            feedback.className = `quiz2-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+            feedback.innerHTML = `${isCorrect ? '✅ 정답!' : '❌ 오답!'} ${info}`;
+            feedback.classList.remove('hidden');
+        }
+        el.querySelectorAll('.quiz2-option').forEach((b, i) => {
+            b.disabled = true;
+            if (i === correct) b.style.background = 'rgba(16,185,129,0.3)';
+            if (i === idx && !isCorrect) b.style.background = 'rgba(239,68,68,0.3)';
         });
-        el._quiz2ListenerAdded = true;
-    }
+        setTimeout(() => { qi++; show(); }, 1500);
+    };
+    el.addEventListener('click', el._quiz2Handler);
 
     function show() {
         if (qi >= questions.length) {
@@ -823,6 +822,6 @@ function renderCompatibility() {
 document.addEventListener('DOMContentLoaded', () => {
     renderShoppingSim();
     renderCompatibility();
-    renderFortuneCalendar();
+    if (typeof renderFortuneCalendar === 'function') renderFortuneCalendar();
     renderShareCard();
 }, { once: true });

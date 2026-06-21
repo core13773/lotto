@@ -415,7 +415,6 @@ function computeNumberScores() {
         else if (recent10Count >= 2) recScore = 1;
         else if (zScore > 0.5) recScore = 1;
         else if (zScore > -0.5) recScore = 2;
-        else if (recent20Count <= 1) recScore = 3;
         else recScore = 3;
 
         // 제외점수 (0~4): 높을수록 제외 고려

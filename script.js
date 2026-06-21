@@ -68,6 +68,9 @@ async function loadLatestJson() {
                 inputEl.max = latest.round;
                 showStatus('success', `✅ ${data.length}개 회차 DB 로드 완료! 제 ${latest.round}회`);
                 if (typeof _hook === 'function') _hook('loadLatestJson');
+                // brief로 먼저 렌더링된 당첨번호 카드의 백분위/등급을
+                // 전체 DB 기준으로 다시 계산(초기 로드 시 lottoDb가 없었던 문제 보정)
+                refreshWinningAnalysisIfReady();
                 return;
             }
             if (data.numbers && data.numbers.length === 6) {
@@ -441,6 +444,18 @@ function autoCheckMyNumbers(winNums, winBonus, winRound) {
         fireConfetti();
         playBeep(1200, 0.15);
     } catch (e) {}
+}
+
+// brief 선로드 시 lottoDb가 없어 임시 계산된 당첨번호 카드의
+// 백분위 순위/등급 판정을 전체 DB 기준으로 다시 그린다(스크롤·알림 등 부작용 없음)
+function refreshWinningAnalysisIfReady() {
+    if (!lottoDb || lottoDb.length === 0 || !currentWinningNumbers) return;
+    const analysis = analyzeNumbers(currentWinningNumbers);
+    const score = calculateQualityScore(analysis);
+    const filterResult = checkFilters(currentWinningNumbers);
+    const percentileRank = calculatePercentileRank(currentWinningNumbers);
+    const gradeResult = determineGrade(filterResult, percentileRank);
+    displayScoreCard('winning', score, analysis, filterResult, gradeResult);
 }
 
 function createNumberGrid() {

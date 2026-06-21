@@ -12,6 +12,7 @@ function stopGame() {
 
 function addCollected(num) {
     if (gameCollected.includes(num)) return;
+    if (gameCollected.length >= GAME_TARGET) return;
     gameCollected.push(num);
     gameCollected.sort((a, b) => a - b);
     updateGameBasket();
@@ -205,7 +206,6 @@ function initRaceCanvas() {
         raceState.particles = raceState.particles.filter(p => p.life > 0);
         raceState.particles.forEach(p => {
             p.x += p.vx; p.y += p.vy; p.life -= 0.03;
-            ctx.fillStyle = p.color ? `${p.color.replace(')', ',').replace('rgb', 'rgba').replace('#','')}` : `rgba(180,150,100,${p.life})`;
             if (p.color && p.color.startsWith('#')) {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
@@ -224,10 +224,11 @@ function initRaceCanvas() {
             ctx.font = `bold ${Math.max(10, w * 0.022)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.fillText('도착', w - panelW / 2 - 4, 18);
-            raceState.finished.forEach((h, i) => {
-                ctx.fillStyle = h.color;
+            const rowH = Math.max(18, h * 0.04);
+            raceState.finished.forEach((horse, i) => {
+                ctx.fillStyle = horse.color;
                 ctx.font = `bold ${Math.max(9, w * 0.02)}px sans-serif`;
-                ctx.fillText(`${i+1}위`, w - panelW / 2 - 4, 32 + i * Math.max(18, h * 0.04));
+                ctx.fillText(`${i+1}위`, w - panelW / 2 - 4, 32 + i * rowH);
             });
         }
 
@@ -375,11 +376,12 @@ function startRace() {
             ctx.font = `bold ${Math.max(10, w * 0.022)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.fillText('순위', w - panelW / 2 - 4, 18);
-            raceState.finished.forEach((h, i) => {
+            const rowH2 = Math.max(18, h * 0.04);
+            raceState.finished.forEach((horse, i) => {
                 ctx.fillStyle = i < 6 ? '#ffd700' : '#888';
                 ctx.font = `bold ${i < 6 ? Math.max(10, w * 0.022) : Math.max(8, w * 0.018)}px sans-serif`;
-                const label = i < 6 ? `${['🥇','🥈','🥉','4','5','6'][i]} ${h.num}` : `${i+1}위`;
-                ctx.fillText(label, w - panelW / 2 - 4, 32 + i * Math.max(18, h * 0.04));
+                const label = i < 6 ? `${['🥇','🥈','🥉','4','5','6'][i]} ${horse.num}` : `${i+1}위`;
+                ctx.fillText(label, w - panelW / 2 - 4, 32 + i * rowH2);
             });
         }
 

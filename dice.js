@@ -386,7 +386,7 @@ function animateBattleRoll(playerFinal, cpuFinal, callback) {
 function startBattleRound() {
     if (!battleState) return;
     if (battleState.playerWins >= 2 || battleState.cpuWins >= 2) {
-        battleState.playerWins = 0; battleState.cpuWins = 0;
+        battleState.playerWins = 0; battleState.cpuWins = 0; battleState.round = 0;
         const ps = document.getElementById('playerScore'); if (ps) ps.textContent = '0승';
         const cs = document.getElementById('cpuScore'); if (cs) cs.textContent = '0승';
     }

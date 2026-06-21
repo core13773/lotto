@@ -1,4 +1,4 @@
-const CACHE = 'lotto645-v10';
+const CACHE = 'lotto645-v11';
 const FILES = [
     './', './index.html', './privacy.html', './robots.txt', './sitemap.xml',
     './style.css', './analysis.js', './stats.js', './simulation.js', './ui.js',

@@ -595,7 +595,7 @@ function scheduleNotification() {
     const minutes = kst.getUTCMinutes();
 
     let nextSat = new Date(kst);
-    if (day === 6 && hours < 20) {
+    if (day === 6 && (hours < 20 || (hours === 20 && minutes < 50))) {
         // 오늘 토요일이고 20:50 이전
         nextSat.setUTCHours(20, 50, 0, 0);
     } else if (day === 6 && hours >= 20 && minutes >= 50) {

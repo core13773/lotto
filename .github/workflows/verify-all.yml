@@ -191,7 +191,9 @@ jobs:
                   best_nums_key = max(num_votes, key=lambda k: len(num_votes[k]))
                   best_nums_votes = len(num_votes[best_nums_key])
 
-                  if best_nums_votes >= 1:  # 1개 소스만 동의해도 업데이트 (소스 간 데이터 품질이 높음)
+                  # 번호 변경은 최소 2개 소스가 동일한 새 값으로 동의할 때만 반영
+                  # (단일 소스 불일치로 기존 교차검증된 데이터가 오염되는 것을 방지)
+                  if best_nums_votes >= 2:
                       new_nums = [int(x) for x in best_nums_key.split(',')]
                       if rec['numbers'] != new_nums:
                           old_nums = rec['numbers']
@@ -221,7 +223,7 @@ jobs:
                       updated_bonus.append(round_no)
                       if round_no % 50 == 0 or round_no <= 10:
                           print(f"  [>] {round_no}회 보너스 보충: {best_bonus} ({best_bonus_votes}개 소스)")
-                  elif rec.get('bonus') != best_bonus and best_bonus_votes >= 1:
+                  elif rec.get('bonus') != best_bonus and best_bonus_votes >= 2:
                       old_b = rec.get('bonus')
                       rec['bonus'] = best_bonus
                       mismatch_bonus.append({

@@ -90,14 +90,33 @@ function calculateTax() {
         return;
     }
 
-    let taxRate, taxAmount, netAmount;
-    if (prize <= 300000000) {
-        taxRate = 0.22; // 22% (소득세 20% + 주민세 2%)
+    // 2025년 복권당첨소득 기준 (초과누진세율)
+    // ① 200만 원 이하: 비과세(0%)
+    // ② 200만 원 초과 ~ 3억 원 이하: 22% (소득세 20% + 주민세 2%)
+    // ③ 3억 원 초과분: 33% (소득세 30% + 주민세 3%) — 3억 원까지는 22%, 초과분만 33%
+    const EXEMPT_LIMIT = 2000000;
+    const TIER1_LIMIT = 300000000;
+    const RATE_LOW = 0.22;
+    const RATE_HIGH = 0.33;
+
+    let taxAmount = 0, detailParts = [];
+    let tierLabel;
+    if (prize <= EXEMPT_LIMIT) {
+        tierLabel = '비과세 (0%)';
+        taxAmount = 0;
+    } else if (prize <= TIER1_LIMIT) {
+        tierLabel = '22% (소득세 20% + 주민세 2%)';
+        taxAmount = Math.floor(prize * RATE_LOW);
     } else {
-        taxRate = 0.33; // 33% (소득세 30% + 주민세 3%)
+        // 초과누진: 3억까지 22%, 초과분 33%
+        const lowPart = Math.floor(TIER1_LIMIT * RATE_LOW);
+        const highPart = Math.floor((prize - TIER1_LIMIT) * RATE_HIGH);
+        taxAmount = lowPart + highPart;
+        tierLabel = '초과누진 (3억까지 22% · 초과분 33%)';
+        detailParts.push(`<div style="font-size:0.75rem;color:var(--text-secondary);text-align:center;margin-bottom:8px;">내역: 3억 × 22% = ${lowPart.toLocaleString()}원 ＋ ${(prize - TIER1_LIMIT).toLocaleString()}원 × 33% = ${highPart.toLocaleString()}원</div>`);
     }
-    taxAmount = Math.floor(prize * taxRate);
-    netAmount = prize - taxAmount;
+    const netAmount = prize - taxAmount;
+    const effectiveRate = prize > 0 ? (taxAmount / prize * 100).toFixed(1) : '0.0';
 
     const result = document.getElementById('taxBreakdown');
     result.innerHTML = `
@@ -108,13 +127,15 @@ function calculateTax() {
                 <div style="font-size:1.2rem;color:var(--accent-gold);">${prize.toLocaleString()}원</div>
             </div>
             <div style="background:rgba(239,68,68,0.15);padding:12px;border-radius:8px;">
-                <div style="font-size:0.75rem;color:var(--text-secondary);">세금 (${(taxRate*100).toFixed(0)}%)</div>
+                <div style="font-size:0.75rem;color:var(--text-secondary);">세금 (실효세율 ${effectiveRate}%)</div>
                 <div style="font-size:1.2rem;color:#ef4444;">-${taxAmount.toLocaleString()}원</div>
             </div>
         </div>
+        ${detailParts.join('')}
         <div style="margin-top:15px;background:rgba(16,185,129,0.15);padding:15px;border-radius:10px;font-size:1.4rem;color:#10b981;">
             실수령액: <strong>${netAmount.toLocaleString()}원</strong>
         </div>
+        <div style="margin-top:10px;font-size:0.8rem;color:var(--accent-cyan);text-align:center;">📋 적용 세율: ${tierLabel}</div>
     `;
     document.getElementById('taxResult').classList.remove('hidden');
     playBeep(600, 0.1);
