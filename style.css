@@ -663,7 +663,7 @@
         }
         .stats-tab-content, .ai-mode-content { display: none; }
         .stats-tab-content.active, .ai-mode-content.active { display: block; }
-        .ai-mode-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; }
+        .ai-mode-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; }
 
         /* ── 빈도 히트맵 ── */
         .frequency-heatmap {
@@ -1630,7 +1630,7 @@
         .scroll-top-btn:hover { border-color: var(--accent-gold); transform: translateY(-2px); }
 
         /* ── 미니 게임존 ── */
-        .game-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; }
+        .game-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 4px; }
         .game-tab {
             flex: 1; padding: 10px 8px; border: none; border-radius: 10px;
             background: transparent; color: var(--text-secondary); font-family: inherit;

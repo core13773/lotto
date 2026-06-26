@@ -770,6 +770,7 @@ document.addEventListener('click', function(e) {
         case 'stopSimulation': stopSimulation(); break;
         case 'runSmartRecommend': runSmartRecommend(); break;
         case 'runTrackingRecommend': runTrackingRecommend(); break;
+        case 'toggleTrackingNumberTable': toggleTrackingNumberTable(); break;
         case 'clearExcludes': clearExcludes(); break;
         case 'quickExclude': quickExclude(); break;
         case 'clearFixed': clearFixed(); break;

@@ -55,7 +55,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-3QLZDF9S2Z"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -400,10 +400,12 @@
                             ⚠️ 로또는 완전 독립 확률 게임이며, 이 분석은 통계적 참고용입니다.
                         </div>
                     </div>
-                    <div style="text-align:center;margin:15px 0;">
+                    <div style="text-align:center;margin:15px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
                         <button class="btn btn-primary" data-action="runTrackingRecommend" id="runTrackingBtn">📈 추적 추천 20게임 실행</button>
+                        <button class="btn btn-secondary" data-action="toggleTrackingNumberTable" id="trackingTableBtn">🔢 1~45번 번호별 정보</button>
                     </div>
                     <div id="trackingResult" class="hidden"></div>
+                    <div id="trackingNumberTable" class="hidden"></div>
                 </div>
             </div>
             <div id="predictionResult" class="hidden">
@@ -872,7 +874,7 @@
     <script src="analysis.js?v=5"></script>
     <script src="stats.js?v=3"></script>
     <script src="simulation.js?v=4"></script>
-    <script src="tracking.js?v=1"></script>
+    <script src="tracking.js?v=2"></script>
     <script src="fun3.js?v=1"></script>
     <script src="ui.js?v=5"></script>
     <script src="script.js?v=6"></script>
