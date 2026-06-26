@@ -254,6 +254,7 @@
                     <button class="ai-mode-tab active" data-mode="simulation" data-action="switchAiMode" data-arg="simulation">🎲 몬테카를로</button>
                     <button class="ai-mode-tab" data-mode="smart" data-action="switchAiMode" data-arg="smart">🧠 스마트 추천</button>
                     <button class="ai-mode-tab" data-mode="custom" data-action="switchAiMode" data-arg="custom">✋ 수동 조합</button>
+                    <button class="ai-mode-tab" data-mode="tracking" data-action="switchAiMode" data-arg="tracking">📈 번호별 추적</button>
                 </div>
                 <div class="ai-mode-content active" id="aiModeSimulation">
                 <div class="interpretation-box" style="margin-bottom:20px;">
@@ -388,6 +389,21 @@
                         <h4 style="color:var(--accent-cyan);text-align:center;margin-bottom:15px;">생성된 조합</h4>
                         <div id="customComboList"></div>
                     </div>
+                </div>
+                <div class="ai-mode-content" id="aiModeTracking">
+                    <div class="interpretation-box">
+                        <div class="interpretation-title">📈 번호별 추적 추천 작동 원리</div>
+                        <div class="interpretation-content">
+                            각 번호(1~45)의 출현 이력만 추적해 <strong>모멘텀·출현예정성·빈도·간격일관성</strong> 4가지 지표로 점수를 매기고,<br>
+                            상위 16개 풀 안에서 점수 비례 가중 추출로 <strong>20게임</strong>을 추천합니다.<br>
+                            홀짝·총합·구간 등 다른 분석은 의도적으로 배제합니다. <strong>매 클릭마다 새로운 조합</strong>이 생성됩니다.<br><br>
+                            ⚠️ 로또는 완전 독립 확률 게임이며, 이 분석은 통계적 참고용입니다.
+                        </div>
+                    </div>
+                    <div style="text-align:center;margin:15px 0;">
+                        <button class="btn btn-primary" data-action="runTrackingRecommend" id="runTrackingBtn">📈 추적 추천 20게임 실행</button>
+                    </div>
+                    <div id="trackingResult" class="hidden"></div>
                 </div>
             </div>
             <div id="predictionResult" class="hidden">
@@ -856,6 +872,7 @@
     <script src="analysis.js?v=5"></script>
     <script src="stats.js?v=3"></script>
     <script src="simulation.js?v=4"></script>
+    <script src="tracking.js?v=1"></script>
     <script src="fun3.js?v=1"></script>
     <script src="ui.js?v=5"></script>
     <script src="script.js?v=6"></script>

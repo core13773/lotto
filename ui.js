@@ -769,6 +769,7 @@ document.addEventListener('click', function(e) {
         case 'startSimulation': startSimulation(); break;
         case 'stopSimulation': stopSimulation(); break;
         case 'runSmartRecommend': runSmartRecommend(); break;
+        case 'runTrackingRecommend': runTrackingRecommend(); break;
         case 'clearExcludes': clearExcludes(); break;
         case 'quickExclude': quickExclude(); break;
         case 'clearFixed': clearFixed(); break;
