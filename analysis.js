@@ -148,13 +148,13 @@ function checkFilters(nums) {
         if (sorted[i + 1] - sorted[i] === 1) consecPairs++;
     }
 
-    // 구간 밀집도 (한 구간에 최대 몇 개)
-    const sections = [0, 0, 0, 0, 0]; // 1-9, 10-19, 20-29, 30-39, 40-45
+    // 구간 밀집도 (한 구간에 최대 몇 개) — analyzeNumbers/통계와 동일 기준 1-10/11-20/21-30/31-40/41-45
+    const sections = [0, 0, 0, 0, 0];
     sorted.forEach(n => {
-        if (n <= 9) sections[0]++;
-        else if (n <= 19) sections[1]++;
-        else if (n <= 29) sections[2]++;
-        else if (n <= 39) sections[3]++;
+        if (n <= 10) sections[0]++;
+        else if (n <= 20) sections[1]++;
+        else if (n <= 30) sections[2]++;
+        else if (n <= 40) sections[3]++;
         else sections[4]++;
     });
     const maxSectionConcentration = Math.max(...sections);
@@ -294,7 +294,10 @@ function calculatePercentileRank(nums) {
         });
     }
 
-    return Math.round((1 - lowerCount / lottoDb.length) * 1000) / 10;
+    // 표준 백분위 순위 = (내 점수보다 낮은 비율).
+    // 역사 당첨과 유사할수록(높은 crossMatchScore) 상위 백분위 → 등급 보너스.
+    // (이전 (1 - lowerCount/total) 식은 반전되어 희귀 조합이 오히려 ★★★를 받았음)
+    return Math.round((lowerCount / lottoDb.length) * 1000) / 10;
 }
 
 function crossMatchScore(nums) {
@@ -326,11 +329,15 @@ function findTop3SimilarRounds(nums) {
         if (!entry.numbers) return null;
         const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
         const bonusMatch = entry.bonus && numSet.has(entry.bonus) ? 1 : 0;
-        const sortKey = matchCount * 10000 + bonusMatch * 1000 + Math.random() * 100;
-        return { ...entry, matchCount, bonusMatch, sortKey };
+        return { ...entry, matchCount, bonusMatch };
     }).filter(Boolean);
 
-    scored.sort((a, b) => b.sortKey - a.sortKey);
+    // 동점일 때 Math.random을 쓰면 매 렌더링마다 결과가 바뀜 → 최근 회차 우선으로 안정화
+    scored.sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+        if (b.bonusMatch !== a.bonusMatch) return b.bonusMatch - a.bonusMatch;
+        return b.round - a.round;
+    });
     return scored.slice(0, 3);
 }
 
@@ -338,7 +345,7 @@ function findTop3SimilarRounds(nums) {
 function runRecentMatchSimulation(nums) {
     if (!lottoDb || lottoDb.length < 5) return [];
     const numSet = new Set(nums);
-    const recent5 = lottoDb.slice(-5).reverse();
+    const recent5 = lottoDb.slice(-5).reverse().filter(e => e.numbers);
 
     return recent5.map(entry => {
         const matchCount = entry.numbers.filter(n => numSet.has(n)).length;
@@ -357,9 +364,10 @@ function runRecentMatchSimulation(nums) {
 
 // ========== 번호별 추천점수/제외점수 ==========
 let cachedNumberScores = null;
+let _cachedNumberScoresDbLength = 0;
 function computeNumberScores() {
     if (!lottoDb || lottoDb.length === 0) return null;
-    if (cachedNumberScores) return cachedNumberScores;
+    if (cachedNumberScores && _cachedNumberScoresDbLength === lottoDb.length) return cachedNumberScores;
     const scores = {};
     const latestRound = lottoDb[lottoDb.length - 1].round;
     const recent10 = lottoDb.slice(-10);
@@ -442,6 +450,7 @@ function computeNumberScores() {
         };
     }
     cachedNumberScores = scores;
+    _cachedNumberScoresDbLength = lottoDb.length;
     return scores;
 }
 
@@ -480,7 +489,7 @@ function renderCrossMatchSummary(crossResult) {
                 <span>4등: ${crossResult.statBreakdown.fourth}회</span>
                 <span>5등: ${crossResult.statBreakdown.fifth}회</span>
             </div>
-            <div style="font-size:0.8rem;color:var(--text-secondary);">총 교차점수: ${crossResult.totalCrossScore}점 | 3등 이상 매칭: ${crossResult.totalMatches}회</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary);">총 교차점수: ${crossResult.totalCrossScore}점 | 당첨(3개+) 매칭: ${crossResult.totalMatches}회</div>
         </div>
     `;
 }

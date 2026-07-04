@@ -1,10 +1,15 @@
-const CACHE = 'lotto645-v12';
+const CACHE = 'lotto645-v13';
 const FILES = [
-    './', './index.html', './privacy.html', './robots.txt', './sitemap.xml',
-    './style.css', './analysis.js', './stats.js', './simulation.js', './ui.js',
+    './', './index.html',
+    './guide.html', './analysis.html', './strategy.html', './winners.html',
+    './terms.html', './faq.html', './privacy.html', './404.html',
+    './robots.txt', './sitemap.xml',
+    './style.css',
     './features.js', './fun.js', './fun2.js', './fun3.js', './games.js',
-    './script.js', './worker.js', './sw-register.js',
-    './manifest.json', './icon-192.png', './icon-512.png', './latest-brief.json'
+    './dice.js', './analysis.js', './stats.js', './simulation.js',
+    './tracking.js', './ui.js', './script.js', './worker.js', './sw-register.js',
+    './manifest.json', './icon-192.png', './icon-512.png', './logo.png', './logo-og.png',
+    './latest-brief.json'
     // latest.json(전체 DB, 수백 KB)은 precache에서 제외 — network-first 핸들러가
     // 첫 온라인 로드 시 자동 캐싱하므로 install 속도만 빠르게 올리고 오프라인 동작은 동일
 ];

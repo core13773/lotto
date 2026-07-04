@@ -629,7 +629,7 @@ function rollBoardDice() {
             if (infoEl) infoEl.textContent = `🎲 ${d1}+${d2}=${roll} 칸 전진!`;
             if (typeof playBeep === 'function') playBeep(600, 0.15);
             if (typeof vibrate === 'function') vibrate(20);
-            setTimeout(() => startBoardMove(roll, btn), 400);
+            boardTimeoutHandle = setTimeout(() => startBoardMove(roll, btn), 400);
             return;
         }
         diceAnimFrame = requestAnimationFrame(animDice);
@@ -656,9 +656,22 @@ function startBoardMove(steps, btn) {
         }
         if (stepCount >= steps) {
             const cells = getBoardCells();
-            const cell = cells[boardState.pos];
             const specType = boardState.specialCells[boardState.pos];
-            let logMsg = `${cell.num}번 도착!`;
+            let logMsg = '';
+            // collectNum: 착지 셀에서 주울 번호. trap/swap은 착지 셀을 주우면 안 됨(순수 손해/교환).
+            let collectNum = null;
+
+            if (specType === 'bonus') {
+                steps += 1;
+                stepCount++;
+                boardState.pos = (boardState.pos + 1) % 45;
+                renderBoard();
+                const logEl0 = document.getElementById('boardLog');
+                if (logEl0) addLog(logEl0, `🎁 보너스! 추가 1칸 전진 → ${cells[boardState.pos].num}번`);
+                if (typeof playBeep === 'function') playBeep(800, 0.1);
+                boardTimeoutHandle = setTimeout(stepAnim, 150);
+                return;
+            }
 
             if (specType === 'double') {
                 const avail = getAvailable(diceCollected);
@@ -667,46 +680,51 @@ function startBoardMove(steps, btn) {
                     addDiceCollected(bonusNum);
                     logMsg += ` ✨ 더블찬스! 보너스 ${bonusNum}번 추가!`;
                 }
+                collectNum = cells[boardState.pos].num;
+                logMsg = `${cells[boardState.pos].num}번 도착!` + logMsg;
             } else if (specType === 'skip') {
                 boardState.pos = (boardState.pos + 3) % 45;
-                logMsg += ` ⏭️ 점프! 3칸 추가 이동 → ${cells[boardState.pos].num}번`;
                 renderBoard();
-            } else if (specType === 'swap' && diceCollected.length > 0) {
-                const removed = diceCollected.pop();
-                const avail = getAvailable(diceCollected);
-                if (avail.length > 0) {
-                    const newNum = avail[Math.floor(Math.random() * avail.length)];
-                    addDiceCollected(newNum);
-                    logMsg += ` 🔄 교환! ${removed}번 → ${newNum}번`;
+                collectNum = cells[boardState.pos].num; // 도착지 번호 수집
+                logMsg = `⏭️ 점프! 3칸 추가 이동 → ${cells[boardState.pos].num}번 획득!`;
+            } else if (specType === 'swap') {
+                if (diceCollected.length > 0) {
+                    const removed = diceCollected.pop();
+                    const avail = getAvailable(diceCollected);
+                    if (avail.length > 0) {
+                        const newNum = avail[Math.floor(Math.random() * avail.length)];
+                        addDiceCollected(newNum);
+                        logMsg = `🔄 교환! ${removed}번 → ${newNum}번`;
+                    } else {
+                        updateDiceBasket();
+                        logMsg = `🔄 교환 실패! ${removed}번을 잃었어요...`;
+                    }
+                } else {
+                    logMsg = `🔄 교환! (가진 번호가 없어 그냥 지나감)`;
                 }
-            } else if (specType === 'trap' && diceCollected.length > 0) {
-                const lost = diceCollected.pop();
-                updateDiceBasket();
-                logMsg += ` 💥 함정! ${lost}번을 잃었어요...`;
-                if (typeof vibrate === 'function') vibrate([50, 30, 50]);
-                if (typeof playBeep === 'function') playBeep(150, 0.3);
+            } else if (specType === 'trap') {
+                if (diceCollected.length > 0) {
+                    const lost = diceCollected.pop();
+                    updateDiceBasket();
+                    logMsg = `💥 함정! ${lost}번을 잃었어요...`;
+                    if (typeof vibrate === 'function') vibrate([50, 30, 50]);
+                    if (typeof playBeep === 'function') playBeep(150, 0.3);
+                } else {
+                    logMsg = `💥 함정! (잃을 번호가 없어 다행...)`;
+                }
             } else if (specType === 'back') {
                 boardState.pos = (boardState.pos - 5 + 45) % 45;
-                logMsg += ` ⬅️ 뒤로! 5칸 후퇴 → ${cells[boardState.pos].num}번`;
                 renderBoard();
                 if (typeof vibrate === 'function') vibrate([20, 30]);
                 if (typeof playBeep === 'function') playBeep(250, 0.2);
-            } else if (specType === 'trap') {
-                logMsg += ` 💥 함정! (잃을 번호가 없어 다행...)`;
-            } else if (specType === 'bonus') {
-                steps += 1;
-                logMsg += ` 🎁 보너스! 추가 1칸 전진`;
-                stepCount++;
-                boardState.pos = (boardState.pos + 1) % 45;
-                renderBoard();
-                const logEl = document.getElementById('boardLog');
-                if (logEl) addLog(logEl, logMsg);
-                if (typeof playBeep === 'function') playBeep(800, 0.1);
-                boardTimeoutHandle = setTimeout(stepAnim, 150);
-                return;
+                collectNum = cells[boardState.pos].num; // 도착지 번호 수집
+                logMsg = `⬅️ 뒤로! 5칸 후퇴 → ${cells[boardState.pos].num}번 획득!`;
+            } else {
+                collectNum = cells[boardState.pos].num;
+                logMsg = `${cells[boardState.pos].num}번 도착!`;
             }
 
-            addDiceCollected(cell.num);
+            if (collectNum !== null) addDiceCollected(collectNum);
             const logEl = document.getElementById('boardLog');
             if (logEl) addLog(logEl, logMsg);
             renderBoard();
@@ -736,7 +754,7 @@ function initFortune() {
     stopDice();
     const el = document.getElementById('diceContentFortune');
     if (!el) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0, 10);
     let lastFortune = null;
     try { lastFortune = localStorage.getItem('dice-fortune-date'); } catch (e) {}
     const usedToday = lastFortune === today;
@@ -756,19 +774,33 @@ function initFortune() {
         ctx.beginPath(); ctx.roundRect(5, 5, 290, 110, 12); ctx.fill();
         [1, 2, 3].forEach((v, i) => drawDieFace(ctx, 75 + i * 80, 60, 50, v, false));
     }
+    // 오늘 이미 본 점괘가 있으면 저장된 결과 재표시 (애니메이션 중단으로 결과가 안 보였던 경우 복구)
+    if (usedToday) {
+        try {
+            const last = JSON.parse(localStorage.getItem('dice-fortune-last') || 'null');
+            if (last && last.date === today && Array.isArray(last.dice) && last.total) {
+                showFortuneResult(last.dice, last.total, document.getElementById('fortuneBtn'));
+            }
+        } catch (e) {}
+    }
 }
 
 function rollFortune() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0, 10);
     try {
         if (localStorage.getItem('dice-fortune-date') === today) return;
-        localStorage.setItem('dice-fortune-date', today);
     } catch (e) { return; }
     const btn = document.getElementById('fortuneBtn');
     if (btn) { btn.disabled = true; btn.textContent = '🎲 굴리는 중...'; }
 
     const dice = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
     const total = dice.reduce((a,b)=>a+b, 0);
+
+    // 결과를 먼저 저장 — 애니메이션 도중 탭을 벗어나도 다음 방문 시 결과가 표시되도록
+    try {
+        localStorage.setItem('dice-fortune-last', JSON.stringify({ date: today, dice, total }));
+        localStorage.setItem('dice-fortune-date', today);
+    } catch (e) {}
 
     // 주사위 굴림 애니메이션
     let frame = 0;
@@ -855,10 +887,10 @@ function initGenerator() {
         <div class="game-info-box">🎱 TRPG 스타일! 다양한 주사위를 조합해 <strong>1~45</strong> 로또 번호를 생성합니다.</div>
         <div class="dice-generator-panel">
             <div class="gen-methods" id="genMethods">
-                <div class="gen-method active" onclick="selectGenMethod('d20')"><span>🎯 d20 메인</span><span style="font-size:0.7rem;">d20+d12+d8+d6-1</span></div>
-                <div class="gen-method" onclick="selectGenMethod('dnd')"><span>⚔️ D&D 스탯</span><span style="font-size:0.7rem;">4d6 최고3 합산 변환</span></div>
-                <div class="gen-method" onclick="selectGenMethod('multiply')"><span>✖️ 곱셈 모드</span><span style="font-size:0.7rem;">d10×d6으로 범위 생성</span></div>
-                <div class="gen-method" onclick="selectGenMethod('percentile')"><span>💯 백분위</span><span style="font-size:0.7rem;">2d10 백분위 → 1~45 매핑</span></div>
+                <div class="gen-method active" tabindex="0" role="button" aria-pressed="true" onclick="selectGenMethod('d20')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectGenMethod('d20')}"><span>🎯 d20 메인</span><span style="font-size:0.7rem;">d20+d12+d8+d6-1</span></div>
+                <div class="gen-method" tabindex="0" role="button" aria-pressed="false" onclick="selectGenMethod('dnd')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectGenMethod('dnd')}"><span>⚔️ D&D 스탯</span><span style="font-size:0.7rem;">4d6 최고3 합산 변환</span></div>
+                <div class="gen-method" tabindex="0" role="button" aria-pressed="false" onclick="selectGenMethod('multiply')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectGenMethod('multiply')}"><span>✖️ 곱셈 모드</span><span style="font-size:0.7rem;">d10×d6으로 범위 생성</span></div>
+                <div class="gen-method" tabindex="0" role="button" aria-pressed="false" onclick="selectGenMethod('percentile')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectGenMethod('percentile')}"><span>💯 백분위</span><span style="font-size:0.7rem;">2d10 백분위 → 1~45 매핑</span></div>
             </div>
             <canvas id="genDiceCanvas" role="img" aria-label="주사위 번호 생성기 화면" width="440" height="100"></canvas>
             <div id="genResult" style="text-align:center;min-height:40px;margin:10px 0;"></div>

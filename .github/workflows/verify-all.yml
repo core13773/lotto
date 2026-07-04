@@ -1,6 +1,15 @@
 name: 전체 당첨번호 검증 (GitHub 3중 체크)
 on:
-  workflow_dispatch:  # 수동 실행만
+  schedule:
+    # 매주 일요일 17:00 UTC = 한국 시간 월요일 02:00 (새벽)
+    # 토요일 자동 업데이트 직후 실행 → 누락/null 보너스 보강 + 3소스 교차검증
+    - cron: '0 17 * * 6'
+  workflow_dispatch:  # 수동 실행도 가능
+
+# 동시 실행 방지
+concurrency:
+  group: lotto-verify
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -257,13 +266,18 @@ jobs:
               print(f'  {m["round"]}회: {m["old"]} → {m["new"]} ({m["votes"]}개 소스)')
 
           if mismatch_nums or updated_bonus or mismatch_bonus:
-              with open('latest.json', 'w', encoding='utf-8') as f:
-                  json.dump(data, f, ensure_ascii=False, indent=2)
+              # 원자적 쓰기 (잘린 파일/DB 손상 방지)
+              def _atomic_write(path, payload):
+                  tmp = path + '.tmp'
+                  with open(tmp, 'w', encoding='utf-8') as f:
+                      json.dump(payload, f, ensure_ascii=False, indent=2)
+                  os.replace(tmp, path)
+
+              _atomic_write('latest.json', data)
 
               # 브리프도 업데이트
               brief = data[-10:]
-              with open('latest-brief.json', 'w', encoding='utf-8') as f:
-                  json.dump(brief, f, ensure_ascii=False, indent=2)
+              _atomic_write('latest-brief.json', brief)
 
               print('\n변경사항 저장 완료!')
               with open('/tmp/had_changes', 'w') as f:

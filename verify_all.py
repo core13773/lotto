@@ -3,6 +3,7 @@ import re
 import json
 import time
 import sys
+import os
 import random
 
 try:
@@ -184,8 +185,47 @@ if network_fail:
 
 # Save if any changes
 if mismatch_nums or updated_bonus or mismatch_bonus:
-    with open('latest.json', 'w', encoding='utf-8') as f:
+    # 원자적 쓰기 (잘린 파일/DB 손상 방지)
+    _tmp = 'latest.json.tmp'
+    with open(_tmp, 'w', encoding='utf-8') as f:
         json.dump(existing, f, ensure_ascii=False)
+    os.replace(_tmp, 'latest.json')
     print('\n변경사항 저장 완료!')
 else:
     print('\n변경사항 없음.')
+
+# ============================================================
+# 구조 무결성 검증 (CI 게이트로 사용 가능하도록 nonzero 종료)
+# ============================================================
+print('\n--- 구조 검증 ---')
+errors = []
+rounds_seen = [r['round'] for r in existing]
+dups = [x for x in set(rounds_seen) if rounds_seen.count(x) > 1]
+if dups:
+    errors.append(f"중복 회차: {dups}")
+if rounds_seen:
+    expected = set(range(1, max(rounds_seen) + 1))
+    gaps = sorted(expected - set(rounds_seen))
+    if gaps:
+        errors.append(f"결측 회차 {len(gaps)}개: {gaps[:20]}")
+for r in existing:
+    rn = r['round']
+    nums = r.get('numbers')
+    if not isinstance(nums, list) or len(nums) != 6:
+        errors.append(f"{rn}회: numbers 형식 오류"); continue
+    if any(not isinstance(n, int) or n < 1 or n > 45 for n in nums):
+        errors.append(f"{rn}회: 범위 벗어남 {nums}")
+    if len(set(nums)) != 6:
+        errors.append(f"{rn}회: 중복 번호 {nums}")
+    if sorted(nums) != nums:
+        errors.append(f"{rn}회: 정렬 안됨 {nums}")
+    b = r.get('bonus')
+    if b is not None and (not isinstance(b, int) or b < 1 or b > 45 or b in nums):
+        errors.append(f"{rn}회: bonus 오류 {b}")
+
+if errors:
+    print(f'❌ 구조 검증 실패 ({len(errors)}건):')
+    for e in errors[:50]:
+        print(f'  - {e}')
+    sys.exit(1)
+print(f'✅ 구조 검증 통과: {len(existing)}회차, 결측/중복/범위 이상 없음')

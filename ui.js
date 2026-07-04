@@ -1,5 +1,11 @@
 // ui.js - 테마, 글꼴, 토스트, 설정, 공유, 알림
 
+// ========== HTML 이스케이프 (XSS 방지) ==========
+// 사용자 입력(note 등)이나 localStorage 데이터를 innerHTML에 넣기 전 반드시 통과.
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ========== 테마 전환 ==========
 // ========== 테마 변경 (다중 스타일) ==========
 const THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset', 'neon', 'coffee'];
@@ -193,6 +199,7 @@ function loadFontSetting() {
 
 function showToast(message) {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     // 최대 3개로 제한, 초과 시 오래된 것부터 제거
     while (container.children.length >= 3) {
         container.firstChild.remove();
@@ -225,7 +232,7 @@ function saveMissionData(data) { try { localStorage.setItem('lotto-missions', JS
 
 function trackMission(missionId) {
     const data = getMissionData();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0, 10);
     if (data.date !== today) {
         data.date = today;
         data.missions = {};
@@ -256,7 +263,7 @@ function trackMission(missionId) {
 
 function renderMissions() {
     const data = getMissionData();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0, 10);
     const isToday = data.date === today;
     const el = document.getElementById('missionsContent');
     if (!el) return;
@@ -354,7 +361,26 @@ function importBackup() {
                 if (!confirm('백업 파일 데이터로 현재 데이터를 덮어쓸까요?\n(현재 저장된 데이터는 교체됩니다.)')) return;
                 let n = 0;
                 Object.keys(payload.data).forEach(function (k) {
-                    if (k.indexOf('lotto-') === 0) { localStorage.setItem(k, payload.data[k]); n++; }
+                    if (k.indexOf('lotto-') !== 0) return;
+                    let v = payload.data[k];
+                    // predictions 배열은 번호를 정수로 세척 (XSS/오염 데이터 이중 방어)
+                    if (k === 'lotto-predictions') {
+                        try {
+                            const arr = typeof v === 'string' ? JSON.parse(v) : v;
+                            if (Array.isArray(arr)) {
+                                v = JSON.stringify(arr.map(it => it && typeof it === 'object' ? {
+                                    ...it,
+                                    numbers: (Array.isArray(it.numbers) ? it.numbers : []).map(x => Number(x)).filter(x => Number.isInteger(x) && x >= 1 && x <= 45),
+                                    round: Number(it.round) || 0,
+                                    score: Number(it.score) || 0
+                                } : null).filter(Boolean));
+                            }
+                        } catch (e) { return; }
+                    }
+                    // localStorage 값은 반드시 문자열
+                    if (typeof v !== 'string') { try { v = JSON.stringify(v); } catch (e) { return; } }
+                    localStorage.setItem(k, v);
+                    n++;
                 });
                 showStatus('success', `✅ ${n}개 항목을 복원했어요! 잠시 후 새로고침됩니다.`);
                 setTimeout(function () { location.reload(); }, 1300);
@@ -465,6 +491,7 @@ function playBeep(freq = 800, duration = 0.1) {
 function fireConfetti() {
     if (!uxSettings.animation) return;
     const container = document.getElementById('confettiContainer');
+    if (!container) return;
     const batch = document.createElement('div');
     batch.className = 'confetti-batch';
     const colors = ['#ffd700', '#00f5ff', '#ff006e', '#8b5cf6', '#10b981', '#f97316', '#ef4444', '#3b82f6'];
@@ -617,8 +644,9 @@ async function toggleNotifications() {
         if (notificationEnabled) {
             scheduleNotification();
             checkDrawTimeNotification();
-            showStatus('success', '🔔 추첨 알림이 켜졌어요! 이 화면을 켜두면 토요일 오후 8:50에 알려드려요.');
+            showStatus('success', '🔔 추첨 알림이 켜졌어요! 이 화면을 켜두면 토요일 오후 8:25(추첨 10분 전)에 알려드려요.');
         } else {
+            if (notifyTimeout) { clearTimeout(notifyTimeout); notifyTimeout = null; }
             showStatus('info', '🔕 알림이 꺼졌습니다.');
         }
     } else if (Notification.permission === 'denied') {
@@ -648,55 +676,48 @@ function scheduleNotification() {
     if (!notificationEnabled || Notification.permission !== 'granted') return;
     if (notifyTimeout) clearTimeout(notifyTimeout);
 
-    // 다음 토요일 20:50 KST 계산
+    // 추첨 10분 전 = 토요일 20:25 KST (추첨 20:35 기준)
+    const NOTIFY_MIN_OF_DAY = 20 * 60 + 25;
     const now = new Date();
     const kst = new Date(now.getTime() + 9 * 3600000);
     const day = kst.getUTCDay();
-    const hours = kst.getUTCHours();
-    const minutes = kst.getUTCMinutes();
+    const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
 
-    let nextSat = new Date(kst);
-    if (day === 6 && (hours < 20 || (hours === 20 && minutes < 50))) {
-        // 오늘 토요일이고 20:50 이전
-        nextSat.setUTCHours(20, 50, 0, 0);
-    } else if (day === 6 && hours >= 20 && minutes >= 50) {
-        // 오늘 토요일이고 이미 20:50 이후 → 다음주
-        nextSat.setUTCDate(nextSat.getUTCDate() + 7);
-        nextSat.setUTCHours(20, 50, 0, 0);
-    } else {
-        // 평일 → 다음 토요일
-        const daysUntil = day === 6 ? 0 : 6 - day;
-        nextSat.setUTCDate(nextSat.getUTCDate() + (daysUntil === 0 ? 7 : daysUntil));
-        nextSat.setUTCHours(20, 50, 0, 0);
-    }
+    let daysUntil = (6 - day + 7) % 7;
+    if (day === 6 && nowMin >= NOTIFY_MIN_OF_DAY) daysUntil = 7; // 오늘 알림 시각 지났으면 다음 주
+    const next = new Date(kst);
+    next.setUTCDate(next.getUTCDate() + daysUntil);
+    next.setUTCHours(20, 25, 0, 0);
 
-    const delay = nextSat.getTime() - kst.getTime();
+    const delay = next.getTime() - kst.getTime();
     if (delay > 0) {
         notifyTimeout = setTimeout(() => {
-            if (notificationEnabled) {
-                new Notification('🎰 로또 645 추첨 10분 전!', {
-                    body: '곧 로또 추첨이 시작됩니다. 로또645 앱에서 번호 확인하세요!',
-                    vibrate: [200, 100, 200],
-                    requireInteraction: true
-                });
-                // 7일 후 다시 스케줄
-                setTimeout(scheduleNotification, 7 * 24 * 3600000);
+            if (notificationEnabled && Notification.permission === 'granted') {
+                try {
+                    new Notification('🎰 로또 645 추첨 10분 전!', {
+                        body: '곧 로또 추첨이 시작됩니다. 로또645 앱에서 번호 확인하세요!',
+                        vibrate: [200, 100, 200],
+                        requireInteraction: true
+                    });
+                } catch (e) {}
             }
+            // 즉시 재스케줄 — scheduleNotification가 (방금 알림을 울린 시점 기준으로) 다음 토 20:25를 계산.
+            // 예전엔 7일 뒤에 scheduleNotification를 실행해 또 +7일이 더해져 격주로 알림이 울렸음.
+            scheduleNotification();
         }, delay);
     }
 }
 
 // 사이트 방문 시점 보조 알림 — setTimeout 스케줄러는 탭을 닫으면 동작하지 않으므로,
-// 알림이 켜져 있고 방문 시각이 추첨 시간대(토요일 20:45 이후)면 즉시 알림(세션당 1회)
+// 알림이 켜져 있고 방문 시각이 추첨 시간대(토요일 20:35~21:30)면 즉시 알림(세션당 1회)
 function checkDrawTimeNotification() {
     if (!notificationEnabled || Notification.permission !== 'granted') return;
     try {
         const now = new Date();
         const kst = new Date(now.getTime() + 9 * 3600000);
         const day = kst.getUTCDay();
-        const hours = kst.getUTCHours();
-        const minutes = kst.getUTCMinutes();
-        const isDrawWindow = day === 6 && (hours > 20 || (hours === 20 && minutes >= 45));
+        const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+        const isDrawWindow = day === 6 && nowMin >= 20 * 60 + 35 && nowMin <= 21 * 60 + 30;
         if (isDrawWindow && !sessionStorage.getItem('lotto-draw-notified')) {
             sessionStorage.setItem('lotto-draw-notified', '1');
             new Notification('🎰 로또 645 추첨 시간!', {

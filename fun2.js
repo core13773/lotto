@@ -250,7 +250,10 @@ function startLottoQuiz() {
     if (!el) return;
 
     let qi = 0, score = 0;
-    const questions = [...LOTTO_QUIZ].sort(() => Math.random() - 0.5).slice(0, 5);
+    // 5문제 무작위 선택 — 편향 없는 Fisher-Yates
+    const _quizPool = [...LOTTO_QUIZ];
+    for (let i = _quizPool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [_quizPool[i], _quizPool[j]] = [_quizPool[j], _quizPool[i]]; }
+    const questions = _quizPool.slice(0, 5);
 
     // 이전 호출의 리스너를 제거 후 재바인딩 — 재시작 시 stale 클로저(과거 qi/score)를 잡지 않도록
     if (el._quiz2Handler) el.removeEventListener('click', el._quiz2Handler);
@@ -375,8 +378,15 @@ function selectPrizeTier(amount, tier) {
         { name: '🏢 강남 아파트', price: 2500000000, icon: '🏢' },
     ];
 
-    const taxRate = amount > 300000000 ? 0.33 : 0.22;
-    const net = amount - Math.floor(amount * taxRate);
+    // 복권당첨소득세(초과누진) — features.js calculateTax와 동일 기준
+    // ① 200만 원 이하 비과세 ② 3억 이하 22% ③ 3억 초과: 3억까지 22% + 초과분 33%
+    const EXEMPT = 2000000, TIER1 = 300000000;
+    let taxAmount, tierLabel;
+    if (amount <= EXEMPT) { taxAmount = 0; tierLabel = '비과세'; }
+    else if (amount <= TIER1) { taxAmount = Math.floor(amount * 0.22); tierLabel = '22%'; }
+    else { taxAmount = Math.floor(TIER1 * 0.22) + Math.floor((amount - TIER1) * 0.33); tierLabel = '초과누진'; }
+    const net = amount - taxAmount;
+    const effRate = amount > 0 ? (taxAmount / amount * 100) : 0;
 
     const rows = items.map(item => {
         const count = Math.floor(net / item.price);
@@ -388,7 +398,7 @@ function selectPrizeTier(amount, tier) {
         <div class="shopping-result-card" style="animation:answerReveal 0.4s ease-out;">
             <div class="shopping-header">${tier} 당첨</div>
             <div class="shopping-net">실수령 <strong>${net.toLocaleString()}원</strong></div>
-            <div class="shopping-tax">(세금 ${(taxRate*100).toFixed(0)}% 차감)</div>
+            <div class="shopping-tax">(세금 ${tierLabel} · 실효세율 ${effRate.toFixed(1)}% 차감)</div>
             <div class="shopping-items" id="shoppingItemsList"></div>
             ${rows.length === 0 ? '<p class="text-secondary text-center">구매 가능한 항목이 없어요 😅</p>' : ''}
         </div>
@@ -418,7 +428,7 @@ function selectPrizeTier(amount, tier) {
 function renderLuckyColor() {
     const el = document.getElementById('luckycolorContent');
     if (!el) return;
-    const today = new Date().toISOString().slice(0,10);
+    const today = (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0,10);
     const colors = [
         { name: '골드', hex: '#ffd700', range: [1,9], emoji: '🌟', desc: '부와 행운을 상징하는 색! 1~9번 구간에 행운이 깃들어 있어요.' },
         { name: '블루', hex: '#3b82f6', range: [10,18], emoji: '💧', desc: '차분함 속에 강한 집중력! 10~18번 구간을 주목하세요.' },
@@ -518,7 +528,7 @@ function saveMyHistory(data) {
 
 function addMyNumber(numbers, note) {
     const history = getMyHistory();
-    history.unshift({ date: new Date().toISOString().slice(0, 10), numbers, note: note || '', round: currentRound || null });
+    history.unshift({ date: (typeof getToday === 'function') ? getToday() : new Date().toISOString().slice(0, 10), numbers, note: note || '', round: currentRound || null });
     if (history.length > 200) history.length = 200;
     saveMyHistory(history);
     renderMyHistory();
@@ -573,20 +583,22 @@ function renderMyHistory() {
         <div id="myHistoryList" style="margin-top:15px;">
             ${history.length === 0 ? '<p class="text-secondary text-center">아직 기록된 번호가 없어요.</p>' :
             history.map((h, i) => {
-                const balls = h.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:30px;height:30px;line-height:30px;font-size:0.65rem;">${n}</span>`).join('');
-                const matchInfo = h.round && currentWinningNumbers && h.round === currentRound
-                    ? (() => { const m = h.numbers.filter(n => currentWinningNumbers.includes(n)); return m.length > 0 ? `<span style="color:#10b981;">🎯 ${m.length}개 일치!</span>` : '<span style="color:var(--text-secondary);">미당첨</span>'; })()
+                const nums = (h.numbers || []).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 45);
+                const hr = Number(h.round) || 0;
+                const balls = nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:30px;height:30px;line-height:30px;font-size:0.65rem;">${n}</span>`).join('');
+                const matchInfo = hr && currentWinningNumbers && hr === currentRound
+                    ? (() => { const m = nums.filter(n => currentWinningNumbers.includes(n)); return m.length > 0 ? `<span style="color:#10b981;">🎯 ${m.length}개 일치!</span>` : '<span style="color:var(--text-secondary);">미당첨</span>'; })()
                     : '';
                 return `
                     <div class="myhistory-item">
                         <div class="myhistory-header">
-                            <span class="myhistory-date">${h.date}</span>
-                            ${h.round ? `<span class="myhistory-round">제${h.round}회</span>` : ''}
+                            <span class="myhistory-date">${_compatEscape(h.date || '')}</span>
+                            ${hr ? `<span class="myhistory-round">제${hr}회</span>` : ''}
                             ${matchInfo}
                             <button class="btn btn-secondary" style="padding:2px 8px;font-size:0.7rem;" onclick="deleteMyNumber(${i})">✕</button>
                         </div>
                         <div class="balls-container" style="justify-content:flex-start;gap:4px;padding:5px 0;">${balls}</div>
-                        ${h.note ? `<p class="text-xs-secondary">${h.note}</p>` : ''}
+                        ${h.note ? `<p class="text-xs-secondary">${_compatEscape(h.note)}</p>` : ''}
                     </div>
                 `;
             }).join('')
@@ -649,7 +661,8 @@ function checkAllMyHistory() {
 
     // 당첨 내역 수집
     history.forEach(h => {
-        totalSpent += 1000;
+        // 각 번호를 전체 회차 동안 매 추첨마다 구매한 것으로 가정 → 지출과 당첨을 동일 기준(전 회차)으로 비교
+        totalSpent += lottoDb.length * 1000;
         lottoDb.forEach(entry => {
             if (!entry.numbers) return;
             const matches = h.numbers.filter(n => entry.numbers.includes(n));
@@ -684,8 +697,9 @@ function checkAllMyHistory() {
             }).join('')}
         </div>
         <div class="myhistory-summary" style="margin-top:12px;">
+            <p class="text-xs-secondary" style="margin-bottom:8px;">📌 각 번호를 전체 ${lottoDb.length}회차 동안 매 추첨마다 샀다고 가정한 시뮬레이션입니다.</p>
             <div class="myhistory-summary-row"><span>확인한 번호</span><strong>${history.length}개</strong></div>
-            <div class="myhistory-summary-row"><span>총 구매 추정</span><strong>${totalSpent.toLocaleString()}원</strong></div>
+            <div class="myhistory-summary-row"><span>총 구매 추정 (${(lottoDb.length * history.length).toLocaleString()}장)</span><strong>${totalSpent.toLocaleString()}원</strong></div>
             <div class="myhistory-summary-row"><span>총 당첨 추정</span><strong style="color:${totalWon > totalSpent ? '#10b981' : '#ef4444'}">${totalWon.toLocaleString()}원</strong></div>
         </div>
         ${hits.length > 0 ? hits.slice(0, 10).map(h => `

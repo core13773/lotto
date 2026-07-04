@@ -2,7 +2,17 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta property="og:image" content="https://123lotto.co.kr/logo-og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://123lotto.co.kr/logo-og.png">
     <title>역대 로또 당첨번호 트렌드 분석 — 최다 출현 번호, 구간별 분포, 패턴 인사이트 | 로또645</title>
     <meta name="description" content="로또 6/45 역대 당첨번호 빅데이터 분석. 가장 많이 나온 번호, 구간별 분포 통계, 장기 미출현 번호, 홀짝 비율, 번호대별 출현 패턴을 정리했습니다.">
     <meta name="keywords" content="로또 분석, 로또 통계, 로또 번호 빈도, 로또 핫번호, 로또 콜드번호, 로또 패턴, 로또 빅데이터, 로또645">
@@ -43,7 +53,7 @@
     }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <style>
         :root { --bg-card2: #1a1a3e; --accent-green: #4caf84; --accent-orange: #ff9f43; }
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -97,12 +107,12 @@
 
     <div class="card">
         <h2>로또 통계 분석 개요</h2>
-        <p>로또 6/45는 2002년 12월 7일 1회 추첨을 시작으로 현재까지 <strong>1,100회 이상</strong>의 추첨이 진행되었습니다. 이 글에서는 역대 당첨번호 데이터를 바탕으로 번호별 출현 빈도, 구간별 분포, 홀짝 비율, 연속 번호 출현 패턴 등 다양한 각도에서 통계 분석 결과를 정리합니다.</p>
+        <p>로또 6/45는 2002년 12월 7일 1회 추첨을 시작으로 현재까지 <strong>1,200회 이상</strong>의 추첨이 진행되었습니다. 이 글에서는 역대 당첨번호 데이터를 바탕으로 번호별 출현 빈도, 구간별 분포, 홀짝 비율, 연속 번호 출현 패턴 등 다양한 각도에서 통계 분석 결과를 정리합니다.</p>
         <div class="highlight-box warn">
             <strong>중요:</strong> 아래 모든 통계는 과거 데이터를 기반으로 한 참고 자료입니다. 로또는 매 회차 독립적인 확률 게임이므로, 과거 패턴이 미래 결과를 보장하지 않습니다.
         </div>
         <div class="stat-grid">
-            <div class="stat-item"><div class="num">1,100+</div><div class="label">누적 추첨 회차</div></div>
+            <div class="stat-item"><div class="num">1,200+</div><div class="label">누적 추첨 회차</div></div>
             <div class="stat-item"><div class="num">45개</div><div class="label">전체 번호 개수</div></div>
             <div class="stat-item"><div class="num">6개</div><div class="label">회차당 선택 번호</div></div>
             <div class="stat-item"><div class="num">1/8,145,060</div><div class="label">1등 당첨 확률</div></div>
@@ -111,7 +121,7 @@
 
     <div class="card">
         <h2>번호별 출현 빈도 — 최다/최소 출현 번호</h2>
-        <p>모든 번호는 이론적으로 <strong>동일한 확률(1/45)</strong>로 추첨됩니다. 1,100회 이상의 실제 추첨 결과에서 번호별 출현 횟수는 약 130~170회 범위에서 분포하며, 이는 이론적 기대값(약 147회) 주변의 자연스러운 통계적 편차입니다.</p>
+        <p>모든 번호는 이론적으로 <strong>동일한 확률(1/45)</strong>로 추첨됩니다. 1,200회 이상의 실제 추첨 결과에서 번호별 출현 횟수는 약 130~170회 범위에서 분포하며, 이는 이론적 기대값(약 147회) 주변의 자연스러운 통계적 편차입니다.</p>
         <h3>역대 최다 출현 번호 TOP 10</h3>
         <p>1회차부터 현재까지의 전체 데이터를 분석한 결과, 상위권 번호들은 모두 이론적 평균의 ±15% 이내에 위치합니다. 특정 번호가 유독 많이 나온다고 해서 해당 번호의 미래 당첨 확률이 높아지는 것은 아닙니다. 로또645 메인 페이지의 <a href="/" style="color:var(--accent-cyan);">통계 대시보드</a>에서 실시간 빈도 차트를 확인할 수 있습니다.</p>
         <div class="table-wrap">
@@ -127,7 +137,7 @@
             </table>
         </div>
         <h3>장기 미출현 번호(콜드 번호) 분석</h3>
-        <p>특정 번호가 30회, 40회 이상 미출현되는 현상은 통계적으로 자연스럽게 발생합니다. 45개 번호 중 하나가 40회 연속 미출현할 확률은 생각보다 높으며, 1,100회 이상의 추첨에서는 여러 번 발생할 것으로 예상됩니다.</p>
+        <p>특정 번호가 30회, 40회 이상 미출현되는 현상은 통계적으로 자연스럽게 발생합니다. 45개 번호 중 하나가 40회 연속 미출현할 확률은 생각보다 높으며, 1,200회 이상의 추첨에서는 여러 번 발생할 것으로 예상됩니다.</p>
         <div class="highlight-box warn">
             <strong>도박사의 오류(Gambler's Fallacy) 주의:</strong> "40회 안 나왔으니 이번에 나올 확률이 높다"는 생각은 잘못되었습니다. 매 회차는 완전히 독립적인 시행이며, 각 번호의 출현 확률은 항상 6/45입니다.
         </div>
@@ -137,7 +147,7 @@
 
     <div class="card">
         <h2>번호 구간별 분포 분석</h2>
-        <p>1~45의 번호를 5개 구간으로 나누어 1,100회 이상의 당첨번호를 분석한 결과, 각 구간의 출현 비율은 이론치와 거의 일치합니다. 다만 6개 번호 전체의 <strong>구간 분포 패턴</strong>에서 흥미로운 경향이 발견됩니다.</p>
+        <p>1~45의 번호를 5개 구간으로 나누어 1,200회 이상의 당첨번호를 분석한 결과, 각 구간의 출현 비율은 이론치와 거의 일치합니다. 다만 6개 번호 전체의 <strong>구간 분포 패턴</strong>에서 흥미로운 경향이 발견됩니다.</p>
         <div class="table-wrap">
             <table>
                 <thead>
@@ -153,7 +163,7 @@
             </table>
         </div>
         <h3>구간별 몰림 현상 분석</h3>
-        <p>6개 당첨번호가 모두 한 구간(예: 20~29)에 몰려 나오는 경우는 1,100회 중 극히 드물게 발생했습니다(2% 미만). 반면 <strong>3~4개 구간에 걸쳐 분포</strong>된 경우가 전체의 80% 이상을 차지합니다. 이는 번호 선택 시 각 구간에서 최소 1개 이상을 포함하는 전략의 통계적 근거가 됩니다.</p>
+        <p>6개 당첨번호가 모두 한 구간(예: 20~29)에 몰려 나오는 경우는 1,200회 중 극히 드물게 발생했습니다(2% 미만). 반면 <strong>3~4개 구간에 걸쳐 분포</strong>된 경우가 전체의 80% 이상을 차지합니다. 이는 번호 선택 시 각 구간에서 최소 1개 이상을 포함하는 전략의 통계적 근거가 됩니다.</p>
         <div class="highlight-box info">
             <strong>실전 인사이트:</strong> 5개 구간 중 3개 이상의 구간에서 번호를 선택하면, 역대 당첨번호의 80% 이상과 유사한 분포 패턴을 따르게 됩니다.
         </div>
@@ -161,11 +171,11 @@
 
     <div class="card">
         <h2>홀짝 비율 분석</h2>
-        <p>1~45 중 홀수는 23개(1,3,5,...,45), 짝수는 22개입니다. 이론적으로 홀수가 1개 더 많아 홀수가 약간 더 많이 선택될 확률이 있습니다. 실제 1,100회 이상의 당첨번호를 분석한 결과, 홀짝 비율은 다음과 같이 분포합니다.</p>
+        <p>1~45 중 홀수는 23개(1,3,5,...,45), 짝수는 22개입니다. 이론적으로 홀수가 1개 더 많아 홀수가 약간 더 많이 선택될 확률이 있습니다. 실제 1,200회 이상의 당첨번호를 분석한 결과, 홀짝 비율은 다음과 같이 분포합니다.</p>
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>홀:짝 비율</th><th>출현 비율 (근사)</th><th>1,100회 기준 예상 회수</th><th>평가</th></tr>
+                    <tr><th>홀:짝 비율</th><th>출현 비율 (근사)</th><th>1,200회 기준 예상 회수</th><th>평가</th></tr>
                 </thead>
                 <tbody>
                     <tr><td>6:0 또는 0:6</td><td>약 1.5%</td><td>약 16회</td><td>매우 드묾</td></tr>
@@ -209,7 +219,7 @@
         <h2>연속 번호 출현 패턴</h2>
         <p>6개의 당첨번호 중 <strong>최소 한 쌍 이상의 연속 번호</strong>(예: 12-13, 27-28)가 포함된 회차는 전체의 <strong>약 60%</strong>에 달합니다. 연속 번호가 두 쌍 이상 포함된 경우도 약 10% 정도입니다. 이는 많은 사람들이 연속 번호를 의도적으로 피하는 경향과 대비되는 흥미로운 통계입니다.</p>
         <h3>연속 번호의 수학적 배경</h3>
-        <p>45개 중 6개를 무작위로 선택할 때 연속 번호가 하나도 포함되지 않을 확률은 생각보다 낮습니다. 이는 조합론적으로 계산할 수 있으며, 1,100회 이상의 실제 데이터에서도 이론적 예측과 거의 일치하는 결과를 보입니다.</p>
+        <p>45개 중 6개를 무작위로 선택할 때 연속 번호가 하나도 포함되지 않을 확률은 생각보다 낮습니다. 이는 조합론적으로 계산할 수 있으며, 1,200회 이상의 실제 데이터에서도 이론적 예측과 거의 일치하는 결과를 보입니다.</p>
         <div class="table-wrap">
             <table>
                 <thead>

@@ -24,13 +24,19 @@ function computeDbStats() {
     var freq = new Array(46).fill(0);
     var lastSeen = new Array(46).fill(0);
 
+    // 빈도는 선택된 기간(dataSet) 기준
     dataSet.forEach((entry, idx) => {
         if (entry.numbers) {
-            entry.numbers.forEach(n => { freq[n]++; lastSeen[n] = entry.round; });
+            entry.numbers.forEach(n => { freq[n]++; });
         }
     });
+    // 갭·미출현·z-score는 항상 전체 이력(lottoDb) 기준 —
+    // 기간을 좁혀도 해당 기간에 안 나온 번호가 거짓으로 "장기 미출현"으로 뜨는 버그 방지
+    lottoDb.forEach(entry => {
+        if (entry.numbers) entry.numbers.forEach(n => { lastSeen[n] = entry.round; });
+    });
 
-    const latestRound = dataSet[dataSet.length - 1].round;
+    const latestRound = lottoDb[lottoDb.length - 1].round;
     const dormant = [];
     for (let n = 1; n <= 45; n++) {
         dormant.push({ number: n, lastSeen: lastSeen[n], gap: latestRound - lastSeen[n] });
@@ -38,7 +44,7 @@ function computeDbStats() {
     dormant.sort((a, b) => b.gap - a.gap);
     const topDormant = dormant.slice(0, 10);
 
-    const recent50 = dataSet.slice(-50);
+    const recent50 = lottoDb.slice(-50);
     const recentFreq = new Array(46).fill(0);
     recent50.forEach(entry => {
         if (entry.numbers) entry.numbers.forEach(n => recentFreq[n]++);
@@ -138,7 +144,7 @@ function computeDbStats() {
     const numGapAnalysis = [];
     for (let n = 1; n <= 45; n++) {
         const appearances = [];
-        dataSet.forEach(entry => {
+        lottoDb.forEach(entry => {
             if (entry.numbers && entry.numbers.includes(n)) {
                 appearances.push(entry.round);
             }
@@ -155,7 +161,7 @@ function computeDbStats() {
         const recentGaps = gaps.slice(-10);
 
         let trend = '→';
-        const recent20Count = dataSet.slice(-20).filter(e => e.numbers && e.numbers.includes(n)).length;
+        const recent20Count = lottoDb.slice(-20).filter(e => e.numbers && e.numbers.includes(n)).length;
         if (recent20Count >= 5) trend = recent20Count >= 7 ? '↑↑' : '↑';
         else if (recent20Count <= 1) trend = recent20Count === 0 ? '↓↓' : '↓';
 
@@ -415,6 +421,13 @@ function drawFrequencyChart() {
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
     const maxVal = Math.max(...dbStats.freq.slice(1));
+    if (maxVal <= 0) {
+        ctx.fillStyle = textSecondary;
+        ctx.font = '13px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText('표시할 데이터가 없습니다.', w / 2, h / 2);
+        return;
+    }
     const barW = Math.max(chartW / 45 - 1, 2);
 
     // 배경
@@ -469,6 +482,13 @@ function drawSectionDonut() {
         { label: '41-45', value: dbStats.sections['41-45'], color: '#10b981' }
     ];
     const total = sections.reduce((s, sec) => s + sec.value, 0);
+    if (total <= 0) {
+        ctx.fillStyle = '#a0a0c0';
+        ctx.font = '13px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText('표시할 데이터가 없습니다.', w / 2, h / 2);
+        return;
+    }
     let angle = -Math.PI / 2;
 
     sections.forEach(sec => {
@@ -501,6 +521,13 @@ function drawOddEvenPie() {
     ctx.clearRect(0, 0, w, h);
 
     const total = dbStats.totalOdd + dbStats.totalEven;
+    if (total <= 0) {
+        ctx.fillStyle = '#a0a0c0';
+        ctx.font = '13px "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.fillText('표시할 데이터가 없습니다.', w / 2, h / 2);
+        return;
+    }
     const oddAngle = (dbStats.totalOdd / total) * Math.PI * 2;
 
     // 홀수

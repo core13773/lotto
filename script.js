@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initDiceZone === 'function') initDiceZone();
     if (typeof renderMissions === 'function') renderMissions();
     try { notificationEnabled = localStorage.getItem('lotto-notify') === 'true'; } catch (e) {}
-    if (notificationEnabled && Notification.permission === 'granted') { scheduleNotification(); }
+    if (notificationEnabled && ('Notification' in window) && Notification.permission === 'granted') { scheduleNotification(); }
     updateNotifyBtn();
     if (typeof checkDrawTimeNotification === 'function') checkDrawTimeNotification();
 });
@@ -126,23 +126,27 @@ function loadSavedPredictions() {
     }
     clearBtn.style.display = 'block';
     container.innerHTML = saved.map((item, index) => {
-        const ballsHtml = item.numbers.map(n => `<span class="ball ${getBallClass(n)}" style="width:40px;height:40px;line-height:40px;font-size:0.85rem;">${n}</span>`).join('');
+        // 신뢰할 수 없는 저장 데이터 — 번호는 정수로 강제 변환/검증, 텍스트는 이스케이프 (XSS 방지)
+        const nums = (item.numbers || []).map(n => Number(n)).filter(n => Number.isInteger(n) && n >= 1 && n <= 45);
+        const round = Number(item.round) || 0;
+        const score = Number(item.score) || 0;
+        const ballsHtml = nums.map(n => `<span class="ball ${getBallClass(n)}" style="width:40px;height:40px;line-height:40px;font-size:0.85rem;">${n}</span>`).join('');
         return `
             <div class="saved-item" style="background:rgba(0,0,0,0.2);border-radius:12px;padding:15px;margin-bottom:10px;border-left:4px solid var(--accent-purple);">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
                     <div>
-                        <span style="font-weight:700;color:var(--accent-gold);">제 ${item.round}회</span>
-                        <span style="color:var(--text-secondary);font-size:0.8rem;margin-left:10px;">${item.date}</span>
+                        <span style="font-weight:700;color:var(--accent-gold);">제 ${round}회</span>
+                        <span style="color:var(--text-secondary);font-size:0.8rem;margin-left:10px;">${escapeHtml(item.date || '')}</span>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <span style="color:var(--accent-cyan);font-size:0.9rem;">${item.score}점 (${item.grade})</span>
-                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${item.numbers}], ${item.score})">📤</button>
+                        <span style="color:var(--accent-cyan);font-size:0.9rem;">${score}점 (${escapeHtml(item.grade || '')})</span>
+                        <button class="btn btn-secondary" style="padding:6px 10px;font-size:0.75rem;" onclick="shareSmartPrediction([${nums.join(',')}], ${score})">📤</button>
                         <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="loadSavedPrediction(${index})">📋</button>
                         <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="deleteSavedPrediction(${index})">✕</button>
                     </div>
                 </div>
                 <div class="balls-container" style="justify-content:flex-start;gap:6px;padding:10px 0;">${ballsHtml}</div>
-                <div style="font-size:0.8rem;color:var(--text-secondary);">${item.meta}</div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);">${escapeHtml(item.meta || '')}</div>
             </div>
         `;
     }).join('');
@@ -430,8 +434,8 @@ function autoCheckMyNumbers(winNums, winBonus, winRound) {
             ${hasMatch.map(r => `
                 <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px;margin:8px 15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                     <span class="grade-badge-large ${r.cls}" style="font-size:0.8rem;">${r.grade}</span>
-                    <span style="font-size:0.85rem;">${r.numbers.join(', ')}</span>
-                    ${r.note ? `<span style="font-size:0.75rem;color:var(--text-secondary);">(${r.note})</span>` : ''}
+                    <span style="font-size:0.85rem;">${escapeHtml((r.numbers || []).join(', '))}</span>
+                    ${r.note ? `<span style="font-size:0.75rem;color:var(--text-secondary);">(${escapeHtml(r.note)})</span>` : ''}
                     <span style="color:#10b981;font-weight:700;font-size:0.9rem;">${r.matches.length}개 일치!</span>
                 </div>
             `).join('')}
@@ -441,6 +445,8 @@ function autoCheckMyNumbers(winNums, winBonus, winRound) {
             </div>
         `;
         const container = document.querySelector('.container');
+        // 동일 id 배너가 이미 있으면 먼저 제거 (연속 조회 시 닫기 안 되는 배너 누적 방지)
+        document.getElementById('myNumberCheckBanner')?.remove();
         if (container) container.insertBefore(banner, container.firstChild);
         fireConfetti();
         playBeep(1200, 0.15);
@@ -630,7 +636,7 @@ function runRetrospective() {
         const matches = nums.filter(n => entry.numbers.includes(n));
         const bonusMatch = entry.bonus && nums.includes(entry.bonus);
         if (matches.length === 6) results.round5.push({ ...entry, match: 6, grade: '1등' });
-        else if (matches.length === 5 && bonusMatch) results.round5.push({ ...entry, match: 6, grade: '2등' });
+        else if (matches.length === 5 && bonusMatch) results.round5.push({ ...entry, match: 5, grade: '2등', bonus: true });
         else if (matches.length === 5) results.round4.push({ ...entry, match: 5, grade: '3등' });
         else if (matches.length === 4) results.round3.push({ ...entry, match: 4, grade: '4등' });
         else if (matches.length === 3) results.round3.push({ ...entry, match: 3, grade: '5등' });

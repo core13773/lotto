@@ -3,8 +3,11 @@
 // 업적/뱃지, 스핀 더 휠, 번호 성격 테스트, 꿈해몽, 사운드트랙
 
 // ========== 1. 출석 체크 + 연속 보상 ==========
-function getToday() { const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); return now.toISOString().slice(0, 10); }
-function getYesterday(d) { const dt = new Date(d); dt.setDate(dt.getDate() - 1); dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset()); return dt.toISOString().slice(0, 10); }
+// 로컬(사용자 시간대) 기준 YYYY-MM-DD 키 — UTC 자정/로컬 자정 불일치(KST 아침 off-by-one) 방지.
+// 모든 날짜 키는 이 헬퍼들을 통일적으로 사용해야 함.
+function toDateKey(d) { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); }
+function getToday() { return toDateKey(new Date()); }
+function getYesterday(d) { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return toDateKey(dt); }
 
 function getCheckinData() {
     try { return JSON.parse(localStorage.getItem('lotto-checkin') || '{"lastDate":"","streak":0,"total":0,"coins":0,"history":[]}'); } catch (e) { return { lastDate: '', streak: 0, total: 0, coins: 0, history: [] }; }
@@ -75,7 +78,7 @@ function renderCheckinUI() {
     for (let i = 0; i < 7; i++) {
         const d = new Date(startOfWeek);
         d.setDate(startOfWeek.getDate() + i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = toDateKey(d);
         const isChecked = data.history.some(h => h.date === ds);
         const isToday = ds === today;
         weekHtml += `<div class="checkin-day${isChecked ? ' checked' : ''}${isToday ? ' today' : ''}">
@@ -116,7 +119,9 @@ function getDailyTips() {
     ];
     const t1 = tips[Math.floor(rng(seed + 5) * tips.length)];
     let t2 = tips[Math.floor(rng(seed + 6) * tips.length)];
-    while (t2.type === t1.type) t2 = tips[Math.floor(rng(seed + 7) * tips.length)];
+    // 매 반복마다 시드를 바꿔야 함 — 상수 시드면 약 4% 날짜에서 같은 타입만 뽑혀 무한루프로 페이지가 멈춤
+    let k = 7;
+    while (t2.type === t1.type && k < 100) { t2 = tips[Math.floor(rng(seed + k) * tips.length)]; k++; }
     return [t1, t2];
 }
 
@@ -327,32 +332,32 @@ function useDailyLuckyNumbers() {
 // ========== 3. 추첨 카운트다운 ==========
 let countdownInterval = null;
 
+// 추첨 시각 상수 — 매주 토요일 20:35 KST 생방송(MBC 공식). 이 값이 사이트 전체 기준.
+const DRAW_HOUR = 20, DRAW_MIN = 35;
+const LIVE_WINDOW_MIN = 15; // 생방송/결과 공개 창: 20:35~20:50
+
 function getNextDrawTime() {
     const now = new Date();
     const kst = new Date(now.getTime() + 9 * 3600000);
     const day = kst.getUTCDay();
-    const hours = kst.getUTCHours();
-    const minutes = kst.getUTCMinutes();
+    const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+    const drawMin = DRAW_HOUR * 60 + DRAW_MIN;
+
+    // 토요일 생방송/결과 공개 창 → 0(ms) 반환 → formatCountdown이 live로 처리
+    if (day === 6 && nowMin >= drawMin && nowMin < drawMin + LIVE_WINDOW_MIN) {
+        return 0;
+    }
 
     const drawTime = new Date(kst);
-    if (day === 6 && hours < 20) {
-        // 오늘 토요일, 20:45 이전
-        drawTime.setUTCHours(20, 45, 0, 0);
-    } else if (day === 6 && hours >= 20 && minutes >= 45) {
-        // 토요일 20:45 이후 → 다음 주
-        drawTime.setUTCDate(drawTime.getUTCDate() + 7);
-        drawTime.setUTCHours(20, 45, 0, 0);
+    if (day === 6 && nowMin < drawMin) {
+        // 오늘 토요일, 추첨 전 → 오늘 추첨
+        drawTime.setUTCHours(DRAW_HOUR, DRAW_MIN, 0, 0);
     } else {
-        const daysUntil = day === 6 ? 0 : (6 - day + 7) % 7;
-        if (daysUntil === 0 && hours >= 20 && minutes >= 45) {
-            drawTime.setUTCDate(drawTime.getUTCDate() + 7);
-            drawTime.setUTCHours(20, 45, 0, 0);
-        } else if (daysUntil === 0) {
-            drawTime.setUTCHours(20, 45, 0, 0);
-        } else {
-            drawTime.setUTCDate(drawTime.getUTCDate() + daysUntil);
-            drawTime.setUTCHours(20, 45, 0, 0);
-        }
+        // 추첨 후(토) 또는 다른 요일 → 다음 토요일 추첨
+        let daysUntil = (6 - day + 7) % 7;
+        if (day === 6 && nowMin >= drawMin) daysUntil = 7;
+        drawTime.setUTCDate(drawTime.getUTCDate() + daysUntil);
+        drawTime.setUTCHours(DRAW_HOUR, DRAW_MIN, 0, 0);
     }
 
     const diff = drawTime.getTime() - kst.getTime();
@@ -405,7 +410,7 @@ function updateCountdown() {
             <div class="countdown-unit"><span class="countdown-val">${pad(cd.s)}</span><span class="countdown-lbl">초</span></div>
         </div>
         ${previewHtml}
-        <p class="text-xs-secondary text-center mt-10">매주 토요일 오후 8:45 MBC 추첨</p>
+        <p class="text-xs-secondary text-center mt-10">매주 토요일 오후 8:35 MBC 추첨</p>
     `;
 }
 
@@ -424,6 +429,8 @@ function openPhotoToNumbers() {
         const file = e.target.files[0];
         if (!file) return;
         const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onerror = () => { URL.revokeObjectURL(objUrl); showStatus('error', '❌ 이미지를 불러올 수 없어요.'); };
         img.onload = () => {
             const gridCols = 9, gridRows = 5; // 9×5 = 45 = 로또 번호 개수
             const size = 630; // 9의 배수로 떨어지게
@@ -558,8 +565,9 @@ function openPhotoToNumbers() {
             if (typeof trackPhotoUse === 'function') trackPhotoUse();
             showStatus('success', `📷 45개 영역 분석 완료! ${numbers.join(', ')} 선택됨`);
             playBeep(600, 0.1);
+            URL.revokeObjectURL(objUrl); // 분석 완료 후 Blob URL 해제 (누수 방지)
         };
-        img.src = URL.createObjectURL(file);
+        img.src = objUrl;
     };
     input.click();
 }
@@ -969,7 +977,10 @@ function startPersonalityQuiz() {
             { type: '소셜형 플레이어', emoji: '🤝', desc: '주변 사람들과 함께하는 걸 좋아하는 사교적 타입. 함께 당첨되는 상상을 자주 해요.', rec: '친구들과 번호를 공유하고 함께 분석해보세요.', color: '#10b981' },
         ];
         const profile = profiles[score % profiles.length];
-        const luckyNums = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1).sort((a, b) => a - b);
+        // 중복 없는 6개 번호 — Fisher-Yates로 1~45에서 6개 추출(편향 없음)
+        const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+        for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+        const luckyNums = pool.slice(0, 6).sort((a, b) => a - b);
 
         el.innerHTML = `
             <div class="quiz-result-card" style="animation:answerReveal 0.6s ease-out;">
@@ -1068,9 +1079,9 @@ function generateDreamNumbers() {
         if (!pool.includes(n)) pool.push(n);
     }
 
-    // 랜덤하게 6개 선택
-    const shuffled = pool.sort(() => Math.random() - 0.5);
-    const numbers = shuffled.slice(0, 6).sort((a, b) => a - b);
+    // 무작위 6개 선택 — 편향 없는 Fisher-Yates
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const numbers = pool.slice(0, 6).sort((a, b) => a - b);
 
     // 발견된 키워드
     const foundKeywords = Object.keys(DREAM_KEYWORDS).filter(k => text.includes(k));

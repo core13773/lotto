@@ -1,12 +1,15 @@
 name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크)
 on:
   schedule:
-    # 매주 토요일 12:00 UTC = 한국 시간 토요일 21:00 (오후 9시)
-    - cron: '0 12 * * 6'
+    # 매주 토요일 14:00 UTC = 한국 시간 토요일 23:00 (오후 11시)
+    # 추첨(20:35) 직후보다 늦게 실행 —上游 GitHub 소스들이 갱신될 시간 여유 확보
+    - cron: '0 14 * * 6'
   workflow_dispatch:  # 수동 실행도 가능
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# 동시 실행 방지 — 두 실행이 latest.json을 동시에 덮어쓰는 것을 차단
+concurrency:
+  group: lotto-update
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -277,10 +280,13 @@ jobs:
               with open('latest.json', 'r', encoding='utf-8') as f:
                   data = json.load(f)
               if not isinstance(data, list):
-                  data = []
+                  raise ValueError("latest.json이 리스트 형식이 아님")
           except Exception as e:
-              print(f"  latest.json 로드 실패: {e}, 빈 배열로 시작")
-              data = []
+              # ⚠️ 파싱 실패 시 빈 배열로 시작하면 1,229회 분량이 1회로 덮어씌워짐(전체 DB 와이프).
+              # 반드시 중단하고 다음 실행에서 재시도.
+              print(f"❌ latest.json 로드 실패: {e}")
+              print("   DB 손상 가능성 — 빈 배열로 덮어쓰지 않고 중단합니다.")
+              sys.exit(1)
 
           # 이전 회차와 중복 체크
           prev_same = [d for d in data if d['round'] == ROUND]
@@ -302,13 +308,19 @@ jobs:
           print(f"     총 DB: {len(data)}회차")
           print(f"  {'='*50}")
 
-          with open('latest.json', 'w', encoding='utf-8') as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
+          # 원자적 쓰기 — 임시 파일에 쓴 뒤 교체 (중단/크래시로 인한 잘린 파일·DB 손상 방지)
+          import os
+          def _atomic_write(path, payload):
+              tmp = path + '.tmp'
+              with open(tmp, 'w', encoding='utf-8') as f:
+                  json.dump(payload, f, ensure_ascii=False, indent=2)
+              os.replace(tmp, path)
+
+          _atomic_write('latest.json', data)
 
           # 경량 브리프 파일 (최근 10회)
           brief = data[-10:]
-          with open('latest-brief.json', 'w', encoding='utf-8') as f:
-              json.dump(brief, f, ensure_ascii=False, indent=2)
+          _atomic_write('latest-brief.json', brief)
 
           print(f"\n  ✅ GitHub 3중 체크 완료 — DB 업데이트됨!")
           PYEOF

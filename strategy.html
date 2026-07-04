@@ -2,7 +2,17 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta property="og:image" content="https://123lotto.co.kr/logo-og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://123lotto.co.kr/logo-og.png">
     <title>로또 번호 선택 전략 — 자동 vs 수동, 통계 기반 추천, 구매 심리학 | 로또645</title>
     <meta name="description" content="로또 번호 선택에 대한 과학적 전략 가이드. 자동 vs 수동 비교, 번호대별 분포 전략, 구매 심리학, 연속번호·홀짝·총합 기반 접근법, 그리고 피해야 할 오류까지 정리했습니다.">
     <meta name="keywords" content="로또 전략, 로또 번호 선택, 자동 수동 비교, 로또 번호 조합, 로또 구매 전략, 로또 심리학, 로또645">
@@ -43,7 +53,7 @@
     }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <style>
         :root { --bg-card2: #1a1a3e; --accent-pink: #ff4088; --accent-orange: #ff9f43; --accent-green: #4caf84; }
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -74,7 +84,7 @@
         .strategy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
         .strategy-card { background: var(--bg-card2); border-radius: 12px; padding: 20px; text-align: center; }
         .strategy-card .icon { font-size: 2rem; margin-bottom: 8px; }
-        .strategy-card h4 { color: var(--accent-gold); font-size: 1rem; margin-bottom: 6px; }
+        .strategy-card h3 { color: var(--accent-gold); font-size: 1rem; margin-bottom: 6px; }
         .strategy-card p { font-size: 0.85rem; }
         /* 테마 보정 */
         [data-theme="light"] .card { background: var(--bg-card); border-color: rgba(0,0,0,0.08); }
@@ -140,7 +150,7 @@
         <p>1~45를 5개 구간(1~9, 10~19, 20~29, 30~39, 40~45)으로 나누고, <strong>각 구간에서 최소 1개 이상의 번호</strong>를 선택하는 방법입니다. 역대 당첨번호 분석 결과, 6개 번호가 한 구간에 몰린 경우는 매우 드물었습니다(전체의 약 2% 미만). 반면 3~4개 구간에 분포된 경우가 전체의 80% 이상을 차지합니다.</p>
 
         <h3>2. 홀짝 비율 전략 (Odd-Even Balance)</h3>
-        <p>6개 번호의 홀수와 짝수 비율을 <strong>3:3 또는 4:2</strong>로 유지하는 전략입니다. 실제 당첨번호 패턴에서도 이 두 비율이 전체의 약 65%를 차지합니다. 6:0이나 0:6 같은 극단적 비율은 역대 1,100회 이상 중 손에 꼽을 정도로 드물었습니다.</p>
+        <p>6개 번호의 홀수와 짝수 비율을 <strong>3:3 또는 4:2</strong>로 유지하는 전략입니다. 실제 당첨번호 패턴에서도 이 두 비율이 전체의 약 65%를 차지합니다. 6:0이나 0:6 같은 극단적 비율은 역대 1,200회 이상 중 손에 꼽을 정도로 드물었습니다.</p>
 
         <h3>3. 총합 구간 전략 (Sum Range)</h3>
         <p>6개 번호의 총합이 <strong>100~170 사이</strong>에 들도록 조정합니다. 이론적 총합 범위는 21~255지만, 실제 당첨번호는 이 중간 구간에 집중되어 있습니다. 총합이 100 미만이거나 170을 초과하는 당첨 조합은 전체의 약 10% 미만입니다.</p>
@@ -163,37 +173,37 @@
         <div class="strategy-grid">
             <div class="strategy-card">
                 <div class="icon">🎲</div>
-                <h4>도박사의 오류</h4>
+                <h3>도박사의 오류</h3>
                 <p>"34번이 5주 연속 안 나왔으니 이번에 나온다" — 매 회차는 독립적이며, 과거가 미래에 영향을 주지 않습니다.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">🔥</div>
-                <h4>핫핸드 오류</h4>
+                <h3>핫핸드 오류</h3>
                 <p>"27번이 요즘 잘 나오니까 계속 나올 거야" — 번호에 감정을 부여하는 인지적 오류입니다.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">🎯</div>
-                <h4>대표성 편향</h4>
+                <h3>대표성 편향</h3>
                 <p>"1-2-3-4-5-6은 말도 안 되는 조합이니까 당첨 안 될 거야" — 수학적으로는 모든 조합이 동등합니다.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">💸</div>
-                <h4>매몰 비용 오류</h4>
+                <h3>매몰 비용 오류</h3>
                 <p>"여태 5년 동안 샀으니까 계속 사야 당첨된다" — 과거 투자금은 현재 확률에 영향을 주지 않습니다.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">🔮</div>
-                <h4>통제 착각</h4>
+                <h3>통제 착각</h3>
                 <p>"내가 직접 고른 번호가 자동보다 더 잘 맞을 거야" — 통제감이 확률을 왜곡해 인식하게 합니다.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">📊</div>
-                <h4>군집 착각</h4>
+                <h3>군집 착각</h3>
                 <p>"최근 5회차에서 20번대가 많이 나왔으니 추세다" — 소수의 데이터에서 의미를 찾으려는 경향.</p>
             </div>
             <div class="strategy-card">
                 <div class="icon">👥</div>
-                <h4>사회적 증거 오류</h4>
+                <h3>사회적 증거 오류</h3>
                 <p>"인터넷에서 다들 이 번호를 찍으니까 나도" — 모두가 같은 번호를 선택하면 당첨 시 상금이 줄어듭니다.</p>
             </div>
         </div>

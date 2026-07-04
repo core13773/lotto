@@ -22,6 +22,7 @@ function addCollected(num) {
 
 function onGameComplete() {
     stopGame();
+    if (typeof trackMission === 'function') trackMission('play_game');
     const nums = gameCollected.slice(0, GAME_TARGET);
     const analysis = typeof analyzeNumbers === 'function' ? analyzeNumbers(nums) : null;
     const score = analysis && typeof calculateQualityScore === 'function' ? calculateQualityScore(analysis) : null;
@@ -660,7 +661,11 @@ function renderMemoryCards() {
         const cls = typeof getBallClass === 'function' ? getBallClass(card.num) : '';
         return `
             <div class="memory-card${card.flipped ? ' flipped' : ''}${card.matched ? ' matched' : ''}"
-                 onclick="flipMemoryCard(${idx})" data-idx="${idx}">
+                 tabindex="0" role="button"
+                 aria-label="메모리 카드 ${idx + 1}${card.matched ? ', 이미 맞춘 ' + card.num + '번' : ''}"
+                 onclick="flipMemoryCard(${idx})"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();flipMemoryCard(${idx})}"
+                 data-idx="${idx}">
                 <div class="memory-card-inner">
                     <div class="memory-card-front">?</div>
                     <div class="memory-card-back ${cls}">${show ? card.num : '?'}</div>
@@ -694,13 +699,8 @@ function flipMemoryCard(idx) {
             renderMemoryCards();
             if (typeof playBeep === 'function') playBeep(800, 0.15);
             if (typeof vibrate === 'function') vibrate(30);
-            // 매치된 번호 수집
+            // 매치된 번호 수집 (addCollected가 6개 도달 시 onGameComplete를 호출함)
             addCollected(card.num);
-            // 6개 수집 완료 시 즉시 종료
-            if (gameCollected.length >= GAME_TARGET) {
-                onGameComplete();
-                return;
-            }
         } else {
             // 불일치 — 흔들림 + 뒤집기
             memoryState.locked = true;
@@ -870,6 +870,13 @@ function showSlotResult() {
     if (!slotState) return;
     const resultEl = document.getElementById('slotResult');
     if (!resultEl) return;
+    // 6개 완성 시 onGameComplete가 #gameBasket에 통합 결과(번호+점수+다시하기)를 표시하므로
+    // 슬롯 전용 패널은 중복 표시하지 않고 숨김
+    if (gameCollected.length >= GAME_TARGET) {
+        resultEl.classList.add('hidden');
+        resultEl.innerHTML = '';
+        return;
+    }
     resultEl.classList.remove('hidden');
     // gameCollected는 이미 addCollected로 채워져 있음
     const nums = gameCollected.slice(0, GAME_TARGET);

@@ -3,6 +3,7 @@ import re
 import json
 import time
 import sys
+import os
 import random
 
 # Windows 콘솔 UTF-8 출력 보장
@@ -262,7 +263,10 @@ for idx, round_no in enumerate(tasks):
         time.sleep(0.4 + random.random() * 0.2)
 
 results.sort(key=lambda x: x['round'])
-with open('latest.json', 'w', encoding='utf-8') as f:
+# 원자적 쓰기 — 임시 파일에 쓰고 교체 (중단 시 잘린 파일로 DB 손상 방지)
+_tmp = 'latest.json.tmp'
+with open(_tmp, 'w', encoding='utf-8') as f:
     json.dump(results, f, ensure_ascii=False)
+os.replace(_tmp, 'latest.json')
 
 print(f'\n\n완료! 총 {len(results)}개 회차 저장됨 (추가 {added}, 업데이트 {updated}, 실패 {failed})')

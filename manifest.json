@@ -3,7 +3,7 @@
     "name": "로또 645 AI 예측 시스템",
     "short_name": "로또645",
     "description": "몬테카를로 시뮬레이션 기반 로또 번호 분석",
-    "start_url": ".",
+    "start_url": "/",
     "scope": "/",
     "display": "standalone",
     "orientation": "portrait",

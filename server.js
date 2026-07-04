@@ -8,6 +8,11 @@ const CACHE_MAX = 100; // 최대 캐시 항목 수
 const RATE_LIMIT = new Map(); // { ip: { count, reset } }
 const RATE_WINDOW = 10 * 1000; // 10초
 const RATE_MAX = 10; // 10초당 최대 10회
+const MAX_BODY_BYTES = 5 * 1024 * 1024; // 업스트림 응답 본문 상한 (OOM 방지)
+const MAX_ROUND = 2000; // 회차 상한 (남용 방지)
+const REDIRECT_HOSTS = new Set(['search.naver.com', 'search.daum.net']); // 리다이렉트 허용 호스트
+// 신뢰할 수 있는 역프록시 뒤에서만 X-Forwarded-For를 신뢰 (헤더 스푸핑으로 rate-limit 우회 방지)
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 
 function fetchHtml(url, redirectCount = 0) {
     if (redirectCount > 5) return Promise.reject(new Error('Too many redirects'));
@@ -17,11 +22,26 @@ function fetchHtml(url, redirectCount = 0) {
             timeout: 10000
         }, (res) => {
             let body = '';
-            res.on('data', chunk => body += chunk);
+            let tooLarge = false;
+            res.on('data', chunk => {
+                if (tooLarge) return;
+                body += chunk;
+                if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+                    tooLarge = true;
+                    req.destroy();
+                    reject(new Error('Response too large'));
+                }
+            });
             res.on('end', () => {
+                if (tooLarge) return;
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                     const loc = res.headers.location;
                     const nextUrl = loc.startsWith('http') ? loc : 'https://search.naver.com' + loc;
+                    // 리다이렉트 대상 호스트 화이트리스트 검증 (SSRF 방지)
+                    try {
+                        const rh = new URL(nextUrl).host;
+                        if (!REDIRECT_HOSTS.has(rh)) { reject(new Error('Disallowed redirect host: ' + rh)); return; }
+                    } catch (e) { reject(new Error('Invalid redirect URL')); return; }
                     fetchHtml(nextUrl, redirectCount + 1).then(resolve).catch(reject);
                     return;
                 }
@@ -145,8 +165,8 @@ async function fetchLottoNumbers(round) {
 const startTime = Date.now();
 
 const server = http.createServer(async (req, res) => {
-    // Rate limiting (X-Forwarded-For 지원)
-    const forwarded = req.headers['x-forwarded-for'];
+    // Rate limiting — TRUST_PROXY일 때만 X-Forwarded-For 신뢰, 기본은 소켓 원격 주소
+    const forwarded = TRUST_PROXY ? req.headers['x-forwarded-for'] : null;
     const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
     let rl = RATE_LIMIT.get(ip);
@@ -178,8 +198,8 @@ const server = http.createServer(async (req, res) => {
     const path = url.pathname;
 
     if (path === '/api/lotto' || path === '/api/lotto/') {
-        const round = parseInt(url.searchParams.get('round')) || 0;
-        if (!round || round < 1) {
+        const round = parseInt(url.searchParams.get('round'), 10) || 0;
+        if (!round || round < 1 || round > MAX_ROUND) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: '올바른 회차(round)를 지정해주세요.' }));
             return;
@@ -190,8 +210,9 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(data.error ? 404 : 200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(data));
         } catch (e) {
+            console.error('fetchLottoNumbers error:', e.message);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: '서버 오류: ' + e.message }));
+            res.end(JSON.stringify({ error: '서버 오류가 발생했습니다.' }));
         }
     } else if (path === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });

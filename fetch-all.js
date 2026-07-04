@@ -5,8 +5,9 @@ const LATEST_ROUND = (() => {
     // KST 21:00 = UTC 12:00 (로또 추첨 시간)
     const firstDraw = Date.UTC(2002, 11, 7, 12, 0, 0);
     const now = new Date();
-    // KST = UTC+9
-    const kstNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
+    // KST = UTC+9 — getUTC*로 KST 필드를 읽으려면 epoch에 +9h만 더해야 함.
+    // (이전의 getTimezoneOffset() 항은 KST 로컬 머신에서 +9h를 상쇄해 UTC 시각을 반환하는 버그)
+    const kstNow = new Date(now.getTime() + 9 * 3600000);
     const dayOfWeek = kstNow.getUTCDay();
     const hours = kstNow.getUTCHours();
     let lastDraw;
