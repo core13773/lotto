@@ -1,8 +1,8 @@
-name: 전체 당첨번호 검증 (GitHub 3중 체크)
+name: 전체 당첨번호 검증 (GitHub 3중 체크 + 동행복권)
 on:
   schedule:
     # 매주 토요일 17:00 UTC = 한국 시간 일요일 02:00 (새벽)
-    # 토요일 자동 업데이트(21:00 KST) 직후 실행 → 누락/null 보너스 보강 + 3소스 교차검증
+    # 토요일 자동 업데이트(21:00 KST) 직후 실행 → 누락/null 보너스 보강 + 3소스(+동행복권 최신 10회) 교차검증
     - cron: '0 17 * * 6'
   workflow_dispatch:  # 수동 실행도 가능
 
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: GitHub 3소스에서 전체 데이터 로드 및 교차 검증
+      - name: GitHub 3소스 + 동행복권 전체 데이터 로드 및 교차 검증
         run: |
           cat > /tmp/verify_all.py << 'PYEOF'
           import json, urllib.request, time, sys, os
@@ -114,12 +114,8 @@ jobs:
           except Exception as e:
               print(f"   ❌ 로드 실패: {e}")
 
-          if not sources:
-              print("❌ 모든 소스 로드 실패")
-              sys.exit(1)
-
           # ============================================================
-          # 로컬 DB 로드
+          # 로컬 DB 로드 (max_round 기준 동행복권 조회에 필요)
           # ============================================================
           with open('latest.json', encoding='utf-8') as f:
               data = json.load(f)
@@ -127,6 +123,38 @@ jobs:
           existing = {d['round']: d for d in data}
           max_round = max(existing.keys())
           total = len(existing)
+
+          # ============================================================
+          # 소스4: 동행복권 공식 결과 페이지 (최신 10회 — center 모드 반환)
+          # ============================================================
+          print("📥 소스4 로드 중: 동행복권 공식 결과 페이지...")
+          try:
+              url = 'https://www.dhlottery.co.kr/lt645/selectPstLt645InfoNew.do'
+              params = f'srchDir=center&srchLtEpsd={max_round}'
+              req = urllib.request.Request(url + '?' + params, headers={'User-Agent': 'Mozilla/5.0'})
+              with urllib.request.urlopen(req, timeout=20) as f:
+                  raw4 = json.loads(f.read().decode('utf-8'))
+              data4 = {}
+              for r in (raw4.get('data', {}).get('list') or []):
+                  rno = r.get('ltEpsd')
+                  nums = sorted([r[f'tm{i}WnNo'] for i in range(1, 7)])
+                  bonus = r.get('bnsWnNo')
+                  # fetch-dhlottery.js와 동일한 유효성 기준: 번호 1~45/중복 없음 + 보너스 1~45/미중복
+                  if (all(1 <= n <= 45 for n in nums) and len(set(nums)) == 6 and
+                          bonus is not None and 1 <= bonus <= 45 and bonus not in nums):
+                      data4[rno] = {'round': rno, 'numbers': nums, 'bonus': bonus}
+              if data4:
+                  sources['dhlottery'] = data4
+                  source_names['dhlottery'] = '동행복권 공식 결과 페이지'
+                  print(f"   ✅ {len(data4)}개 회차 로드 (최신 {min(data4)}~{max(data4)}회)")
+              else:
+                  print("   ⚠️ 동행복권 응답에 유효한 회차 없음 — 소스4 제외")
+          except Exception as e:
+              print(f"   ❌ 로드 실패: {e} — 소스4 제외")
+
+          if not sources:
+              print("❌ 모든 소스 로드 실패")
+              sys.exit(1)
 
           print(f"\n{'='*60}")
           print(f"  로컬 DB: {total}개 회차 (1 ~ {max_round})")
@@ -299,7 +327,7 @@ jobs:
             git config user.name "lotto-bot"
             git config user.email "bot@example.com"
             git add latest.json latest-brief.json
-            git diff --staged --quiet || (git commit -m "fix: 전체 당첨번호 검증 결과 반영 (GitHub 3중 체크)" && git push)
+            git diff --staged --quiet || (git commit -m "fix: 전체 당첨번호 검증 결과 반영 (GitHub 3중 체크 + 동행복권)" && git push)
           else
             echo "변경사항 없음, 커밋 생략"
           fi
