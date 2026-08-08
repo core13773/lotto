@@ -1,4 +1,4 @@
-name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크 + 포털 fallback)
+name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크 + 동행복권 + 포털 fallback)
 on:
   schedule:
     # 매주 토요일 12:00 UTC = 한국 시간 토요일 21:00 (오후 9시)
@@ -156,11 +156,29 @@ jobs:
           fi
 
       # ============================================================
-      # 포털 fallback: 네이버/다음/네이트 (GitHub 3소스 모두 실패 시)
+      # 소스4: 동행복권 공식 결과 페이지 (lt645/result AJAX 데이터)
+      # ============================================================
+      - name: 소스4 - 동행복권 공식 결과 페이지 조회
+        id: dhlottery
+        run: |
+          ROUND="${{ steps.round.outputs.round }}"
+          echo "[소스4] 동행복권 공식 결과 페이지 조회: ${ROUND}회"
+          # fetch-dhlottery.js가 /tmp/dhlottery.json 생성 (성공 시에만)
+          node fetch-dhlottery.js "$ROUND" || true
+          if [ -f /tmp/dhlottery.json ]; then
+            echo "dhlottery_ok=true" >> "$GITHUB_OUTPUT"
+            echo "  ✅ 소스4 성공: $(cat /tmp/dhlottery.json)"
+          else
+            echo "dhlottery_ok=false" >> "$GITHUB_OUTPUT"
+            echo "  ❌ 소스4 실패"
+          fi
+
+      # ============================================================
+      # 포털 fallback: 네이버/다음/네이트 (GitHub 3소스 + 동행복권 모두 실패 시)
       # ============================================================
       - name: 포털 3사 fallback 조회 (네이버/다음/네이트)
         id: portal
-        if: ${{ steps.source1.outputs.source1_ok == 'false' && steps.source2.outputs.source2_ok == 'false' && steps.source3.outputs.source3_ok == 'false' }}
+        if: ${{ steps.source1.outputs.source1_ok == 'false' && steps.source2.outputs.source2_ok == 'false' && steps.source3.outputs.source3_ok == 'false' && steps.dhlottery.outputs.dhlottery_ok == 'false' }}
         run: |
           ROUND="${{ steps.round.outputs.round }}"
           echo "[포털 fallback] ${ROUND}회 — 네이버/다음/네이트에서 조회"
@@ -187,6 +205,7 @@ jobs:
           S1: ${{ steps.source1.outputs.source1_ok }}
           S2: ${{ steps.source2.outputs.source2_ok }}
           S3: ${{ steps.source3.outputs.source3_ok }}
+          S4: ${{ steps.dhlottery.outputs.dhlottery_ok }}
         run: |
           cat > /tmp/validate_and_update.py << 'PYEOF'
           import json, os, sys
@@ -199,7 +218,8 @@ jobs:
           s1_ok = os.environ.get('S1') == 'true'
           s2_ok = os.environ.get('S2') == 'true'
           s3_ok = os.environ.get('S3') == 'true'
-          ok_count = sum([s1_ok, s2_ok, s3_ok])
+          s4_ok = os.environ.get('S4') == 'true'  # 동행복권 공식 결과 페이지
+          ok_count = sum([s1_ok, s2_ok, s3_ok, s4_ok])
 
           # 포털 fallback 결과 로드 (GitHub 3소스 모두 실패 시 사용)
           portal_entries = []
@@ -224,13 +244,14 @@ jobs:
           print(f"  소스1 (jooy34/lotto-history-data):  {'✅' if s1_ok else '❌'} (보너스 O)")
           print(f"  소스2 (devchoo/lotto):              {'✅' if s2_ok else '❌'} (보너스 X, 번호만)")
           print(f"  소스3 (Utopia-ZEN/hotnumber):      {'✅' if s3_ok else '❌'} (보너스 O)")
+          print(f"  소스4 (동행복권 공식 결과):        {'✅' if s4_ok else '❌'} (보너스 O)")
           print(f"  포털 (네이버/다음/네이트):          {'✅ ' + str(portal_count) + '/3' if portal_count else '❌'} (보너스 O)")
           print(f"  {'='*60}")
-          print(f"  가용 GitHub 소스: {ok_count}/3 | 포털: {portal_count}/3")
+          print(f"  가용 GitHub 소스: {s1_ok + s2_ok + s3_ok}/3 | 동행복권: {'✅' if s4_ok else '❌'} | 포털: {portal_count}/3")
           print()
 
           if ok_count == 0 and portal_count == 0:
-              print("❌ 모든 GitHub 소스 및 포털(네이버/다음/네이트)에서 데이터를 가져오지 못했습니다.")
+              print("❌ 모든 소스(GitHub 3곳 + 동행복권 + 포털)에서 데이터를 가져오지 못했습니다.")
               print("   다음 실행 시 재시도됩니다.")
               sys.exit(1)
 
@@ -265,11 +286,24 @@ jobs:
                   entries.append({'source': 'hotnumber', 'numbers': nums, 'bonus': bonus})
                   labels.append(f"소스3(hotnumber): {nums} + {bonus}")
 
-          # GitHub 소스가 전부 실패한 경우에만 포털 데이터 사용
+          # 소스4: 동행복권 공식 결과 페이지 (가장 신뢰도 높은 공식 소스)
+          if s4_ok:
+              try:
+                  with open('/tmp/dhlottery.json', 'r', encoding='utf-8') as f:
+                      d = json.load(f)
+                  nums = d['numbers']
+                  bonus = d.get('bonus')
+                  if all(1 <= n <= 45 for n in nums) and len(set(nums)) == 6:
+                      entries.append({'source': 'dhlottery', 'numbers': nums, 'bonus': bonus})
+                      labels.append(f"소스4(동행복권): {nums} + {bonus}")
+              except Exception:
+                  print("  ⚠️ 소스4(동행복권) 파일 파싱 실패 — 제외")
+
+          # GitHub 소스 + 동행복권이 전부 실패한 경우에만 포털 데이터 사용
           if not entries and portal_entries:
               entries = portal_entries
               labels = portal_labels
-              print("\n  🔄 GitHub 소스 실패 → 포털(네이버/다음/네이트) 데이터로 fallback")
+              print("\n  🔄 GitHub/동행복권 소스 실패 → 포털(네이버/다음/네이트) 데이터로 fallback")
 
           for lbl in labels:
               print(f"  📥 {lbl}")
@@ -383,6 +417,7 @@ jobs:
           S1: ${{ steps.source1.outputs.source1_ok }}
           S2: ${{ steps.source2.outputs.source2_ok }}
           S3: ${{ steps.source3.outputs.source3_ok }}
+          S4: ${{ steps.dhlottery.outputs.dhlottery_ok }}
           PORTAL: ${{ steps.portal.outputs.portal_ok }}
         run: |
           ROUND="${{ steps.round.outputs.round }}"
@@ -391,15 +426,18 @@ jobs:
               const d=JSON.parse(require('fs').readFileSync('/tmp/portal_summary.json','utf8'));
               console.log(d.filter(x=>x.ok).length);
             ")
+            OK_TOTAL=3
             SOURCE_MSG="포털 3중 체크 (네이버/다음/네이트)"
           else
             OK_COUNT=$(node -e "
               const s1=process.env.S1==='true'?1:0;
               const s2=process.env.S2==='true'?1:0;
               const s3=process.env.S3==='true'?1:0;
-              console.log(s1+s2+s3);
+              const s4=process.env.S4==='true'?1:0;
+              console.log(s1+s2+s3+s4);
             ")
-            SOURCE_MSG="GitHub 3중 체크"
+            OK_TOTAL=4
+            SOURCE_MSG="GitHub 3중 체크 + 동행복권"
           fi
           git config user.name "lotto-bot"
           git config user.email "bot@example.com"
@@ -407,7 +445,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "변경사항 없음 (이미 최신 상태)"
           else
-            git commit -m "fix: ${ROUND}회 당첨번호 업데이트 (${SOURCE_MSG}, ${OK_COUNT}/3 일치)"
+            git commit -m "fix: ${ROUND}회 당첨번호 업데이트 (${SOURCE_MSG}, ${OK_COUNT}/${OK_TOTAL} 일치)"
             git push
             echo "✅ ${ROUND}회 당첨번호 커밋 완료!"
           fi
