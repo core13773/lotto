@@ -31,7 +31,9 @@ jobs:
             const dow = kst.getUTCDay();
             const hours = kst.getUTCHours();
             let lastDraw;
-            if (dow === 6 && hours >= 21) {
+            // 토요일 20:00 KST 이후 = 오늘 추첨 결과 기준 (추첨 20:35, 결과 ~20:40 발표)
+            // 실행 시각(21:00)과 임계값(21)이 겹치면 미세 편차 시 직전 주로 잘못 계산될 수 있어 20으로 안전 여유 확보
+            if (dow === 6 && hours >= 20) {
               lastDraw = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), 12, 0, 0));
             } else {
               const daysSinceSat = dow === 6 ? 7 : (dow + 1) % 7;
