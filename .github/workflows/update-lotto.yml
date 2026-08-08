@@ -1,9 +1,10 @@
 name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크 + 포털 fallback)
 on:
   schedule:
-    # 매주 토요일 14:00 UTC = 한국 시간 토요일 23:00 (오후 11시)
-    # 추첨(20:35) 직후보다 늦게 실행 —上游 GitHub 소스들이 갱신될 시간 여유 확보
-    - cron: '0 14 * * 6'
+    # 매주 토요일 12:00 UTC = 한국 시간 토요일 21:00 (오후 9시)
+    # 추첨(20:35) 결과 발표 직후 실행 — 공식 결과 페이지(https://www.dhlottery.co.kr/lt645/result) 기준
+    # GitHub 소스가 아직 갱신되지 않았을 경우 네이버/다음/네이트 포털 fallback으로 보강
+    - cron: '0 12 * * 6'
   workflow_dispatch:  # 수동 실행도 가능
 
 # 동시 실행 방지 — 두 실행이 latest.json을 동시에 덮어쓰는 것을 차단
