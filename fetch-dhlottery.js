@@ -7,6 +7,8 @@
  * - 사용법: node fetch-dhlottery.js <ROUND> [출력디렉토리]
  *   - 기본 출력: <출력디렉토리>/dhlottery.json  ({round, numbers, bonus})
  *   - 실패 시 exit 1 (워크플로우에서 소스 실패로 처리)
+ *
+ * 재시도 전략: 최대 3회, 지수 백오프 (2초 → 4초 → 8초)
  */
 const fs = require('fs');
 const path = require('path');
@@ -14,6 +16,8 @@ const { fetchUrl } = require('./portal-parser.js');
 
 const ROUND = parseInt(process.argv[2], 10);
 const OUT_DIR = process.argv[3] || '/tmp';
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [2000, 4000, 8000]; // 지수 백오프 (ms)
 
 if (!ROUND) {
     console.error('❌ 사용법: node fetch-dhlottery.js <ROUND> [출력디렉토리]');
@@ -22,24 +26,29 @@ if (!ROUND) {
 
 const ENDPOINT = 'https://www.dhlottery.co.kr/lt645/selectPstLt645InfoNew.do';
 
-async function main() {
-    console.log(`🔍 동행복권 공식 결과 페이지 조회: ${ROUND}회`);
-    if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
-
+/**
+ * 단일 조회 시도
+ * @returns {{round:number, numbers:number[], bonus:number}|null} 성공 시 데이터, 실패 시 null
+ */
+async function fetchOnce(attempt) {
     const url = `${ENDPOINT}?srchDir=center&srchLtEpsd=${ROUND}`;
-    const html = await fetchUrl(url, 3);
+    console.log(`  📡 시도 ${attempt}/${MAX_RETRIES}: ${url}`);
+
+    const html = await fetchUrl(url, 2);
 
     if (!html || !html.trim()) {
-        console.log('  ❌ 동행복권 응답 없음 (네트워크/차단)');
-        process.exit(1);
+        console.log(`  ⚠️ 시도 ${attempt}: 응답 없음 (네트워크/차단/타임아웃)`);
+        return null;
     }
 
     let parsed;
     try {
         parsed = JSON.parse(html);
     } catch (e) {
-        console.log('  ❌ JSON 파싱 실패 (HTML 대기열 페이지 반환 가능성)');
-        process.exit(1);
+        // HTML 대기열 페이지 반환 가능성 — 로그에 일부 내용 출력하여 디버깅 지원
+        const preview = html.substring(0, 200).replace(/\n/g, ' ');
+        console.log(`  ⚠️ 시도 ${attempt}: JSON 파싱 실패 — 응답 미리보기: "${preview}..."`);
+        return null;
     }
 
     const list = (parsed && parsed.data && Array.isArray(parsed.data.list)) ? parsed.data.list : [];
@@ -47,8 +56,9 @@ async function main() {
     const found = list.find(r => Number(r.ltEpsd) === ROUND);
 
     if (!found) {
-        console.log(`  ⚠️ 동행복권: ${ROUND}회 데이터 없음 (응답은 최신 회차 ${list.length}건)`);
-        process.exit(1);
+        const latestRound = list.length > 0 ? Number(list[0].ltEpsd) : '알수없음';
+        console.log(`  ⚠️ 시도 ${attempt}: ${ROUND}회 데이터 없음 (응답 최신 회차: ${latestRound}, 총 ${list.length}건)`);
+        return null;
     }
 
     const nums = [found.tm1WnNo, found.tm2WnNo, found.tm3WnNo, found.tm4WnNo, found.tm5WnNo, found.tm6WnNo]
@@ -60,15 +70,46 @@ async function main() {
     if (nums.length !== 6 || new Set(nums).size !== 6 ||
         nums.some(n => !(n >= 1 && n <= 45)) ||
         !(bonus >= 1 && bonus <= 45) || nums.includes(bonus)) {
-        console.log(`  ❌ 동행복권 데이터 유효성 실패: ${nums.join(', ')} + 보너스 ${bonus}`);
-        process.exit(1);
+        console.log(`  ❌ 시도 ${attempt}: 데이터 유효성 실패 — ${nums.join(', ')} + 보너스 ${bonus}`);
+        return null;
     }
 
-    const data = { round: ROUND, numbers: nums, bonus };
-    const outFile = path.join(OUT_DIR, 'dhlottery.json');
-    fs.writeFileSync(outFile, JSON.stringify(data, null, 2));
-    console.log(`  ✅ 동행복권: ${nums.join(', ')} + 보너스 ${bonus}`);
-    console.log(`  📄 저장: ${outFile}`);
+    return { round: ROUND, numbers: nums, bonus };
+}
+
+async function main() {
+    console.log(`🔍 동행복권 공식 결과 페이지 조회: ${ROUND}회`);
+    if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const result = await fetchOnce(attempt);
+            if (result) {
+                const outFile = path.join(OUT_DIR, 'dhlottery.json');
+                fs.writeFileSync(outFile, JSON.stringify(result, null, 2));
+                console.log(`  ✅ 동행복권: ${result.numbers.join(', ')} + 보너스 ${result.bonus}`);
+                console.log(`  📄 저장: ${outFile}`);
+                return; // 성공
+            }
+            lastError = `시도 ${attempt}: 데이터 없음`;
+        } catch (e) {
+            lastError = `시도 ${attempt}: ${e.message}`;
+            console.log(`  ❌ ${lastError}`);
+        }
+
+        // 마지막 시도가 아니면 대기 후 재시도
+        if (attempt < MAX_RETRIES) {
+            const delay = RETRY_DELAYS[attempt - 1] || 5000;
+            console.log(`  ⏳ ${delay / 1000}초 후 재시도...`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+
+    // 모든 시도 실패
+    console.log(`  ❌ 동행복권 조회 최종 실패 (${MAX_RETRIES}회 시도): ${lastError}`);
+    process.exit(1);
 }
 
 main().catch(e => {
