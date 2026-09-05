@@ -1,12 +1,16 @@
-name: 로또 당첨번호 자동 업데이트 (GitHub 3중 체크 + 동행복권 + 포털 fallback)
+name: 로또 당첨번호 자동 업데이트 (발표 직후 폴링 롱러너 + 안전망)
 on:
   schedule:
-    # 토요일 크론 2회 + 일요일 아침 1회 — 크론 미발동 대비 다중 안전장치
-    # 추첨(20:35) 결과 발표 직후 ~ 익일 오전까지 3번 기회 부여
-    - cron: '0 12 * * 6'   # 토요일 12:00 UTC = 한국 시간 21:00
-    - cron: '0 13 * * 6'   # 토요일 13:00 UTC = 한국 시간 22:00 (1차 재시도)
-    - cron: '0 0 * * 0'    # 일요일 00:00 UTC = 한국 시간 09:00 (2차 재시도)
-  workflow_dispatch:  # 수동 실행도 가능
+    # ── 메인: 토요일 20:40 KST 1회 트리거 → 이후 잡이 직접 5분 간격 폴링 ──
+    #   추첨 20:35 / 발표 ~20:40. GitHub 크론 지연(실측 최대 4.6시간)과 무관하게
+    #   잡이 시작되는 순간부터 소스에 결과가 반영될 때까지 계속 재시도하므로
+    #   발표 직후(통상 20:50~21:10) 자동 반영됨.
+    - cron: '40 11 * * 6'   # 토요일 11:40 UTC = 한국 20:40
+    # ── 안전망 1: 메인 트리거 유실 대비 토요일 재트리거 ──
+    - cron: '0 13 * * 6'    # 토요일 22:00 KST
+    # ── 안전망 2: 일요일 아침 최후 재시도 ──
+    - cron: '0 0 * * 0'     # 일요일 09:00 KST
+  workflow_dispatch:  # 수동 실행
 
 # 동시 실행 방지 — 두 실행이 latest.json을 동시에 덮어쓰는 것을 차단
 # cancel-in-progress: false → 기존 실행 완료 후 새 실행 시작 (누락 방지)
@@ -17,12 +21,17 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    # 폴링 최대 3시간 30분 + 조회/커밋 오버헤드 — 잡 상한
+    timeout-minutes: 245
     permissions:
       contents: write
       issues: write
     steps:
       - uses: actions/checkout@v4
 
+      # ============================================================
+      # 최신 회차 계산
+      # ============================================================
       - name: 최신 회차 계산
         id: round
         run: |
@@ -47,167 +56,9 @@ jobs:
           echo "대상 회차: $ROUND"
 
       # ============================================================
-      # 소스 1: jooy34/lotto-history-data (보너스 있음)
+      # 교차검증·DB 업데이트 파이썬 스크립트 준비 (폴링 루프 밖에서 1회)
       # ============================================================
-      - name: 소스1 - jooy34/lotto-history-data Raw 조회
-        id: source1
-        run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          echo "[소스1] jooy34/lotto-history-data 조회: ${ROUND}회"
-          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source1.json \
-            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
-            "https://raw.githubusercontent.com/jooy34/lotto-history-data/main/lotto_draws.json")
-          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source1.json)"
-          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source1.json ]; then
-            RESULT=$(node -e "
-              const d=JSON.parse(require('fs').readFileSync('/tmp/source1.json','utf8'));
-              const arr=Array.isArray(d)?d:[];
-              const found=arr.find(r=>r.drawNo===$ROUND);
-              if(found) {
-                const nums=found.numbers.sort((a,b)=>a-b);
-                const bonus=found.bonusNumber||null;
-                console.log(JSON.stringify({numbers:nums,bonus:bonus,round:found.drawNo,date:found.drawDate}));
-              } else {
-                console.log('NOT_FOUND');
-              }
-            ")
-            if [ "$RESULT" != "NOT_FOUND" ]; then
-              echo "$RESULT" > /tmp/source1_parsed.json
-              echo "source1_ok=true" >> "$GITHUB_OUTPUT"
-              echo "  ✅ 소스1 성공: $(cat /tmp/source1_parsed.json)"
-            else
-              echo "  ⚠️ 소스1: ${ROUND}회 데이터 없음"
-              echo "source1_ok=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "  ❌ 소스1 HTTP 실패"
-            echo "source1_ok=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ============================================================
-      # 소스 2: devchoo/lotto (보너스 없음, 번호 검증용)
-      # ============================================================
-      - name: 소스2 - devchoo/lotto Raw 조회
-        id: source2
-        run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          echo "[소스2] devchoo/lotto 조회: ${ROUND}회"
-          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source2.json \
-            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
-            "https://raw.githubusercontent.com/devchoo/lotto/main/lotto_data.json")
-          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source2.json)"
-          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source2.json ]; then
-            RESULT=$(node -e "
-              const d=JSON.parse(require('fs').readFileSync('/tmp/source2.json','utf8'));
-              const arr=Array.isArray(d)?d:[];
-              const found=arr.find(r=>r.round===$ROUND);
-              if(found) {
-                const nums=found.numbers.sort((a,b)=>a-b);
-                console.log(JSON.stringify({numbers:nums,bonus:null,round:found.round}));
-              } else {
-                console.log('NOT_FOUND');
-              }
-            ")
-            if [ "$RESULT" != "NOT_FOUND" ]; then
-              echo "$RESULT" > /tmp/source2_parsed.json
-              echo "source2_ok=true" >> "$GITHUB_OUTPUT"
-              echo "  ✅ 소스2 성공: $(cat /tmp/source2_parsed.json)"
-            else
-              echo "  ⚠️ 소스2: ${ROUND}회 데이터 없음"
-              echo "source2_ok=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "  ❌ 소스2 HTTP 실패"
-            echo "source2_ok=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ============================================================
-      # 소스 3: Utopia-ZEN/hotnumber (보너스 있음, 개별 .lotto 파일)
-      # ============================================================
-      - name: 소스3 - Utopia-ZEN/hotnumber Raw 조회
-        id: source3
-        run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          echo "[소스3] Utopia-ZEN/hotnumber 조회: ${ROUND}회"
-
-          # 해당 회차 파일 경로 결정 (1-1000 또는 1001-2000)
-          if [ "$ROUND" -le 1000 ]; then
-            SUBDIR="1-1000"
-          else
-            SUBDIR="1001-2000"
-          fi
-
-          URL="https://raw.githubusercontent.com/Utopia-ZEN/hotnumber/main/lotto_data/${SUBDIR}/${ROUND}.lotto"
-          echo "  URL: $URL"
-          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source3.json \
-            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 "$URL")
-          echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source3.json)"
-          if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source3.json ]; then
-            RESULT=$(node -e "
-              const d=JSON.parse(require('fs').readFileSync('/tmp/source3.json','utf8'));
-              const nums=d.numbers.sort((a,b)=>a-b);
-              const bonus=d.bonus||null;
-              console.log(JSON.stringify({numbers:nums,bonus:bonus,round:d.round,winners:d.winners}));
-            ")
-            echo "$RESULT" > /tmp/source3_parsed.json
-            echo "source3_ok=true" >> "$GITHUB_OUTPUT"
-            echo "  ✅ 소스3 성공: $(cat /tmp/source3_parsed.json)"
-          else
-            echo "  ❌ 소스3 실패"
-            echo "source3_ok=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ============================================================
-      # 소스 4: 동행복권 공식 결과 페이지 (lt645/result AJAX 데이터)
-      # ============================================================
-      - name: 소스4 - 동행복권 공식 결과 페이지 조회
-        id: dhlottery
-        run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          echo "[소스4] 동행복권 공식 결과 페이지 조회: ${ROUND}회"
-          # fetch-dhlottery.js가 /tmp/dhlottery.json 생성 (성공 시에만)
-          node fetch-dhlottery.js "$ROUND" || true
-          if [ -f /tmp/dhlottery.json ]; then
-            echo "dhlottery_ok=true" >> "$GITHUB_OUTPUT"
-            echo "  ✅ 소스4 성공: $(cat /tmp/dhlottery.json)"
-          else
-            echo "dhlottery_ok=false" >> "$GITHUB_OUTPUT"
-            echo "  ❌ 소스4 실패"
-          fi
-
-      # ============================================================
-      # 포털 fallback: 네이버/다음/네이트 (GitHub 3소스 + 동행복권 모두 실패 시)
-      # ============================================================
-      - name: 포털 3사 fallback 조회 (네이버/다음/네이트)
-        id: portal
-        if: ${{ steps.source1.outputs.source1_ok == 'false' && steps.source2.outputs.source2_ok == 'false' && steps.source3.outputs.source3_ok == 'false' && steps.dhlottery.outputs.dhlottery_ok == 'false' }}
-        run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          echo "[포털 fallback] ${ROUND}회 — 네이버/다음/네이트에서 조회"
-          # fetch-portal.js가 /tmp/portal_{naver,daum,nate}.json + portal_summary.json 생성
-          node fetch-portal.js "$ROUND" || true
-          if [ -f /tmp/portal_summary.json ]; then
-            POK=$(node -e "
-              const d=JSON.parse(require('fs').readFileSync('/tmp/portal_summary.json','utf8'));
-              const ok=d.filter(x=>x.ok).length;
-              console.log(ok>0?'true':'false');
-            ")
-          else
-            POK=false
-          fi
-          echo "portal_ok=$POK" >> "$GITHUB_OUTPUT"
-          echo "포털 fallback 결과: $POK"
-
-      # ============================================================
-      # 3중 교차 검증 및 DB 업데이트 (GitHub + 포털 fallback)
-      # ============================================================
-      - name: 3중 교차 검증 및 DB 업데이트
-        env:
-          ROUND: ${{ steps.round.outputs.round }}
-          S1: ${{ steps.source1.outputs.source1_ok }}
-          S2: ${{ steps.source2.outputs.source2_ok }}
-          S3: ${{ steps.source3.outputs.source3_ok }}
-          S4: ${{ steps.dhlottery.outputs.dhlottery_ok }}
+      - name: 검증 스크립트 준비
         run: |
           cat > /tmp/validate_and_update.py << 'PYEOF'
           import json, os, sys
@@ -223,7 +74,7 @@ jobs:
           s4_ok = os.environ.get('S4') == 'true'  # 동행복권 공식 결과 페이지
           ok_count = sum([s1_ok, s2_ok, s3_ok, s4_ok])
 
-          # 포털 fallback 결과 로드 (GitHub 3소스 모두 실패 시 사용)
+          # 포털 fallback 결과 로드 (GitHub 3소스 + 동행복권 모두 실패 시 사용)
           portal_entries = []
           portal_labels = []
           try:
@@ -254,7 +105,7 @@ jobs:
 
           if ok_count == 0 and portal_count == 0:
               print("❌ 모든 소스(GitHub 3곳 + 동행복권 + 포털)에서 데이터를 가져오지 못했습니다.")
-              print("   다음 실행 시 재시도됩니다.")
+              print("   다음 폴링에서 재시도됩니다.")
               sys.exit(1)
 
           # 각 소스에서 번호 추출
@@ -338,7 +189,7 @@ jobs:
 
           final_nums = best['numbers']
 
-          # 보너스 번호 결정 (소스1,3 중 보너스 있는 소스 기준)
+          # 보너스 번호 결정 (보너스 있는 소스 기준)
           bonus_entries = [e for e in entries if e.get('bonus') is not None]
           final_bonus = None
 
@@ -359,7 +210,7 @@ jobs:
                   sources = [g['source'] for g in best_bonus_group]
                   print(f"  ⚠️ 보너스 불일치 → {len(best_bonus_group)}개 소스 동의 채택: {final_bonus} ({', '.join(sources)})")
           else:
-              print(f"  ⚠️ 보너스 번호 정보 없음 (소스2만 성공)")
+              print(f"  ⚠️ 보너스 번호 정보 없음 (번호-only 소스만 성공)")
 
           # 연속성 검증: 이전 회차와 중복 확인
           try:
@@ -368,7 +219,7 @@ jobs:
               if not isinstance(data, list):
                   raise ValueError("latest.json이 리스트 형식이 아님")
           except Exception as e:
-              # ⚠️ 파싱 실패 시 빈 배열로 시작하면 1,229회 분량이 1회로 덮어씌워짐(전체 DB 와이프).
+              # ⚠️ 파싱 실패 시 빈 배열로 시작하면 전체 분량이 1회로 덮어씌워짐(전체 DB 와이프).
               # 반드시 중단하고 다음 실행에서 재시도.
               print(f"❌ latest.json 로드 실패: {e}")
               print("   DB 손상 가능성 — 빈 배열로 덮어쓰지 않고 중단합니다.")
@@ -411,36 +262,175 @@ jobs:
           print(f"\n  ✅ 교차 검증 완료 — DB 업데이트됨!")
           PYEOF
 
-          python3 /tmp/validate_and_update.py
+      # ============================================================
+      # 폴링 루프: 소스 조회 → 교차검증 → DB 업데이트
+      #   검증 통과(DB 기록 완료) 즉시 탈출 → 커밋 스텝으로.
+      #   소스 미반영 시 5분 대기 후 재시도. 최대 3시간 30분.
+      # ============================================================
+      - name: 폴링 루프 — 소스 조회·교차검증·DB 업데이트
+        env:
+          ROUND: ${{ steps.round.outputs.round }}
+        run: |
+          echo "🚀 폴링 롱러너 시작 — 대상 회차: ${ROUND}회, 마감: 시작 후 3시간 30분"
+          DEADLINE=$((SECONDS + 12600))
+          ATTEMPT=0
 
+          while true; do
+            ATTEMPT=$((ATTEMPT+1))
+            echo ""
+            echo "═══════════════ 시도 #$ATTEMPT — $(date -u '+%Y-%m-%d %H:%M:%S') UTC ═══════════════"
+
+            S1=false; S2=false; S3=false; S4=false
+            rm -f /tmp/source1_parsed.json /tmp/source2_parsed.json /tmp/source3_parsed.json \
+                  /tmp/dhlottery.json /tmp/portal_summary.json
+
+            # ── 소스 1: jooy34/lotto-history-data (보너스 있음) ──
+            echo "[소스1] jooy34/lotto-history-data 조회: ${ROUND}회"
+            HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source1.json \
+              --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
+              "https://raw.githubusercontent.com/jooy34/lotto-history-data/main/lotto_draws.json")
+            echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source1.json 2>/dev/null || echo 0)"
+            if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source1.json ]; then
+              RESULT=$(node -e "
+                const d=JSON.parse(require('fs').readFileSync('/tmp/source1.json','utf8'));
+                const arr=Array.isArray(d)?d:[];
+                const found=arr.find(r=>r.drawNo===$ROUND);
+                if(found) {
+                  const nums=found.numbers.sort((a,b)=>a-b);
+                  const bonus=found.bonusNumber||null;
+                  console.log(JSON.stringify({numbers:nums,bonus:bonus,round:found.drawNo,date:found.drawDate}));
+                } else {
+                  console.log('NOT_FOUND');
+                }
+              " 2>/dev/null) || RESULT="PARSE_FAIL"
+              if [ "$RESULT" != "NOT_FOUND" ] && [ "$RESULT" != "PARSE_FAIL" ]; then
+                echo "$RESULT" > /tmp/source1_parsed.json
+                S1=true
+                echo "  ✅ 소스1 성공: $RESULT"
+              else
+                echo "  ⚠️ 소스1: ${ROUND}회 데이터 없음 또는 파싱 실패"
+              fi
+            else
+              echo "  ❌ 소스1 HTTP 실패"
+            fi
+
+            # ── 소스 2: devchoo/lotto (보너스 없음, 번호 검증용) ──
+            echo "[소스2] devchoo/lotto 조회: ${ROUND}회"
+            HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source2.json \
+              --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 \
+              "https://raw.githubusercontent.com/devchoo/lotto/main/lotto_data.json")
+            echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source2.json 2>/dev/null || echo 0)"
+            if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source2.json ]; then
+              RESULT=$(node -e "
+                const d=JSON.parse(require('fs').readFileSync('/tmp/source2.json','utf8'));
+                const arr=Array.isArray(d)?d:[];
+                const found=arr.find(r=>r.round===$ROUND);
+                if(found) {
+                  const nums=found.numbers.sort((a,b)=>a-b);
+                  console.log(JSON.stringify({numbers:nums,bonus:null,round:found.round}));
+                } else {
+                  console.log('NOT_FOUND');
+                }
+              " 2>/dev/null) || RESULT="PARSE_FAIL"
+              if [ "$RESULT" != "NOT_FOUND" ] && [ "$RESULT" != "PARSE_FAIL" ]; then
+                echo "$RESULT" > /tmp/source2_parsed.json
+                S2=true
+                echo "  ✅ 소스2 성공: $RESULT"
+              else
+                echo "  ⚠️ 소스2: ${ROUND}회 데이터 없음 또는 파싱 실패"
+              fi
+            else
+              echo "  ❌ 소스2 HTTP 실패"
+            fi
+
+            # ── 소스 3: Utopia-ZEN/hotnumber (보너스 있음, 개별 .lotto 파일) ──
+            echo "[소스3] Utopia-ZEN/hotnumber 조회: ${ROUND}회"
+            if [ "$ROUND" -le 1000 ]; then
+              SUBDIR="1-1000"
+            else
+              SUBDIR="1001-2000"
+            fi
+            URL="https://raw.githubusercontent.com/Utopia-ZEN/hotnumber/main/lotto_data/${SUBDIR}/${ROUND}.lotto"
+            echo "  URL: $URL"
+            HTTP_CODE=$(curl -sL -w "%{http_code}" -o /tmp/source3.json \
+              --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 30 "$URL")
+            echo "  HTTP $HTTP_CODE, size $(wc -c < /tmp/source3.json 2>/dev/null || echo 0)"
+            if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/source3.json ]; then
+              RESULT=$(node -e "
+                const d=JSON.parse(require('fs').readFileSync('/tmp/source3.json','utf8'));
+                const nums=d.numbers.sort((a,b)=>a-b);
+                const bonus=d.bonus||null;
+                console.log(JSON.stringify({numbers:nums,bonus:bonus,round:d.round,winners:d.winners}));
+              " 2>/dev/null) || RESULT="PARSE_FAIL"
+              if [ "$RESULT" != "PARSE_FAIL" ]; then
+                echo "$RESULT" > /tmp/source3_parsed.json
+                S3=true
+                echo "  ✅ 소스3 성공: $RESULT"
+              else
+                echo "  ❌ 소스3 파싱 실패"
+              fi
+            else
+              echo "  ❌ 소스3 실패"
+            fi
+
+            # ── 소스 4: 동행복권 공식 결과 페이지 (가장 신뢰도 높음) ──
+            echo "[소스4] 동행복권 공식 결과 페이지 조회: ${ROUND}회"
+            # fetch-dhlottery.js가 /tmp/dhlottery.json 생성 (성공 시에만)
+            node fetch-dhlottery.js "$ROUND" || true
+            if [ -f /tmp/dhlottery.json ]; then
+              S4=true
+              echo "  ✅ 소스4 성공: $(cat /tmp/dhlottery.json)"
+            else
+              echo "  ❌ 소스4 실패"
+            fi
+
+            # ── 포털 fallback: 4개 소스 모두 실패 시에만 (네이버/다음/네이트) ──
+            if [ "$S1" = false ] && [ "$S2" = false ] && [ "$S3" = false ] && [ "$S4" = false ]; then
+              echo "[포털 fallback] 4개 소스 모두 실패 → 네이버/다음/네이트 조회"
+              node fetch-portal.js "$ROUND" || true
+            fi
+
+            # ── 교차검증 + DB 업데이트 (검증된 스크립트 재사용) ──
+            export S1 S2 S3 S4
+            if python3 /tmp/validate_and_update.py; then
+              # 커밋 스텝용 소스 상태 기록
+              if [ "$S1" = false ] && [ "$S2" = false ] && [ "$S3" = false ] && [ "$S4" = false ] && [ -f /tmp/portal_summary.json ]; then
+                P_OK=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/portal_summary.json','utf8'));console.log(d.filter(x=>x.ok).length);")
+                echo "OK_COUNT=$P_OK" > /tmp/commit_env
+                echo "OK_TOTAL=3" >> /tmp/commit_env
+                echo "SOURCE_MSG=\"포털 3중 체크 (네이버/다음/네이트)\"" >> /tmp/commit_env
+              else
+                OK_COUNT=0
+                [ "$S1" = true ] && OK_COUNT=$((OK_COUNT+1))
+                [ "$S2" = true ] && OK_COUNT=$((OK_COUNT+1))
+                [ "$S3" = true ] && OK_COUNT=$((OK_COUNT+1))
+                [ "$S4" = true ] && OK_COUNT=$((OK_COUNT+1))
+                echo "OK_COUNT=$OK_COUNT" > /tmp/commit_env
+                echo "OK_TOTAL=4" >> /tmp/commit_env
+                echo "SOURCE_MSG=\"GitHub 3중 체크 + 동행복권\"" >> /tmp/commit_env
+              fi
+              echo ""
+              echo "✅ 검증 통과 및 DB 기록 완료 — 폴링 종료 (총 $ATTEMPT회 시도)"
+              break
+            fi
+
+            if [ $SECONDS -ge $DEADLINE ]; then
+              echo "⏰ 마감 시간 도달 — 모든 소스에서 ${ROUND}회 데이터 미반영. 실패로 종료 (안전망 트리거가 재시도합니다)."
+              exit 1
+            fi
+            echo "⏳ 소스 미반영 — 5분 후 재시도..."
+            sleep 300
+          done
+
+      # ============================================================
+      # 변경사항 커밋 및 푸시
+      # ============================================================
       - name: 변경사항 커밋 및 푸시
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          S1: ${{ steps.source1.outputs.source1_ok }}
-          S2: ${{ steps.source2.outputs.source2_ok }}
-          S3: ${{ steps.source3.outputs.source3_ok }}
-          S4: ${{ steps.dhlottery.outputs.dhlottery_ok }}
-          PORTAL: ${{ steps.portal.outputs.portal_ok }}
+          ROUND: ${{ steps.round.outputs.round }}
         run: |
-          ROUND="${{ steps.round.outputs.round }}"
-          if [ "$PORTAL" = "true" ]; then
-            OK_COUNT=$(node -e "
-              const d=JSON.parse(require('fs').readFileSync('/tmp/portal_summary.json','utf8'));
-              console.log(d.filter(x=>x.ok).length);
-            ")
-            OK_TOTAL=3
-            SOURCE_MSG="포털 3중 체크 (네이버/다음/네이트)"
-          else
-            OK_COUNT=$(node -e "
-              const s1=process.env.S1==='true'?1:0;
-              const s2=process.env.S2==='true'?1:0;
-              const s3=process.env.S3==='true'?1:0;
-              const s4=process.env.S4==='true'?1:0;
-              console.log(s1+s2+s3+s4);
-            ")
-            OK_TOTAL=4
-            SOURCE_MSG="GitHub 3중 체크 + 동행복권"
-          fi
+          OK_COUNT=0; OK_TOTAL=4; SOURCE_MSG="소스 정보 없음"
+          if [ -f /tmp/commit_env ]; then source /tmp/commit_env; fi
           git config user.name "lotto-bot"
           git config user.email "bot@example.com"
           git add latest.json latest-brief.json
